@@ -7,7 +7,7 @@ variable "do_token" {
 variable "cluster_name" {
   description = "Name of the Kubernetes cluster"
   type        = string
-  default     = "k8s-cluster"
+  default     = "cumulus"
 }
 
 variable "region" {
@@ -19,13 +19,13 @@ variable "region" {
 variable "kubernetes_version" {
   description = "Kubernetes version to use"
   type        = string
-  default     = "1.29.1-do.0" # Update this to latest stable version
+  default     = "1.32.2-do.0" # Update this to latest stable version
 }
 
 variable "node_pool_name" {
   description = "Name of the node pool"
   type        = string
-  default     = "cloud1"
+  default     = "cumulus1"
 }
 
 variable "node_size" {
