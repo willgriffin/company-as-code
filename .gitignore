@@ -1,9 +1,6 @@
 .envrc
 .envrc.*
 
-# Terraform
-*.tfvars
-*.tfvars.json
 *.tfstate
 *.tfstate.*
 .terraform/
