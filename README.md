@@ -48,6 +48,11 @@ infrastructure-monorepo/
    - `DIGITALOCEAN_TOKEN` - Your DigitalOcean API token
    - `SPACES_ACCESS_KEY_ID` - DigitalOcean Spaces access key for Terraform state
    - `SPACES_SECRET_ACCESS_KEY` - DigitalOcean Spaces secret key for Terraform state
+      ```
+      gh secret set DIGITALOCEAN_TOKEN -b $DIGITALOCEAN_TOKEN --repo=happyvertical/blueprint
+      gh secret set SPACES_ACCESS_ID -b $SPACES_ACCESS_ID --repo=happyvertical/blueprint
+      gh secret set SPACES_SECRET_KEY -b $SPACES_SECRET_KEY --repo=happyvertical/blueprint
+      ```
 
 2. **Create DigitalOcean Space for Terraform state**
    ```bash
@@ -58,13 +63,14 @@ infrastructure-monorepo/
 3. **Configure local secrets**
    ```bash
    cp terraform/digitalocean/terraform.tfvars.example terraform/digitalocean/terraform.tfvars
-   # Edit with your DO token, cluster config, domain, and Spaces credentials
+   # Edit with your cluster config and domain ONLY
+   # DO NOT add tokens or credentials - these come from GitHub secrets or environment variables
    ```
 
 4. **Deploy infrastructure**
    
    **Via GitHub Actions (recommended):**
-   - Create a pull request with your terraform.tfvars changes
+   - Create a pull request with your configuration changes
    - Review the Terraform plan in the PR comments
    - Merge the PR to automatically apply changes
    
