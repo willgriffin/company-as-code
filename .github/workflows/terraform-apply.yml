@@ -26,12 +26,6 @@ jobs:
       with:
         terraform_version: 1.9.0
 
-    - name: Configure AWS Credentials for S3 Backend
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.SPACES_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
 
     - name: Terraform Init
       id: init

@@ -50,8 +50,8 @@ infrastructure-monorepo/
    - `SPACES_SECRET_ACCESS_KEY` - DigitalOcean Spaces secret key for Terraform state
       ```
       gh secret set DIGITALOCEAN_TOKEN -b $DIGITALOCEAN_TOKEN --repo=happyvertical/blueprint
-      gh secret set SPACES_ACCESS_ID -b $SPACES_ACCESS_ID --repo=happyvertical/blueprint
-      gh secret set SPACES_SECRET_KEY -b $SPACES_SECRET_KEY --repo=happyvertical/blueprint
+      gh secret set SPACES_ACCESS_KEY_ID -b $SPACES_ACCESS_KEY_ID --repo=happyvertical/blueprint
+      gh secret set SPACES_SECRET_ACCESS_KEY -b $SPACES_SECRET_ACCESS_KEY --repo=happyvertical/blueprint
       ```
 
 2. **Create DigitalOcean Space for Terraform state**
