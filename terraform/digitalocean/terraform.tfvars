@@ -1,6 +1,6 @@
 cluster_name       = "cumulus"
 region            = "nyc3"
-kubernetes_version = "1.32.2"
+kubernetes_version = "1.32.2-do.1"
 
 # Node pool configuration
 node_pool_name = "cumulus1"

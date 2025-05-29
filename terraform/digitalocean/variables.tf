@@ -19,7 +19,7 @@ variable "region" {
 variable "kubernetes_version" {
   description = "Kubernetes version to use"
   type        = string
-  default     = "1.32.2-do.0" # Update this to latest stable version
+  default     = "1.32.2-do.1" # Update this to latest stable version
 }
 
 variable "node_pool_name" {
