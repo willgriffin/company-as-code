@@ -59,11 +59,15 @@ kubectl describe -n <namespace> <resource-type>/<resource-name>
   - `modules/` - Reusable Terraform modules for common patterns
   
 - **flux/** - GitOps manifests and configurations
-  - `flux-system/` - Core Flux components
-  - `cert-manager/` - TLS certificate automation
-  - `ingress-nginx/` - Ingress controller for external traffic
-  - `prometheus/` - Monitoring and observability stack
-  - Service directories follow pattern: `<service-name>/`
+  - `clusters/` - Cluster-specific configurations
+    - `cumulus/` - DigitalOcean cluster
+      - `flux-system/` - Core Flux components
+      - `infrastructure/` - Infrastructure services
+        - `cert-manager/` - TLS certificate automation
+        - `ingress-nginx/` - Ingress controller
+        - `keycloak/` - Identity and access management (auth.happyvertical.com)
+      - Application directories follow pattern: `<app-name>/`
+  - `base/` - Base configurations (future)
 
 ### Key Architectural Decisions
 1. **Single DigitalOcean Kubernetes cluster** - All services run in one cluster
@@ -73,16 +77,16 @@ kubectl describe -n <namespace> <resource-type>/<resource-name>
 
 ### Deployment Flow
 1. Infrastructure changes: Modify Terraform files → Apply changes
-2. Application deployments: Update manifests in `flux/` → Commit → Flux syncs automatically
+2. Application deployments: Update manifests in `flux/clusters/cumulus/` → Commit → Flux syncs automatically
 3. Secret management: Use Kubernetes secrets, reference in deployments
 
 ## Development Workflow
 
 ### Adding a New Service
-1. Create directory under `flux/<service-name>/`
+1. Create directory under `flux/clusters/cumulus/<service-name>/`
 2. Add Kubernetes manifests (deployment.yaml, service.yaml, etc.)
 3. Create kustomization.yaml in the service directory
-4. Add the service path to `flux/kustomization.yaml`
+4. Add the service path to `flux/clusters/cumulus/kustomization.yaml`
 5. Commit with Conventional Commits format
 
 ### Commit Message Format
