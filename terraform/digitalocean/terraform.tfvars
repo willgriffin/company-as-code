@@ -17,4 +17,4 @@ tags = [
   "production"
 ]
 
-project_name = "Happy Vertical Corporation"
+project_name = "have-blueprint"
