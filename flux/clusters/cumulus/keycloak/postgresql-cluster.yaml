@@ -1,0 +1,49 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: keycloak-pg
+  namespace: keycloak
+spec:
+  instances: 2
+  primaryUpdateStrategy: unsupervised
+  
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      effective_cache_size: "1GB"
+      
+  bootstrap:
+    initdb:
+      database: keycloak
+      owner: keycloak
+      secret:
+        name: keycloak-pg-app
+        
+  storage:
+    size: 10Gi
+    storageClass: do-block-storage
+    
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+      
+  monitoring:
+    enabled: false  # Enable when Prometheus is deployed
+    
+  backup:
+    retentionPolicy: "30d"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: keycloak-pg-app
+  namespace: keycloak
+type: kubernetes.io/basic-auth
+stringData:
+  username: keycloak
+  password: changeme-in-production

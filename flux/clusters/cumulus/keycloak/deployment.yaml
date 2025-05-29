@@ -38,17 +38,20 @@ spec:
         - name: KC_DB
           value: postgres
         - name: KC_DB_URL_HOST
-          value: keycloak-postgresql
+          value: keycloak-pg-rw
         - name: KC_DB_URL_PORT
           value: "5432"
         - name: KC_DB_URL_DATABASE
           value: keycloak
         - name: KC_DB_USERNAME
-          value: keycloak
+          valueFrom:
+            secretKeyRef:
+              name: keycloak-pg-app
+              key: username
         - name: KC_DB_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: keycloak-postgresql
+              name: keycloak-pg-app
               key: password
         - name: KC_HEALTH_ENABLED
           value: "true"
