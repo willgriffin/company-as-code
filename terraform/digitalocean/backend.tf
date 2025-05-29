@@ -5,7 +5,7 @@ terraform {
     }
     region                      = "us-east-1"
     key                         = "terraform/digitalocean.tfstate"
-    bucket                      = "happyvertical-terraform-state"
+    bucket                      = "terraform-state-happyvertical"
     skip_credentials_validation = true
     skip_metadata_api_check     = true
     skip_region_validation      = true
