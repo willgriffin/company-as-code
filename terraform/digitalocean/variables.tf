@@ -67,7 +67,7 @@ variable "tags" {
 variable "project_name" {
   description = "Project name for tagging"
   type        = string
-  default     = "default"
+  default     = "Happy Vertical Corporation"
 }
 
 # Backend configuration variables
