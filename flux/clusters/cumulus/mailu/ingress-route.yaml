@@ -1,0 +1,98 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: mailu-web
+  namespace: mailu
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    # Admin interface
+    - match: Host(`mail.happyvertical.com`) && PathPrefix(`/admin`)
+      kind: Rule
+      services:
+        - name: mailu-admin
+          port: 80
+      middlewares:
+        - name: keycloak-auth
+    # Webmail
+    - match: Host(`mail.happyvertical.com`) && PathPrefix(`/webmail`)
+      kind: Rule
+      services:
+        - name: mailu-roundcube
+          port: 80
+      middlewares:
+        - name: keycloak-auth
+    # Root redirect
+    - match: Host(`mail.happyvertical.com`) && Path(`/`)
+      kind: Rule
+      services:
+        - name: mailu-admin
+          port: 80
+      middlewares:
+        - name: root-redirect
+  tls:
+    secretName: mailu-tls
+    domains:
+      - main: mail.happyvertical.com
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: root-redirect
+  namespace: mailu
+spec:
+  redirectRegex:
+    regex: ^https://mail\.happyvertical\.com/$
+    replacement: https://mail.happyvertical.com/webmail/
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: keycloak-auth
+  namespace: mailu
+spec:
+  forwardAuth:
+    address: http://oauth2-proxy.mailu.svc.cluster.local/oauth2/auth
+    trustForwardHeader: true
+    authResponseHeaders:
+      - X-Auth-Request-User
+      - X-Auth-Request-Email
+      - X-Auth-Request-Preferred-Username
+      - X-Auth-Request-Groups
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mailu-smtp
+  namespace: mailu
+  annotations:
+    service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol: "false"
+spec:
+  type: LoadBalancer
+  ports:
+    - name: smtp
+      port: 25
+      targetPort: 25
+      protocol: TCP
+    - name: smtp-auth
+      port: 587
+      targetPort: 587
+      protocol: TCP
+    - name: smtp-ssl
+      port: 465
+      targetPort: 465
+      protocol: TCP
+    - name: imap
+      port: 143
+      targetPort: 143
+      protocol: TCP
+    - name: imap-ssl
+      port: 993
+      targetPort: 993
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: mailu
+    app.kubernetes.io/component: front

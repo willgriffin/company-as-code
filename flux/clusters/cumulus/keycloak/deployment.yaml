@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: keycloak
+  labels:
+    app: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+      - name: keycloak
+        image: quay.io/keycloak/keycloak:23.0.1
+        args:
+          - start
+          - --optimized
+          - --hostname=auth.happyvertical.com
+          - --hostname-strict=false
+          - --proxy=edge
+          - --http-enabled=true
+          - --http-port=8080
+          - --https-port=8443
+        env:
+        - name: KEYCLOAK_ADMIN
+          value: admin
+        - name: KEYCLOAK_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: keycloak-admin
+              key: password
+        - name: KC_DB
+          value: postgres
+        - name: KC_DB_URL_HOST
+          value: keycloak-postgresql
+        - name: KC_DB_URL_PORT
+          value: "5432"
+        - name: KC_DB_URL_DATABASE
+          value: keycloak
+        - name: KC_DB_USERNAME
+          value: keycloak
+        - name: KC_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: keycloak-postgresql
+              key: password
+        - name: KC_HEALTH_ENABLED
+          value: "true"
+        - name: KC_METRICS_ENABLED
+          value: "true"
+        - name: PROXY_ADDRESS_FORWARDING
+          value: "true"
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: https
+          containerPort: 8443
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: keycloak-admin
+  namespace: keycloak
+type: Opaque
+stringData:
+  password: "changeme-in-production"
