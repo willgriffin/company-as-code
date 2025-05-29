@@ -1,6 +1,6 @@
-# Infrastructure Monorepo
+# Happy Vertical Corporation
 
-Genesis blueprint for happyvertical corporation. 
+Company-as-Code
 
 ## Architecture
 
