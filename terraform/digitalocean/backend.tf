@@ -3,7 +3,7 @@ terraform {
     endpoints = {
       s3 = "https://nyc3.digitaloceanspaces.com"
     }
-    region                      = "us-east-1"
+    region                      = "nyc3"
     key                         = "terraform/digitalocean.tfstate"
     bucket                      = "terraform-state-happyvertical"
     skip_credentials_validation = true
@@ -12,7 +12,7 @@ terraform {
     skip_requesting_account_id  = true
     skip_get_ec2_platforms      = true
     skip_s3_checksum            = true
-    use_path_style            = true
+    use_path_style              = true
     
     # These will be provided via backend-config in CI/CD
     # access_key = var.spaces_access_key
