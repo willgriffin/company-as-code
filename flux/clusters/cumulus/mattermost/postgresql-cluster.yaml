@@ -1,0 +1,49 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: mattermost-pg
+  namespace: mattermost
+spec:
+  instances: 2
+  primaryUpdateStrategy: unsupervised
+  
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      effective_cache_size: "1GB"
+      
+  bootstrap:
+    initdb:
+      database: mattermost
+      owner: mattermost
+      secret:
+        name: mattermost-pg-app
+        
+  storage:
+    size: 20Gi
+    storageClass: do-block-storage
+    
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+      
+  monitoring:
+    enabled: false
+    
+  backup:
+    retentionPolicy: "30d"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mattermost-pg-app
+  namespace: mattermost
+type: kubernetes.io/basic-auth
+stringData:
+  username: mattermost
+  password: changeme-in-production
