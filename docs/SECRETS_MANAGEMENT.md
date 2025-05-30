@@ -104,8 +104,8 @@ The secrets management workflow can be triggered:
 
 1. **Create a secret template:**
    ```bash
-   # Create template file
-   vi flux/clusters/cumulus/.secrets-templates/<app>-secrets-template.yaml
+   # Create template file in the application's directory
+   vi flux/clusters/cumulus/<app>/secrets-template.yaml
    ```
 
    Example template:
@@ -183,7 +183,7 @@ export KEYCLOAK_DB_PASSWORD="test-password"
 export KEYCLOAK_ADMIN_PASSWORD="test-admin"
 
 # Test template rendering
-gomplate -f flux/clusters/cumulus/.secrets-templates/keycloak-secrets-template.yaml
+gomplate -f flux/clusters/cumulus/keycloak/secrets-template.yaml
 ```
 
 ## Security Best Practices
