@@ -1,0 +1,31 @@
+# Patch to enable SOPS decryption for kustomize-controller
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kustomize-controller
+  namespace: flux-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kustomize-controller
+  namespace: flux-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: SOPS_AGE_KEY_FILE
+          value: /etc/sops-age/age.key
+        volumeMounts:
+        - name: sops-age
+          mountPath: /etc/sops-age
+          readOnly: true
+      volumes:
+      - name: sops-age
+        secret:
+          secretName: sops-age
+          items:
+          - key: age.key
+            path: age.key

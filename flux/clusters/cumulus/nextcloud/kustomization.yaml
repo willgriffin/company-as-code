@@ -6,9 +6,9 @@ resources:
   - postgresql-cluster.yaml
   - redis-cluster.yaml
   - oidc-config.yaml
-  - spaces-secret.yaml
   - pvc.yaml
   - deployment.yaml
   - service.yaml
   - ingress.yaml
   - keycloak-setup.yaml
+  - secrets.enc.yaml  # SOPS encrypted secrets

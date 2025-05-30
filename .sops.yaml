@@ -1,0 +1,25 @@
+# SOPS configuration for secret encryption
+# This file defines the encryption rules for different paths in the repository
+
+creation_rules:
+  # Encrypt all secret files in the flux directory
+  - path_regex: flux/.*secret.*\.ya?ml$
+    encrypted_regex: ^(data|stringData)$
+    # Using age encryption (recommended for GitOps)
+    # The age public key should be stored in GitHub Secrets as SOPS_AGE_PUBLIC_KEY
+    # The corresponding private key should be deployed to the cluster for Flux to decrypt
+    age: age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
+    
+  # Alternative: PGP encryption (if preferred over age)
+  # - path_regex: flux/.*secret.*\.ya?ml$
+  #   encrypted_regex: ^(data|stringData)$
+  #   pgp: "YOUR_PGP_FINGERPRINT"
+
+  # Encrypt secret templates (these will be processed by GitHub Actions)
+  - path_regex: .*secret-template\.ya?ml$
+    encrypted_regex: ^(data|stringData)$
+    age: age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
+
+# Don't encrypt these fields in Kubernetes resources
+# This allows metadata to remain visible for GitOps operations
+encrypted_suffix: _encrypted
