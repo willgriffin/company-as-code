@@ -1,0 +1,11 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: keycloak-operator
+  namespace: flux-system
+spec:
+  interval: 12h
+  provider: generic
+  url: oci://quay.io/keycloak/keycloak-operator
+  ref:
+    tag: 26.0.7

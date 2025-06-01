@@ -17,4 +17,5 @@ spec:
       targetPort: 8443
       protocol: TCP
   selector:
-    app: keycloak
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/managed-by: keycloak-operator

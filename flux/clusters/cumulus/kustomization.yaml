@@ -4,6 +4,7 @@ resources:
   # Operators - deployed first
   - cloudnativepg
   - redis-operator
+  - keycloak-operator
   
   # Core infrastructure - deployed in order
   - cert-manager
