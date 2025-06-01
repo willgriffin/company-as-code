@@ -10,6 +10,11 @@ creation_rules:
     # The corresponding private key should be deployed to the cluster for Flux to decrypt
     age: age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
     
+  # Encrypt all .enc.yaml files (encrypted secrets)
+  - path_regex: .*\.enc\.ya?ml$
+    encrypted_regex: ^(data|stringData)$
+    age: age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
+    
   # Alternative: PGP encryption (if preferred over age)
   # - path_regex: flux/.*secret.*\.ya?ml$
   #   encrypted_regex: ^(data|stringData)$
