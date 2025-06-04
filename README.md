@@ -17,9 +17,9 @@ This repository manages cloud infrastructure and Kubernetes applications through
 - [flux](https://fluxcd.io/flux/installation/) - For GitOps
 - [direnv](https://direnv.net/) - For environment management
 
-### Initial Setup
+### One-Time Setup
 
-1. **Setup Secrets and Keys**
+1. **Configure Secrets**
    ```bash
    # Copy the example secrets file
    cp .envrc.secrets.example .envrc.secrets
@@ -27,51 +27,42 @@ This repository manages cloud infrastructure and Kubernetes applications through
    # Edit .envrc.secrets with your tokens (GitHub, DigitalOcean, etc)
    $EDITOR .envrc.secrets
    
-   # Run initial setup to generate age keys and update configs
+   # Run initial setup to generate age keys and configure SOPS
    ./scripts/initial-setup
    
    # Generate secure passwords for applications
    ./scripts/generate-secrets
    
+   # Sync secrets to GitHub for CI/CD workflows
+   ./scripts/secrets-sync-to-github
+   
    # Allow direnv to load the environment
    direnv allow
    ```
 
-2. **Provision Infrastructure**
+2. **Create Cluster** (Single Command!)
    ```bash
-   cd terraform/digitalocean
-   terraform init && terraform apply
-   cd ../..
+   # This does everything: provisions infrastructure, bootstraps GitOps, deploys secrets
+   ./scripts/cluster-create
    ```
 
-3. **Bootstrap Flux**
-   ```bash
-   # Deploy SOPS age key to cluster
-   ./scripts/sops-age-deploy
-   
-   # Bootstrap Flux
-   flux bootstrap git \
-     --url=ssh://git@github.com/happyvertical/blueprint.git \
-     --branch=main \
-     --path=flux/clusters/cumulus
-   
-   # Add deploy key to GitHub (when prompted)
-   ./scripts/flux-deploy-key-add
-   ```
+### Cluster Management
 
-4. **Generate and Deploy Secrets**
-   ```bash
-   # Sync secrets to GitHub for Actions workflows
-   ./scripts/secrets-sync-to-github
-   
-   # Generate encrypted secrets from templates
-   ./scripts/generate-encrypted-secrets
-   
-   # Commit and push encrypted secrets
-   git add flux/clusters/cumulus/*/secrets.enc.yaml
-   git commit -m "feat: add encrypted secrets"
-   git push
-   ```
+**Create/Recreate Cluster:**
+```bash
+./scripts/cluster-create
+```
+
+**Destroy Cluster:**
+```bash
+./scripts/cluster-destroy
+```
+
+**Check Status:**
+```bash
+flux get all -A
+kubectl get pods -A
+```
 
 ## Repository Structure
 

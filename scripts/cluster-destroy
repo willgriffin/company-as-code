@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Script to completely destroy the Kubernetes cluster and clean up resources
+# This will wipe out everything - use with caution!
+
+# Find repository root
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+cd "$REPO_ROOT"
+
+echo "=== Blueprint Cluster Destruction ==="
+echo
+echo "⚠️  WARNING: This will completely destroy your Kubernetes cluster!"
+echo "⚠️  All data, applications, and configurations will be lost!"
+echo
+
+# Confirm destruction
+if [[ "${1:-}" != "--force" ]]; then
+    echo -n "Are you absolutely sure you want to destroy the cluster? (type 'destroy' to confirm): "
+    read -r confirmation
+    if [[ "$confirmation" != "destroy" ]]; then
+        echo "❌ Destruction cancelled"
+        exit 0
+    fi
+fi
+
+# Check if .envrc.secrets exists
+if [ ! -f ".envrc.secrets" ]; then
+    echo "❌ .envrc.secrets not found!"
+    echo "Cannot proceed without environment configuration"
+    exit 1
+fi
+
+# Load environment
+echo "📋 Loading environment..."
+# shellcheck disable=SC1091
+source .envrc.secrets
+
+# Validate required environment variables
+required_vars=(
+    "DIGITALOCEAN_TOKEN"
+    "SPACES_ACCESS_KEY_ID" 
+    "SPACES_SECRET_ACCESS_KEY"
+)
+
+for var in "${required_vars[@]}"; do
+    if [ -z "${!var:-}" ]; then
+        echo "❌ Required environment variable $var is not set"
+        echo "Please check your .envrc.secrets file"
+        exit 1
+    fi
+done
+
+echo "✅ Environment loaded successfully"
+echo
+
+# Step 1: Remove Flux deploy key from GitHub (optional cleanup)
+echo "🔑 Step 1: Cleaning up GitHub deploy key..."
+if command -v gh &> /dev/null && gh auth status &> /dev/null; then
+    REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo "")
+    if [[ -n "$REPO" ]]; then
+        # Try to find and remove the deploy key
+        KEY_ID=$(gh api "repos/$REPO/keys" --jq '.[] | select(.title == "flux-system-main-flux-system") | .id' 2>/dev/null || echo "")
+        if [[ -n "$KEY_ID" ]]; then
+            echo "🗑️  Removing Flux deploy key (ID: $KEY_ID)..."
+            gh api -X DELETE "repos/$REPO/keys/$KEY_ID" || echo "⚠️  Could not remove deploy key"
+        else
+            echo "ℹ️  No Flux deploy key found to remove"
+        fi
+    fi
+else
+    echo "ℹ️  Skipping deploy key cleanup (gh CLI not available or not authenticated)"
+fi
+
+# Step 2: Clean up local kubeconfig
+echo "🧹 Step 2: Cleaning up local kubeconfig..."
+if command -v kubectl &> /dev/null; then
+    # Try to remove the cluster context
+    kubectl config delete-context cumulus 2>/dev/null || echo "ℹ️  Context 'cumulus' not found"
+    kubectl config delete-cluster cumulus 2>/dev/null || echo "ℹ️  Cluster 'cumulus' not found"
+    kubectl config delete-user cumulus-admin 2>/dev/null || echo "ℹ️  User 'cumulus-admin' not found"
+    echo "✅ Local kubeconfig cleaned"
+else
+    echo "ℹ️  kubectl not available, skipping kubeconfig cleanup"
+fi
+
+# Step 3: Destroy Terraform infrastructure
+echo "💥 Step 3: Destroying Terraform infrastructure..."
+cd terraform/digitalocean
+
+# Initialize Terraform to ensure we have the latest state
+terraform init -upgrade
+
+# Destroy the infrastructure
+terraform destroy \
+    -var="do_token=$DIGITALOCEAN_TOKEN" \
+    -var="spaces_access_key=$SPACES_ACCESS_KEY_ID" \
+    -var="spaces_secret_key=$SPACES_SECRET_ACCESS_KEY" \
+    -auto-approve
+
+echo "✅ Infrastructure destroyed"
+cd "$REPO_ROOT"
+
+# Step 4: Optional - Clean up encrypted secrets from git
+echo "🔒 Step 4: Clean up options..."
+echo
+echo "The cluster has been destroyed, but encrypted secrets remain in git."
+echo "You may want to:"
+echo "• Remove encrypted secrets: rm flux/clusters/cumulus/*/secrets.enc.yaml"
+echo "• Commit the cleanup: git add -A && git commit -m 'cleanup: remove secrets after cluster destruction'"
+echo "• Or keep them for faster re-deployment"
+echo
+
+echo "🏁 Cluster Destruction Complete!"
+echo
+echo "The Kubernetes cluster and all associated resources have been destroyed."
+echo
+echo "To recreate the cluster, run:"
+echo "  ./scripts/cluster-create"
