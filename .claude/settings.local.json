@@ -4,7 +4,13 @@
       "Bash(mkdir:*)",
       "Bash(chmod:*)",
       "Bash(git add:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Bash(git restore:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(./scripts/generate-secrets:*)",
+      "Bash(bash:*)"
     ],
     "deny": []
   },
