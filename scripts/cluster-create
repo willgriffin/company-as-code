@@ -62,19 +62,34 @@ if ! terraform apply \
     echo "⚠️  Cluster creation failed. Checking if cluster already exists..."
     
     # Check if cluster exists in DigitalOcean but not in Terraform state
+    EXISTING_ID=""
+    
     if command -v doctl &> /dev/null; then
+        echo "🔍 Checking for existing cluster using doctl..."
         EXISTING_ID=$(doctl kubernetes cluster list --format ID,Name --no-header | grep "\scumulus$" | awk '{print $1}' || echo "")
-        if [[ -n "$EXISTING_ID" ]]; then
-            echo "🔄 Found existing cluster (ID: $EXISTING_ID). Importing into Terraform state..."
-            terraform import digitalocean_kubernetes_cluster.main "$EXISTING_ID"
-            echo "✅ Cluster imported successfully"
-        else
-            echo "❌ No existing cluster found. Creation failed for another reason."
-            exit 1
-        fi
+    fi
+    
+    # Fallback to API if doctl not available or didn't find cluster
+    if [[ -z "$EXISTING_ID" ]]; then
+        echo "🔍 Checking for existing cluster using DigitalOcean API..."
+        EXISTING_ID=$(curl -s -H "Authorization: Bearer $DIGITALOCEAN_TOKEN" \
+            "https://api.digitalocean.com/v2/kubernetes/clusters" | \
+            grep -o '"id":"[^"]*"[^}]*"name":"cumulus"' | \
+            grep -o '"id":"[^"]*"' | \
+            cut -d'"' -f4 || echo "")
+    fi
+    
+    if [[ -n "$EXISTING_ID" ]]; then
+        echo "🔄 Found existing cluster (ID: $EXISTING_ID). Importing into Terraform state..."
+        terraform import \
+            -var="do_token=$DIGITALOCEAN_TOKEN" \
+            -var="spaces_access_key=$SPACES_ACCESS_KEY_ID" \
+            -var="spaces_secret_key=$SPACES_SECRET_ACCESS_KEY" \
+            digitalocean_kubernetes_cluster.main "$EXISTING_ID"
+        echo "✅ Cluster imported successfully"
     else
-        echo "❌ Cluster creation failed. Please check DigitalOcean console manually."
-        echo "💡 Install doctl CLI for automatic cluster detection: https://docs.digitalocean.com/reference/doctl/"
+        echo "❌ No existing cluster found. Creation failed for another reason."
+        echo "💡 Please check the DigitalOcean console manually."
         exit 1
     fi
 fi
