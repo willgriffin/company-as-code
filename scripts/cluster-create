@@ -112,7 +112,7 @@ echo "✅ SOPS age key deployed"
 
 # Step 4: Bootstrap Flux
 echo "🔄 Step 4: Bootstrapping Flux..."
-flux bootstrap git \
+echo "y" | flux bootstrap git \
     --url=ssh://git@github.com/happyvertical/blueprint.git \
     --branch=main \
     --path=flux/clusters/cumulus
