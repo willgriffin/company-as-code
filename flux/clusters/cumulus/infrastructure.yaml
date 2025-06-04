@@ -1,0 +1,100 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infrastructure-controllers
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/clusters/cumulus
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  # Only include the controllers/operators that need to be installed first
+  patches:
+    - patch: |
+        apiVersion: kustomize.config.k8s.io/v1beta1
+        kind: Kustomization
+        metadata:
+          name: ignored
+        resources:
+          - cert-manager/namespace.yaml
+          - cert-manager/repository.yaml
+          - cert-manager/release.yaml
+          - cloudnativepg
+          - redis-operator
+          - keycloak-operator
+          - traefik
+      target:
+        kind: Kustomization
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infrastructure-configs
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/clusters/cumulus
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  # Wait for cert-manager to be ready before applying CRDs
+  dependsOn:
+    - name: infrastructure-controllers
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: cert-manager
+      namespace: cert-manager
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: cert-manager-webhook
+      namespace: cert-manager
+  # Only include the CRDs and configs
+  patches:
+    - patch: |
+        apiVersion: kustomize.config.k8s.io/v1beta1
+        kind: Kustomization
+        metadata:
+          name: ignored
+        resources:
+          - cert-manager/cluster-issuer.yaml
+      target:
+        kind: Kustomization
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: applications
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/clusters/cumulus
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+  # Wait for infrastructure to be ready
+  dependsOn:
+    - name: infrastructure-configs
+  # Only include applications
+  patches:
+    - patch: |
+        apiVersion: kustomize.config.k8s.io/v1beta1
+        kind: Kustomization
+        metadata:
+          name: ignored
+        resources:
+          - keycloak
+          - mailu
+          - mattermost
+          - nextcloud
+      target:
+        kind: Kustomization

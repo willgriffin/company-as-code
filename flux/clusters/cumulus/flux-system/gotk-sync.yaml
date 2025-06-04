@@ -20,8 +20,36 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m0s
+  path: ./flux/clusters/cumulus/flux-system
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infrastructure
+  namespace: flux-system
+spec:
+  interval: 10m0s
   path: ./flux/clusters/cumulus
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
+  postBuild:
+    substituteFrom:
+      - kind: ConfigMap
+        name: cluster-settings
+        optional: true
+  patches:
+    - patch: |
+        apiVersion: kustomize.config.k8s.io/v1beta1
+        kind: Kustomization
+        metadata:
+          name: ignored
+        resources:
+          - infrastructure.yaml
+      target:
+        kind: Kustomization

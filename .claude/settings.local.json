@@ -12,7 +12,8 @@
       "Bash(./scripts/generate-secrets:*)",
       "Bash(bash:*)",
       "Bash(grep:*)",
-      "Bash(true)"
+      "Bash(true)",
+      "Bash(kubectl get:*)"
     ],
     "deny": []
   },
