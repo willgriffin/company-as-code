@@ -51,13 +51,35 @@ echo "🚀 Step 1: Creating Kubernetes cluster..."
 cd terraform/digitalocean
 
 terraform init -upgrade
-terraform apply \
+
+# Try to import existing cluster if it exists but isn't in state
+if ! terraform apply \
     -var="do_token=$DIGITALOCEAN_TOKEN" \
     -var="spaces_access_key=$SPACES_ACCESS_KEY_ID" \
     -var="spaces_secret_key=$SPACES_SECRET_ACCESS_KEY" \
-    -auto-approve
+    -auto-approve; then
+    
+    echo "⚠️  Cluster creation failed. Checking if cluster already exists..."
+    
+    # Check if cluster exists in DigitalOcean but not in Terraform state
+    if command -v doctl &> /dev/null; then
+        EXISTING_ID=$(doctl kubernetes cluster list --format ID,Name --no-header | grep "\scumulus$" | awk '{print $1}' || echo "")
+        if [[ -n "$EXISTING_ID" ]]; then
+            echo "🔄 Found existing cluster (ID: $EXISTING_ID). Importing into Terraform state..."
+            terraform import digitalocean_kubernetes_cluster.main "$EXISTING_ID"
+            echo "✅ Cluster imported successfully"
+        else
+            echo "❌ No existing cluster found. Creation failed for another reason."
+            exit 1
+        fi
+    else
+        echo "❌ Cluster creation failed. Please check DigitalOcean console manually."
+        echo "💡 Install doctl CLI for automatic cluster detection: https://docs.digitalocean.com/reference/doctl/"
+        exit 1
+    fi
+fi
 
-echo "✅ Kubernetes cluster created"
+echo "✅ Kubernetes cluster ready"
 cd "$REPO_ROOT"
 
 # Step 2: Update kubeconfig (local and GitHub)
