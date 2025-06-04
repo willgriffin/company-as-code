@@ -11,25 +11,65 @@ This repository manages cloud infrastructure and Kubernetes applications through
 
 ## Quick Start
 
-1. **Provision Infrastructure**
+### Prerequisites
+- [age](https://github.com/FiloSottile/age) - For secret encryption
+- [sops](https://github.com/getsops/sops) - For secret management
+- [flux](https://fluxcd.io/flux/installation/) - For GitOps
+- [direnv](https://direnv.net/) - For environment management
+
+### Initial Setup
+
+1. **Setup Secrets and Keys**
+   ```bash
+   # Copy the example secrets file
+   cp .envrc.secrets.example .envrc.secrets
+   
+   # Edit .envrc.secrets with your tokens (GitHub, DigitalOcean, etc)
+   $EDITOR .envrc.secrets
+   
+   # Run initial setup to generate age keys and update configs
+   ./scripts/initial-setup
+   
+   # Generate secure passwords for applications
+   ./scripts/generate-secrets
+   
+   # Allow direnv to load the environment
+   direnv allow
+   ```
+
+2. **Provision Infrastructure**
    ```bash
    cd terraform/digitalocean
    terraform init && terraform apply
+   cd ../..
    ```
 
-2. **Bootstrap Flux**
+3. **Bootstrap Flux**
    ```bash
+   # Deploy SOPS age key to cluster
+   ./scripts/sops-age-deploy
+   
+   # Bootstrap Flux
    flux bootstrap git \
-     --url=https://github.com/happyvertical/blueprint \
+     --url=ssh://git@github.com/happyvertical/blueprint.git \
      --branch=main \
      --path=flux/clusters/cumulus
+   
+   # Add deploy key to GitHub (when prompted)
+   ./scripts/flux-deploy-key-add
    ```
 
-3. **Deploy Applications**
+4. **Generate and Deploy Secrets**
    ```bash
-   # Applications deploy automatically via GitOps
-   git add flux/clusters/cumulus/my-app/
-   git commit -m "feat: deploy my-app"
+   # Sync secrets to GitHub for Actions workflows
+   ./scripts/secrets-sync-to-github
+   
+   # Generate encrypted secrets from templates
+   ./scripts/generate-encrypted-secrets
+   
+   # Commit and push encrypted secrets
+   git add flux/clusters/cumulus/*/secrets.enc.yaml
+   git commit -m "feat: add encrypted secrets"
    git push
    ```
 

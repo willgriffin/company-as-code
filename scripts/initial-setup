@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Script to perform initial setup for the blueprint repository
+# This handles generating age keys and updating configuration files
+
+# Find repository root
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+cd "$REPO_ROOT"
+
+echo "=== Blueprint Initial Setup ==="
+echo
+
+# Check if .envrc.secrets exists
+if [ ! -f ".envrc.secrets" ]; then
+    echo "Error: .envrc.secrets file not found. Please copy .envrc.secrets.example first." >&2
+    exit 1
+fi
+
+# Check for required tools
+for tool in age age-keygen sops; do
+    if ! command -v "$tool" &> /dev/null; then
+        echo "Error: $tool is not installed. Please install it first." >&2
+        exit 1
+    fi
+done
+
+# Check if SOPS_AGE_PRIVATE_KEY already exists in .envrc.secrets
+if grep -q "^export SOPS_AGE_PRIVATE_KEY=" .envrc.secrets && \
+   ! grep -q 'SOPS_AGE_PRIVATE_KEY="AGE-SECRET-KEY-' .envrc.secrets; then
+    echo "SOPS age key already exists in .envrc.secrets"
+    EXISTING_KEY=$(grep "^export SOPS_AGE_PRIVATE_KEY=" .envrc.secrets | cut -d'"' -f2)
+    
+    # Derive public key from existing private key
+    PUBLIC_KEY=$(echo "$EXISTING_KEY" | age-keygen -y)
+    echo "Using existing age key with public key: $PUBLIC_KEY"
+else
+    echo "Generating new age key pair..."
+    
+    # Generate new age key
+    age-keygen -o age.key 2>&1 | tee age-keygen.log
+    
+    # Extract public key from output
+    PUBLIC_KEY=$(grep "^Public key:" age-keygen.log | cut -d' ' -f3)
+    PRIVATE_KEY=$(cat age.key)
+    
+    # Update .envrc.secrets with the new private key
+    echo "Updating .envrc.secrets with new age private key..."
+    sed -i "s|^export SOPS_AGE_PRIVATE_KEY=.*|export SOPS_AGE_PRIVATE_KEY=\"$PRIVATE_KEY\"|" .envrc.secrets
+    
+    # Clean up
+    rm -f age.key age-keygen.log
+    
+    echo "New age key generated with public key: $PUBLIC_KEY"
+fi
+
+# Update .sops.yaml with the correct public key
+echo
+echo "Updating .sops.yaml with the correct public key..."
+if [ -f ".sops.yaml" ]; then
+    # Replace all occurrences of age public keys
+    sed -i "s/age: age[a-z0-9]*/age: $PUBLIC_KEY/g" .sops.yaml
+    echo "✓ Updated .sops.yaml"
+else
+    echo "Creating .sops.yaml..."
+    cat > .sops.yaml << EOF
+# SOPS configuration for secret encryption
+# This file defines the encryption rules for different paths in the repository
+
+creation_rules:
+  # Encrypt all secret files in the flux directory
+  - path_regex: flux/.*secret.*\.ya?ml$
+    encrypted_regex: ^(data|stringData)$
+    # Using age encryption (recommended for GitOps)
+    age: $PUBLIC_KEY
+    
+  # Encrypt all .enc.yaml files (encrypted secrets)
+  - path_regex: .*\.enc\.ya?ml$
+    encrypted_regex: ^(data|stringData)$
+    age: $PUBLIC_KEY
+
+  # Encrypt secret templates (these will be processed by GitHub Actions)
+  - path_regex: .*secret-template\.ya?ml$
+    encrypted_regex: ^(data|stringData)$
+    age: $PUBLIC_KEY
+
+# Don't encrypt these fields in Kubernetes resources
+# This allows metadata to remain visible for GitOps operations
+encrypted_suffix: _encrypted
+EOF
+    echo "✓ Created .sops.yaml"
+fi
+
+# Update GitHub Actions workflow if it exists
+WORKFLOW_FILE=".github/workflows/secrets-management.yml"
+if [ -f "$WORKFLOW_FILE" ]; then
+    echo
+    echo "Note: Remember to update the SOPS_AGE_PRIVATE_KEY secret in GitHub:"
+    echo "  1. Go to Settings → Secrets and variables → Actions"
+    echo "  2. Update SOPS_AGE_PRIVATE_KEY with the value from .envrc.secrets"
+fi
+
+echo
+echo "=== Setup Complete ==="
+echo
+echo "Summary:"
+echo "- Age public key: $PUBLIC_KEY"
+echo "- Updated .sops.yaml with correct public key"
+echo "- Private key stored in .envrc.secrets"
+echo
+echo "Next steps:"
+echo "1. Run 'direnv allow' to load the environment"
+echo "2. Run './scripts/generate-secrets' to generate application passwords"
+echo "3. Run './scripts/secrets-sync-to-github' to sync secrets to GitHub"
+echo "4. Deploy the cluster and run './scripts/sops-age-deploy'"
+echo "5. Run './scripts/generate-encrypted-secrets' to create encrypted secrets"
+echo
+echo "IMPORTANT: Keep your .envrc.secrets file secure and never commit it!"
