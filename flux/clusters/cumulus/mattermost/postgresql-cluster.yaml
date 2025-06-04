@@ -37,13 +37,3 @@ spec:
     
   backup:
     retentionPolicy: "30d"
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: mattermost-pg-app
-  namespace: mattermost
-type: kubernetes.io/basic-auth
-stringData:
-  username: mattermost
-  password: changeme-in-production

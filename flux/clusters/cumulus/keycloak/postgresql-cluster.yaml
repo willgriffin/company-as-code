@@ -37,13 +37,3 @@ spec:
     
   backup:
     retentionPolicy: "30d"
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: keycloak-pg-app
-  namespace: keycloak
-type: kubernetes.io/basic-auth
-stringData:
-  username: keycloak
-  password: changeme-in-production

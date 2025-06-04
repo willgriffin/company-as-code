@@ -37,13 +37,3 @@ spec:
     
   backup:
     retentionPolicy: "30d"
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: nextcloud-pg-app
-  namespace: nextcloud
-type: kubernetes.io/basic-auth
-stringData:
-  username: nextcloud
-  password: changeme-in-production

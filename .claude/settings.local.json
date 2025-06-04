@@ -10,7 +10,9 @@
       "Bash(find:*)",
       "Bash(ls:*)",
       "Bash(./scripts/generate-secrets:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(grep:*)",
+      "Bash(true)"
     ],
     "deny": []
   },
