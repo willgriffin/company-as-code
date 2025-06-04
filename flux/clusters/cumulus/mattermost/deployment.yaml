@@ -112,13 +112,3 @@ spec:
       - name: mattermost-plugins
         persistentVolumeClaim:
           claimName: mattermost-plugins
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: mattermost-oauth
-  namespace: mattermost
-type: Opaque
-stringData:
-  client-id: "mattermost"
-  client-secret: "changeme-configure-in-keycloak"

@@ -40,13 +40,3 @@ data:
     su -s /bin/sh www-data -c "php /var/www/html/occ config:system:set oidc_login_redir_fallback --value=true --type=boolean"
     
     echo "OIDC configuration completed"
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: nextcloud-oidc
-  namespace: nextcloud
-type: Opaque
-stringData:
-  client-id: "nextcloud"
-  client-secret: "changeme-configure-in-keycloak"
