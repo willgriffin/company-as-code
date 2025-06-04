@@ -4,7 +4,7 @@ provider "digitalocean" {
 
 # Data source to get available Kubernetes versions
 data "digitalocean_kubernetes_versions" "available" {
-  version_prefix = "1.32."
+  # Get all available versions, will use latest_version attribute
 }
 
 # DigitalOcean Kubernetes Cluster
