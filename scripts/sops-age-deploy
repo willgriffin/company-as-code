@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Script to deploy the SOPS age secret to the Kubernetes cluster
+# This secret is required by Flux for decrypting encrypted secrets
+
+# Find repository root
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+cd "$REPO_ROOT"
+
+# Check if .envrc.secrets exists
+if [ ! -f ".envrc.secrets" ]; then
+    echo "Error: .envrc.secrets file not found in repository root" >&2
+    exit 1
+fi
+
+# Source the secrets file to get SOPS_AGE_PRIVATE_KEY
+# shellcheck disable=SC1091
+source .envrc.secrets
+
+# Check if SOPS_AGE_PRIVATE_KEY is set
+if [ -z "${SOPS_AGE_PRIVATE_KEY:-}" ]; then
+    echo "Error: SOPS_AGE_PRIVATE_KEY not found in .envrc.secrets" >&2
+    exit 1
+fi
+
+# Check if kubectl is available
+if ! command -v kubectl &> /dev/null; then
+    echo "Error: kubectl not found. Please ensure kubectl is installed and configured." >&2
+    exit 1
+fi
+
+# Check if flux-system namespace exists
+if ! kubectl get namespace flux-system &> /dev/null; then
+    echo "Creating flux-system namespace..."
+    kubectl create namespace flux-system
+fi
+
+# Check if the secret already exists
+if kubectl get secret sops-age -n flux-system &> /dev/null; then
+    echo "SOPS age secret already exists in flux-system namespace."
+    echo -n "Do you want to update it? (y/N): "
+    read -r response
+    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+        echo "Skipping secret update."
+        exit 0
+    fi
+    echo "Updating existing secret..."
+    kubectl delete secret sops-age -n flux-system
+fi
+
+# Create the secret
+echo "Deploying SOPS age secret to flux-system namespace..."
+kubectl create secret generic sops-age \
+  --from-literal=age.key="$SOPS_AGE_PRIVATE_KEY" \
+  -n flux-system
+
+# Verify the secret was created
+if kubectl get secret sops-age -n flux-system &> /dev/null; then
+    echo "✓ SOPS age secret successfully deployed to flux-system namespace"
+else
+    echo "✗ Failed to deploy SOPS age secret" >&2
+    exit 1
+fi
