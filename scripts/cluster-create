@@ -60,11 +60,12 @@ terraform apply \
 echo "✅ Kubernetes cluster created"
 cd "$REPO_ROOT"
 
-# Step 2: Update kubeconfig
+# Step 2: Update kubeconfig (local and GitHub)
 echo "🔧 Step 2: Updating kubeconfig..."
 ./scripts/kubeconfig-update-local
+./scripts/kubeconfig-update-repo-secret
 
-echo "✅ Kubeconfig updated"
+echo "✅ Kubeconfig updated locally and synced to GitHub"
 
 # Step 3: Deploy SOPS age key
 echo "🔐 Step 3: Deploying SOPS age key..."
@@ -87,8 +88,11 @@ echo "🔑 Step 5: Adding deploy key to GitHub..."
 
 echo "✅ Deploy key added to GitHub"
 
-# Step 6: Generate and commit encrypted secrets
-echo "🔒 Step 6: Generating encrypted secrets..."
+# Step 6: Sync secrets to GitHub and generate encrypted secrets
+echo "🔒 Step 6: Syncing secrets to GitHub..."
+./scripts/secrets-sync-to-github
+
+echo "🔐 Generating encrypted secrets..."
 ./scripts/generate-encrypted-secrets
 
 echo "📤 Committing encrypted secrets..."
