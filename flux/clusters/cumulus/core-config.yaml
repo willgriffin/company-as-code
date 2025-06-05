@@ -1,0 +1,17 @@
+# Configuration for core infrastructure that requires CRDs to be present
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: core-config
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: core
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/core/cert-manager/post-deploy
+  prune: true
+  wait: true
+  timeout: 2m

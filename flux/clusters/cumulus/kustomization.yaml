@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   # Staged deployment configuration
   - stages.yaml
+  - core-config.yaml

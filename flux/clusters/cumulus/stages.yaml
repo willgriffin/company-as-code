@@ -27,6 +27,7 @@ metadata:
 spec:
   dependsOn:
     - name: core
+    - name: core-config  # Also wait for core configuration
   interval: 10m
   sourceRef:
     kind: GitRepository

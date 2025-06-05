@@ -3,4 +3,3 @@ kind: Kustomization
 resources:
   - cert-manager
   - traefik
-  - cert-manager-config  # ClusterIssuer and other cert-manager configs
