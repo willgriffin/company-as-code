@@ -1,7 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  # Staged deployments for proper dependency management
-  - infrastructure-controllers.yaml
-  - infrastructure-configs.yaml
-  - applications.yaml
+  # Infrastructure controllers - cert-manager first
+  - cert-manager/namespace.yaml
+  - cert-manager/repository.yaml
+  - cert-manager/release.yaml
