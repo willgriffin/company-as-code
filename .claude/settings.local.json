@@ -14,7 +14,9 @@
       "Bash(grep:*)",
       "Bash(true)",
       "Bash(kubectl get:*)",
-      "Bash(flux get kustomizations:*)"
+      "Bash(flux get kustomizations:*)",
+      "Bash(export:*)",
+      "Bash(kubectl:*)"
     ],
     "deny": []
   },
