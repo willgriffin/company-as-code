@@ -32,8 +32,5 @@ spec:
       memory: "1Gi"
       cpu: "500m"
       
-  monitoring:
-    enabled: false
-    
   backup:
     retentionPolicy: "30d"
