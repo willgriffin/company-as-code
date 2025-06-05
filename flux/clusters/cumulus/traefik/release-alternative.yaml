@@ -14,13 +14,21 @@ spec:
         name: traefik
         namespace: traefik
   values:
+    # Explicitly set deployment configuration
     deployment:
-      replicas: 1  # Single replica for ACME storage
+      enabled: true
+      kind: Deployment
+      replicas: 1
+      # Ensure single replica for ACME
+      strategy:
+        type: Recreate  # Important: prevents multiple pods during updates
+    
     service:
       type: LoadBalancer
       annotations:
         service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol: "true"
         service.beta.kubernetes.io/do-loadbalancer-hostname: "happyvertical.com"
+    
     ports:
       web:
         port: 80
@@ -32,6 +40,7 @@ spec:
         exposedPort: 443
         tls:
           enabled: true
+    
     providers:
       kubernetesCRD:
         enabled: true
@@ -40,15 +49,31 @@ spec:
         enabled: true
         publishedService:
           enabled: true
-    additionalArguments:
-      - "--entrypoints.websecure.http.tls.certresolver=letsencrypt"
-      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.email=admin@happyvertical.com"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/data/acme.json"
+    
+    # Configure persistent storage for ACME certificates
     persistence:
       enabled: true
       size: 128Mi
       path: /data
+      # Use accessMode that ensures single pod access
+      accessMode: ReadWriteOnce
+    
+    # ACME configuration via additionalArguments
+    additionalArguments:
+      - "--entrypoints.websecure.http.tls.certresolver=letsencrypt"
+      - "--certificatesresolvers.letsencrypt.acme.dnschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.dnschallenge.provider=digitalocean"
+      - "--certificatesresolvers.letsencrypt.acme.email=admin@happyvertical.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/data/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.caserver=https://acme-v02.api.letsencrypt.org/directory"
+    
+    env:
+      - name: DO_AUTH_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: digitalocean-dns-token
+            key: DO_AUTH_TOKEN
+    
     resources:
       requests:
         cpu: 100m
@@ -56,6 +81,7 @@ spec:
       limits:
         cpu: 500m
         memory: 512Mi
+    
     ingressClass:
       enabled: true
       isDefaultClass: true
