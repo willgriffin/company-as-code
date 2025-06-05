@@ -3,6 +3,4 @@ kind: Kustomization
 namespace: keycloak-operator
 resources:
   - namespace.yaml
-  - crds.yaml
-  - repository.yaml
-  - release.yaml
+  - resources.yaml
