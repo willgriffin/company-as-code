@@ -4,7 +4,7 @@ region            = "nyc3"
 
 # Node pool configuration
 node_pool_name = "cumulus1"
-node_size      = "s-1vcpu-2gb"
+node_size      = "s-2vcpu-2gb"
 node_count     = 2
 min_nodes      = 2
 max_nodes      = 3
