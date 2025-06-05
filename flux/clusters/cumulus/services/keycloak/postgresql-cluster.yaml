@@ -32,8 +32,5 @@ spec:
       memory: "1Gi"
       cpu: "500m"
       
-  monitoring:
-    enabled: false  # Enable when Prometheus is deployed
-    
   backup:
     retentionPolicy: "30d"
