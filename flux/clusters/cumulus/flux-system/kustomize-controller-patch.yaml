@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kustomize-controller
+  namespace: flux-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: SOPS_AGE_KEY_FILE
+          value: /tmp/age/age.key
+        volumeMounts:
+        - name: sops-age
+          mountPath: /tmp/age
+          readOnly: true
+      volumes:
+      - name: sops-age
+        secret:
+          secretName: sops-age
