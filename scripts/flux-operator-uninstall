@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Script to uninstall Flux Operator and all Flux components
+# This is useful for cleanup or migration to different Flux setup
+
+echo "🗑️  Uninstalling Flux Operator and all components..."
+echo
+
+# Check if kubectl is available
+if ! command -v kubectl &> /dev/null; then
+    echo "Error: kubectl not found. Please ensure kubectl is installed and configured." >&2
+    exit 1
+fi
+
+# Check if we can connect to the cluster
+if ! kubectl cluster-info &> /dev/null; then
+    echo "Error: Cannot connect to Kubernetes cluster. Please check your kubeconfig." >&2
+    exit 1
+fi
+
+# Delete FluxInstance first
+echo "1. Deleting FluxInstance..."
+if kubectl get fluxinstance flux -n flux-system &> /dev/null; then
+    kubectl delete fluxinstance flux -n flux-system --timeout=60s
+    echo "   ✓ FluxInstance deleted"
+else
+    echo "   ℹ️  No FluxInstance found"
+fi
+echo
+
+# Wait for Flux components to be removed
+echo "2. Waiting for Flux components to be removed..."
+for component in source-controller kustomize-controller helm-controller notification-controller; do
+    if kubectl get deployment $component -n flux-system &> /dev/null; then
+        echo "   Waiting for $component to be removed..."
+        kubectl wait --for=delete deployment/$component -n flux-system --timeout=120s || true
+    fi
+done
+echo "   ✓ Flux components removed"
+echo
+
+# Delete remaining Flux resources
+echo "3. Cleaning up remaining Flux resources..."
+
+# Delete CRDs with finalizers
+echo "   Removing finalizers from Flux resources..."
+for crd in gitrepositories.source.toolkit.fluxcd.io \
+           helmrepositories.source.toolkit.fluxcd.io \
+           helmcharts.source.toolkit.fluxcd.io \
+           helmreleases.helm.toolkit.fluxcd.io \
+           kustomizations.kustomize.toolkit.fluxcd.io \
+           buckets.source.toolkit.fluxcd.io \
+           ocirepositories.source.toolkit.fluxcd.io \
+           alerts.notification.toolkit.fluxcd.io \
+           providers.notification.toolkit.fluxcd.io \
+           receivers.notification.toolkit.fluxcd.io; do
+    if kubectl get crd $crd &> /dev/null; then
+        # Remove finalizers from all instances
+        kubectl get $crd --all-namespaces -o name 2>/dev/null | \
+            xargs -I {} kubectl patch {} --type=merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
+    fi
+done
+
+# Delete flux-system namespace
+if kubectl get namespace flux-system &> /dev/null; then
+    echo "   Deleting flux-system namespace..."
+    kubectl delete namespace flux-system --timeout=60s || true
+    echo "   ✓ flux-system namespace deleted"
+fi
+
+echo
+
+# Uninstall Flux Operator
+echo "4. Uninstalling Flux Operator..."
+if kubectl get namespace flux-operator-system &> /dev/null; then
+    # Get the operator manifest and delete it
+    curl -s https://github.com/controlplaneio-fluxcd/flux-operator/releases/latest/download/flux-operator.yaml | \
+        kubectl delete -f - || true
+    echo "   ✓ Flux Operator uninstalled"
+else
+    echo "   ℹ️  Flux Operator not found"
+fi
+echo
+
+# Clean up any remaining CRDs
+echo "5. Cleaning up Flux CRDs..."
+kubectl get crd | grep -E '(fluxcd\.io|controlplane\.io)' | awk '{print $1}' | \
+    xargs -I {} kubectl delete crd {} 2>/dev/null || true
+echo "   ✓ Flux CRDs cleaned up"
+echo
+
+echo "✅ Flux Operator uninstall completed!"
+echo
+echo "Note: The sops-age secret and Git authentication secrets were preserved."
+echo "You can now install a different Flux setup or re-run flux-operator-deploy."

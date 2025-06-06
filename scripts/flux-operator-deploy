@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Script to deploy Flux using the Flux Operator
+# This replaces the traditional flux bootstrap approach
+
+echo "🚀 Deploying Flux using Flux Operator..."
+echo
+
+# Check if kubectl is available
+if ! command -v kubectl &> /dev/null; then
+    echo "Error: kubectl not found. Please ensure kubectl is installed and configured." >&2
+    exit 1
+fi
+
+# Check if we can connect to the cluster
+if ! kubectl cluster-info &> /dev/null; then
+    echo "Error: Cannot connect to Kubernetes cluster. Please check your kubeconfig." >&2
+    exit 1
+fi
+
+# Install Flux Operator
+echo "1. Installing Flux Operator..."
+kubectl apply -f https://github.com/controlplaneio-fluxcd/flux-operator/releases/latest/download/flux-operator.yaml
+
+# Wait for operator to be ready
+echo "   Waiting for Flux Operator to be ready..."
+kubectl wait --for=condition=available --timeout=300s deployment/flux-operator -n flux-operator-system
+
+echo "   ✓ Flux Operator installed and ready"
+echo
+
+# Create flux-system namespace
+echo "2. Creating flux-system namespace..."
+kubectl create namespace flux-system --dry-run=client -o yaml | kubectl apply -f -
+echo "   ✓ flux-system namespace ready"
+echo
+
+# Deploy SOPS age key
+echo "3. Deploying SOPS age key..."
+if [ -f "./scripts/sops-age-deploy" ]; then
+    echo "y" | ./scripts/sops-age-deploy || echo "   Age key already deployed"
+else
+    echo "   Warning: sops-age-deploy script not found. You may need to deploy the age key manually."
+fi
+echo
+
+# Create GitHub token secret if it doesn't exist
+echo "4. Setting up Git authentication..."
+if ! kubectl get secret flux-system -n flux-system &> /dev/null; then
+    if [ -n "${GITHUB_TOKEN:-}" ]; then
+        kubectl create secret generic flux-system \
+            --from-literal=username=git \
+            --from-literal=password="$GITHUB_TOKEN" \
+            -n flux-system
+        echo "   ✓ GitHub token secret created"
+    else
+        echo "   Warning: GITHUB_TOKEN not set. You may need to create authentication secret manually."
+    fi
+else
+    echo "   ✓ Git authentication secret already exists"
+fi
+echo
+
+# Apply FluxInstance
+echo "5. Deploying FluxInstance..."
+if [ -f "flux/clusters/cumulus/flux-instance.yaml" ]; then
+    kubectl apply -f flux/clusters/cumulus/flux-instance.yaml
+    echo "   ✓ FluxInstance applied"
+else
+    echo "   Error: flux-instance.yaml not found at flux/clusters/cumulus/flux-instance.yaml" >&2
+    exit 1
+fi
+echo
+
+# Wait for Flux components to be ready
+echo "6. Waiting for Flux components to be ready..."
+echo "   This may take a few minutes..."
+
+# Wait for core Flux components
+for component in source-controller kustomize-controller helm-controller notification-controller; do
+    echo "   Waiting for $component..."
+    kubectl wait --for=condition=available --timeout=300s deployment/$component -n flux-system
+    echo "   ✓ $component ready"
+done
+
+echo
+echo "✅ Flux Operator deployment completed successfully!"
+echo
+echo "Next steps:"
+echo "  1. Check Flux status: kubectl get fluxinstance flux -n flux-system"
+echo "  2. Monitor GitRepository sync: kubectl get gitrepository -n flux-system"
+echo "  3. Watch Kustomizations: kubectl get kustomizations -n flux-system"
+echo
+echo "🎉 Your GitOps cluster is ready!"

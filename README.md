@@ -5,17 +5,19 @@ Infrastructure as Code monorepo for Kubernetes deployments using GitOps.
 ## Overview
 
 This repository manages cloud infrastructure and Kubernetes applications through:
-- **[Terraform](./terraform/)** - Infrastructure provisioning
-- **[Flux](./flux/)** - GitOps continuous delivery
+- **[Terraform](./terraform/)** - Infrastructure provisioning  
+- **[Flux Operator](./flux/)** - GitOps continuous delivery with declarative Flux management
+- **SOPS + Age** - Encrypted secret management
 - **Conventional Commits** - Standardized commit messages for automation
 
 ## Quick Start
 
 ### Prerequisites
 - [age](https://github.com/FiloSottile/age) - For secret encryption
-- [sops](https://github.com/getsops/sops) - For secret management
-- [flux](https://fluxcd.io/flux/installation/) - For GitOps
+- [sops](https://github.com/getsops/sops) - For secret management  
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) - For Kubernetes cluster access
 - [direnv](https://direnv.net/) - For environment management
+- [terraform](https://developer.hashicorp.com/terraform/downloads) - For infrastructure provisioning
 
 ### One-Time Setup
 
@@ -42,7 +44,7 @@ This repository manages cloud infrastructure and Kubernetes applications through
 
 2. **Create Cluster** (Single Command!)
    ```bash
-   # This does everything: provisions infrastructure, bootstraps GitOps, deploys secrets
+   # This does everything: provisions infrastructure, deploys Flux Operator, sets up GitOps
    ./scripts/cluster-create
    ```
 
@@ -60,8 +62,36 @@ This repository manages cloud infrastructure and Kubernetes applications through
 
 **Check Status:**
 ```bash
-flux get all -A
+# Check Flux Operator status
+kubectl get fluxinstance flux -n flux-system
+
+# Check GitOps sync status  
+kubectl get gitrepository -n flux-system
+kubectl get kustomizations -n flux-system
+
+# Check application pods
 kubectl get pods -A
+```
+
+### GitOps with Flux Operator
+
+This repository uses the **Flux Operator** for declarative GitOps management:
+
+- **Declarative Flux Management** - Flux is configured via `FluxInstance` custom resource
+- **Built-in SOPS Support** - Automatic secret decryption with age keys
+- **No Bootstrap Required** - Deploy Flux like any other Kubernetes application
+- **Easy Upgrades** - Update Flux version by modifying the `FluxInstance` spec
+
+**Manual Flux Management:**
+```bash
+# Deploy Flux Operator (run after cluster creation)
+./scripts/flux-operator-deploy
+
+# Uninstall Flux completely
+./scripts/flux-operator-uninstall
+
+# Check Flux Operator logs
+kubectl logs -n flux-operator-system deployment/flux-operator
 ```
 
 ## Repository Structure

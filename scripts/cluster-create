@@ -110,23 +110,14 @@ echo "🔐 Step 3: Deploying SOPS age key..."
 
 echo "✅ SOPS age key deployed"
 
-# Step 4: Bootstrap Flux
-echo "🔄 Step 4: Bootstrapping Flux..."
-echo "y" | flux bootstrap git \
-    --url=ssh://git@github.com/happyvertical/blueprint.git \
-    --branch=main \
-    --path=flux/clusters/cumulus
+# Step 4: Deploy Flux Operator
+echo "🔄 Step 4: Deploying Flux Operator..."
+./scripts/flux-operator-deploy
 
-echo "✅ Flux bootstrapped"
+echo "✅ Flux Operator deployed and configured"
 
-# Step 5: Add deploy key to GitHub
-echo "🔑 Step 5: Adding deploy key to GitHub..."
-./scripts/flux-deploy-key-add
-
-echo "✅ Deploy key added to GitHub"
-
-# Step 6: Sync secrets to GitHub and generate encrypted secrets
-echo "🔒 Step 6: Syncing secrets to GitHub..."
+# Step 5: Sync secrets to GitHub and generate encrypted secrets
+echo "🔒 Step 5: Syncing secrets to GitHub..."
 ./scripts/secrets-sync-to-github
 
 echo "🔐 Generating encrypted secrets..."
@@ -139,22 +130,22 @@ git push
 
 echo "✅ Encrypted secrets generated and committed"
 
-# Step 7: Wait for initial reconciliation
-echo "⏳ Step 7: Waiting for Flux to reconcile..."
+# Step 6: Wait for initial reconciliation
+echo "⏳ Step 6: Waiting for Flux to reconcile..."
 echo "This may take a few minutes as infrastructure components are installed..."
 
 # Wait up to 10 minutes for flux-system to be ready
 timeout=600
 elapsed=0
 while [ $elapsed -lt $timeout ]; do
-    if kubectl get kustomization flux-system -n flux-system --no-headers 2>/dev/null | grep -q "True"; then
+    if kubectl get fluxinstance flux -n flux-system --no-headers 2>/dev/null | grep -q "True"; then
         echo "✅ Flux system is ready"
         break
     fi
     
     if [ $((elapsed % 60)) -eq 0 ]; then
         echo "⏳ Still waiting... ($((elapsed / 60))m elapsed)"
-        flux get kustomizations -A | head -5 || true
+        kubectl get fluxinstance,gitrepository,kustomizations -n flux-system 2>/dev/null | head -10 || true
     fi
     
     sleep 10
@@ -163,18 +154,20 @@ done
 
 if [ $elapsed -ge $timeout ]; then
     echo "⚠️  Timeout waiting for Flux. Check status manually with:"
-    echo "   flux get all -A"
+    echo "   kubectl get fluxinstance flux -n flux-system"
+    echo "   kubectl get gitrepository,kustomizations -n flux-system"
     echo "   kubectl get pods -A"
 else
     echo
     echo "🎉 Cluster Creation Complete!"
     echo
-    echo "Your Kubernetes cluster is ready and GitOps is operational."
+    echo "Your Kubernetes cluster is ready and GitOps is operational using Flux Operator."
     echo
     echo "Next steps:"
-    echo "• Monitor deployment: flux get all -A"
+    echo "• Monitor Flux: kubectl get fluxinstance flux -n flux-system"
+    echo "• Check GitOps sync: kubectl get gitrepository,kustomizations -n flux-system"
     echo "• Check applications: kubectl get pods -A"
-    echo "• View logs: kubectl logs -f deployment/flux-system -n flux-system"
+    echo "• View operator logs: kubectl logs -n flux-operator-system deployment/flux-operator"
     echo
     echo "Applications will automatically deploy as Flux reconciles."
     echo "This may take 10-15 minutes for all components to be ready."

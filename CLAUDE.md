@@ -24,19 +24,25 @@ terraform apply
 terraform destroy
 ```
 
-### Flux Operations
+### Flux Operator Operations
 ```bash
-# Bootstrap Flux in the cluster
-flux bootstrap git --url=https://github.com/happyvertical/blueprint
+# Deploy Flux using Flux Operator (replaces bootstrap)
+./scripts/flux-operator-deploy
 
-# Check Flux reconciliation status
-flux get all
+# Uninstall Flux completely
+./scripts/flux-operator-uninstall
 
-# Force reconciliation
-flux reconcile source git flux-system
+# Check Flux Operator status
+kubectl get fluxinstance flux -n flux-system
 
-# Check specific kustomization
-flux get kustomization <name>
+# Check GitOps sync status
+kubectl get gitrepository,kustomizations -n flux-system
+
+# View Flux Operator logs
+kubectl logs -n flux-operator-system deployment/flux-operator
+
+# Check SOPS decryption status
+kubectl describe kustomization core -n flux-system | grep -A 10 decryption
 ```
 
 ### Kubernetes Operations
@@ -71,9 +77,10 @@ kubectl describe -n <namespace> <resource-type>/<resource-name>
 
 ### Key Architectural Decisions
 1. **Single DigitalOcean Kubernetes cluster** - All services run in one cluster
-2. **GitOps deployment model** - All deployments through Git commits
-3. **Branch-based testing** - Feature branches automatically deploy to test environments
-4. **Kustomize for configuration** - No Helm charts, pure Kubernetes manifests with Kustomize overlays
+2. **Flux Operator for GitOps** - Declarative Flux management with built-in SOPS support
+3. **SOPS + Age encryption** - All secrets encrypted at rest in Git with automatic decryption
+4. **GitOps deployment model** - All deployments through Git commits
+5. **Kustomize for configuration** - No Helm charts, pure Kubernetes manifests with Kustomize overlays
 
 ### Deployment Flow
 1. Infrastructure changes: Modify Terraform files → Apply changes

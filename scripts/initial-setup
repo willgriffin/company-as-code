@@ -112,7 +112,7 @@ echo "Next steps:"
 echo "1. Run 'direnv allow' to load the environment"
 echo "2. Run './scripts/generate-secrets' to generate application passwords"
 echo "3. Run './scripts/secrets-sync-to-github' to sync secrets to GitHub"
-echo "4. Deploy the cluster and run './scripts/sops-age-deploy'"
+echo "4. Deploy the cluster and run './scripts/flux-operator-deploy'"
 echo "5. Run './scripts/generate-encrypted-secrets' to create encrypted secrets"
 echo
 echo "IMPORTANT: Keep your .envrc.secrets file secure and never commit it!"
