@@ -47,8 +47,7 @@ spec:
       apiversion: traefik.containo.us/v1alpha1
       kind: IngressRoute
     
-    extraArgs:
-      - --traefik-disable-legacy
+    extraArgs: []
     
     policy: sync  # sync = create and delete records, upsert-only = only create
     
