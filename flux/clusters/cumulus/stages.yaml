@@ -1,7 +1,7 @@
 # Staged deployment of infrastructure and applications
 # Each stage depends on the previous one being ready
 
-# Stage 1: Core infrastructure (cert-manager, traefik)
+# Stage 1: Core infrastructure (cert-manager, traefik, external-dns)
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -16,6 +16,10 @@ spec:
   prune: true
   wait: true
   timeout: 5m
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
 
 ---
 # Stage 2: Controllers (database operators, keycloak operator)
@@ -55,6 +59,10 @@ spec:
   prune: true
   wait: true
   timeout: 10m
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
 
 ---
 # Stage 4: Applications (nextcloud, mattermost, mailu)
@@ -74,3 +82,7 @@ spec:
   prune: true
   wait: true
   timeout: 10m
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
