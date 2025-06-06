@@ -74,9 +74,16 @@ echo
 # Uninstall Flux Operator
 echo "4. Uninstalling Flux Operator..."
 if kubectl get namespace flux-operator-system &> /dev/null; then
-    # Get the operator manifest and delete it
-    curl -s https://github.com/controlplaneio-fluxcd/flux-operator/releases/latest/download/flux-operator.yaml | \
-        kubectl delete -f - || true
+    # Try Helm uninstall first
+    if command -v helm &> /dev/null && helm list -n flux-operator-system | grep -q flux-operator; then
+        helm uninstall flux-operator -n flux-operator-system
+    else
+        # Fallback to kubectl delete
+        kubectl delete -k github.com/controlplaneio-fluxcd/flux-operator/config/default || true
+    fi
+    
+    # Delete the namespace
+    kubectl delete namespace flux-operator-system --timeout=60s || true
     echo "   ✓ Flux Operator uninstalled"
 else
     echo "   ℹ️  Flux Operator not found"

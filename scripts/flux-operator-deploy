@@ -21,7 +21,20 @@ fi
 
 # Install Flux Operator
 echo "1. Installing Flux Operator..."
-kubectl apply -f https://github.com/controlplaneio-fluxcd/flux-operator/releases/latest/download/flux-operator.yaml
+# Use Helm to install Flux Operator (more reliable than direct YAML)
+if command -v helm &> /dev/null; then
+    helm upgrade --install flux-operator oci://ghcr.io/controlplaneio-fluxcd/charts/flux-operator \
+        --namespace flux-operator-system \
+        --create-namespace \
+        --wait
+else
+    echo "   Helm not found, using alternative installation method..."
+    # Create namespace first
+    kubectl create namespace flux-operator-system --dry-run=client -o yaml | kubectl apply -f -
+    
+    # Install using Kustomize from the repository
+    kubectl apply -k github.com/controlplaneio-fluxcd/flux-operator/config/default
+fi
 
 # Wait for operator to be ready
 echo "   Waiting for Flux Operator to be ready..."
