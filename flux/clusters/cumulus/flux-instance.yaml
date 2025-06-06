@@ -12,8 +12,7 @@ spec:
   sync:
     kind: GitRepository
     url: "https://github.com/happyvertical/blueprint"
-    ref:
-      branch: "main"
+    ref: "main"
     path: "./flux/clusters/cumulus"
     pullSecret: "flux-system"
     interval: "10m"
