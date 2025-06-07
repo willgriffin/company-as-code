@@ -1,5 +1,15 @@
 name: 'Validate Repository Configuration'
 description: 'Validates that the repository configuration is properly set up before cluster deployment'
+inputs:
+  digitalocean-token:
+    description: 'DigitalOcean API token'
+    required: true
+  github-token:
+    description: 'GitHub token'
+    required: true
+  sops-age-private-key:
+    description: 'SOPS Age private key'
+    required: false
 outputs:
   valid:
     description: 'Whether the configuration is valid'
@@ -121,14 +131,14 @@ runs:
         # Check required GitHub secrets
         echo "Checking required GitHub secrets..."
         
-        if [ -z "${{ secrets.DIGITALOCEAN_TOKEN }}" ]; then
+        if [ -z "${{ inputs.digitalocean-token }}" ]; then
           ERRORS="${ERRORS}\n❌ DIGITALOCEAN_TOKEN secret is not set. Please add it in repository settings."
           VALID="false"
         else
           echo "✅ DIGITALOCEAN_TOKEN secret is set"
         fi
         
-        if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
+        if [ -z "${{ inputs.github-token }}" ]; then
           ERRORS="${ERRORS}\n❌ GITHUB_TOKEN is not available. Check repository workflow permissions in Settings → Actions → General."
           VALID="false"
         else
@@ -136,7 +146,7 @@ runs:
         fi
         
         # SOPS_AGE_PRIVATE_KEY is optional as it can be auto-generated
-        if [ -z "${{ secrets.SOPS_AGE_PRIVATE_KEY }}" ]; then
+        if [ -z "${{ inputs.sops-age-private-key }}" ]; then
           echo "ℹ️ SOPS_AGE_PRIVATE_KEY not set - will be auto-generated"
         else
           echo "✅ SOPS_AGE_PRIVATE_KEY secret is set"

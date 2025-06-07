@@ -34,6 +34,10 @@ jobs:
       - name: Validate Repository Configuration
         id: validate
         uses: ./.github/actions/validate-config
+        with:
+          digitalocean-token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          sops-age-private-key: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
       
       - name: Parse Configuration
         id: parse-config
@@ -69,9 +73,11 @@ jobs:
       
       - name: Generate SOPS Age Key
         id: generate-age-key
+        env:
+          SOPS_KEY: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
         run: |
           # Generate age key if not already set
-          if [ -z "${{ secrets.SOPS_AGE_PRIVATE_KEY }}" ]; then
+          if [ -z "$SOPS_KEY" ]; then
             age-keygen > age.key 2>&1
             PRIVATE_KEY=$(grep -v "^#" age.key)
             PUBLIC_KEY=$(grep "^Public key:" age.key | cut -d' ' -f3)
@@ -85,18 +91,23 @@ jobs:
           else
             echo "age-key-generated=false" >> $GITHUB_OUTPUT
             # Get public key from existing private key
-            echo "${{ secrets.SOPS_AGE_PRIVATE_KEY }}" | age-keygen -y > public.key
+            echo "$SOPS_KEY" | age-keygen -y > public.key
             PUBLIC_KEY=$(cat public.key)
             echo "public-key=$PUBLIC_KEY" >> $GITHUB_OUTPUT
           fi
       
       - name: Generate Application Secrets
+        env:
+          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOPS_AGE_PRIVATE_KEY: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
+          GENERATED_AGE_KEY: ${{ steps.generate-age-key.outputs.private-key }}
         run: |
           # Create temporary .envrc.secrets for secret generation
           cat > .envrc.secrets << EOF
-          export DIGITALOCEAN_TOKEN="${{ secrets.DIGITALOCEAN_TOKEN }}"
-          export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
-          export SOPS_AGE_PRIVATE_KEY="${{ secrets.SOPS_AGE_PRIVATE_KEY || steps.generate-age-key.outputs.private-key }}"
+          export DIGITALOCEAN_TOKEN="${DIGITALOCEAN_TOKEN}"
+          export GITHUB_TOKEN="${GITHUB_TOKEN}"
+          export SOPS_AGE_PRIVATE_KEY="${SOPS_AGE_PRIVATE_KEY:-${GENERATED_AGE_KEY}}"
           
           # Placeholder values that will be generated
           export KEYCLOAK_DB_PASSWORD="placeholder"
@@ -237,12 +248,16 @@ jobs:
           sudo mv sops /usr/local/bin/
       
       - name: Setup environment
+        env:
+          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOPS_AGE_PRIVATE_KEY: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
         run: |
           # Create .envrc.secrets with all required values
           cat > .envrc.secrets << EOF
-          export DIGITALOCEAN_TOKEN="${{ secrets.DIGITALOCEAN_TOKEN }}"
-          export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
-          export SOPS_AGE_PRIVATE_KEY="${{ secrets.SOPS_AGE_PRIVATE_KEY }}"
+          export DIGITALOCEAN_TOKEN="${DIGITALOCEAN_TOKEN}"
+          export GITHUB_TOKEN="${GITHUB_TOKEN}"
+          export SOPS_AGE_PRIVATE_KEY="${SOPS_AGE_PRIVATE_KEY}"
           
           # Load all generated secrets (these would be set in previous job)
           export KEYCLOAK_DB_PASSWORD="$(openssl rand -base64 32 | tr -d =)"
@@ -292,9 +307,11 @@ jobs:
           sudo mv kubectl /usr/local/bin/
       
       - name: Setup kubeconfig
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
         run: |
           mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+          echo "${KUBECONFIG_CONTENT}" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
       
       - name: Install Flux CLI
