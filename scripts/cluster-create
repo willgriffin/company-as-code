@@ -167,14 +167,8 @@ echo "🔧 Step 2: Updating kubeconfig..."
 
 echo "✅ Kubeconfig updated locally and synced to GitHub"
 
-# Step 3: Deploy SOPS age key
-echo "🔐 Step 3: Deploying SOPS age key..."
-./scripts/sops-age-deploy
-
-echo "✅ SOPS age key deployed"
-
-# Step 4: Sync secrets to GitHub and generate encrypted secrets
-echo "🔒 Step 4: Syncing secrets to GitHub..."
+# Step 3: Sync secrets to GitHub and generate encrypted secrets
+echo "🔒 Step 3: Syncing secrets to GitHub..."
 ./scripts/secrets-sync-to-github
 
 echo "🔐 Generating encrypted secrets..."
@@ -187,8 +181,8 @@ git push
 
 echo "✅ Encrypted secrets generated and committed"
 
-# Step 5: Wait for initial reconciliation
-echo "⏳ Step 5: Waiting for Flux to reconcile..."
+# Step 4: Wait for initial reconciliation  
+echo "⏳ Step 4: Waiting for Flux to reconcile..."
 echo "This may take a few minutes as infrastructure components are installed..."
 
 # Wait up to 10 minutes for flux-system to be ready

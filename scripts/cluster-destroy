@@ -54,26 +54,8 @@ done
 echo "✅ Environment loaded successfully"
 echo
 
-# Step 1: Remove Flux deploy key from GitHub (optional cleanup)
-echo "🔑 Step 1: Cleaning up GitHub deploy key..."
-if command -v gh &> /dev/null && gh auth status &> /dev/null; then
-    REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo "")
-    if [[ -n "$REPO" ]]; then
-        # Try to find and remove the deploy key
-        KEY_ID=$(gh api "repos/$REPO/keys" --jq '.[] | select(.title == "flux-system-main-flux-system") | .id' 2>/dev/null || echo "")
-        if [[ -n "$KEY_ID" ]]; then
-            echo "🗑️  Removing Flux deploy key (ID: $KEY_ID)..."
-            gh api -X DELETE "repos/$REPO/keys/$KEY_ID" || echo "⚠️  Could not remove deploy key"
-        else
-            echo "ℹ️  No Flux deploy key found to remove"
-        fi
-    fi
-else
-    echo "ℹ️  Skipping deploy key cleanup (gh CLI not available or not authenticated)"
-fi
-
-# Step 2: Clean up local kubeconfig
-echo "🧹 Step 2: Cleaning up local kubeconfig..."
+# Step 1: Clean up local kubeconfig
+echo "🧹 Step 1: Cleaning up local kubeconfig..."
 if command -v kubectl &> /dev/null; then
     # Try to remove the cluster context
     kubectl config delete-context cumulus 2>/dev/null || echo "ℹ️  Context 'cumulus' not found"
@@ -84,31 +66,33 @@ else
     echo "ℹ️  kubectl not available, skipping kubeconfig cleanup"
 fi
 
-# Step 3: Destroy Terraform infrastructure
-echo "💥 Step 3: Destroying Terraform infrastructure..."
+# Step 2: Destroy Terraform infrastructure
+echo "💥 Step 2: Destroying Terraform infrastructure..."
 cd terraform/digitalocean
 
+# Set environment variables for Terraform backend
+export AWS_ACCESS_KEY_ID="$SPACES_ACCESS_KEY_ID"
+export AWS_SECRET_ACCESS_KEY="$SPACES_SECRET_ACCESS_KEY"
+export DO_TOKEN="$DIGITALOCEAN_TOKEN"
+
+# Export Terraform variables
+export TF_VAR_do_token="$DIGITALOCEAN_TOKEN"
+export TF_VAR_spaces_access_key="$SPACES_ACCESS_KEY_ID"
+export TF_VAR_spaces_secret_key="$SPACES_SECRET_ACCESS_KEY"
+export TF_VAR_github_token="$GITHUB_TOKEN"
+export TF_VAR_sops_age_private_key="${SOPS_AGE_PRIVATE_KEY:-dummy}"
+
 # Initialize Terraform to ensure we have the latest state
-AWS_ACCESS_KEY_ID=$SPACES_ACCESS_KEY_ID \
-AWS_SECRET_ACCESS_KEY=$SPACES_SECRET_ACCESS_KEY \
-DO_TOKEN=$DIGITALOCEAN_TOKEN \
 terraform init -upgrade
 
 # Destroy the infrastructure
-AWS_ACCESS_KEY_ID=$SPACES_ACCESS_KEY_ID \
-AWS_SECRET_ACCESS_KEY=$SPACES_SECRET_ACCESS_KEY \
-DO_TOKEN=$DIGITALOCEAN_TOKEN \
-terraform destroy \
-    -var="do_token=$DIGITALOCEAN_TOKEN" \
-    -var="spaces_access_key=$SPACES_ACCESS_KEY_ID" \
-    -var="spaces_secret_key=$SPACES_SECRET_ACCESS_KEY" \
-    -auto-approve
+terraform destroy -auto-approve
 
 echo "✅ Infrastructure destroyed"
 cd "$REPO_ROOT"
 
-# Step 4: Optional - Clean up encrypted secrets from git
-echo "🔒 Step 4: Clean up options..."
+# Step 3: Optional - Clean up encrypted secrets from git
+echo "🔒 Step 3: Clean up options..."
 echo
 echo "The cluster has been destroyed, but encrypted secrets remain in git."
 echo "You may want to:"

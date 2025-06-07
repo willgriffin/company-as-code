@@ -8,8 +8,9 @@ This directory contains Flux CD configurations for GitOps-based Kubernetes deplo
 flux/
 ├── clusters/              # Cluster-specific configurations
 │   └── cumulus/          # Cumulus cluster (DigitalOcean)
-│       ├── flux-system/  # Core Flux components
-│       ├── infrastructure/ # Infrastructure apps
+│       ├── core/         # Core infrastructure components
+│       ├── controllers/  # Kubernetes operators and controllers
+│       ├── services/     # Platform services
 │       │   ├── cert-manager/     # TLS certificate automation
 │       │   ├── ingress-nginx/    # Ingress controller
 │       │   └── keycloak/         # Identity and access management
@@ -39,17 +40,25 @@ The cumulus cluster hosts the core infrastructure services required for applicat
 - Hosted at: `auth.happyvertical.com`
 - User federation and identity brokering
 
-## Bootstrapping Flux
+## Flux Management
 
+Flux is automatically bootstrapped and managed by the Terraform provider during cluster creation. No manual bootstrap is required.
+
+**Key Features:**
+- **Infrastructure as Code**: Flux lifecycle managed via Terraform
+- **SOPS Integration**: Automatic secret decryption configured via Terraform  
+- **Declarative Configuration**: All Flux settings defined in `terraform/digitalocean/flux.tf`
+
+**Manual Operations:**
 ```bash
-# Ensure kubectl is configured for your cluster
-kubectl config current-context
+# Check Flux status
+flux get all -n flux-system
 
-# Bootstrap Flux (run from repository root)
-flux bootstrap git \
-  --url=https://github.com/happyvertical/blueprint \
-  --branch=main \
-  --path=flux/clusters/cumulus
+# Force reconciliation
+flux reconcile kustomization flux-system -n flux-system
+
+# View Flux configuration (managed by Terraform)
+kubectl get gitrepository,kustomizations -n flux-system
 ```
 
 ## Adding New Applications
@@ -80,9 +89,9 @@ resources:
 ### Adding a New Cluster
 
 1. Create new cluster directory under `flux/clusters/<cluster-name>/`
-2. Copy flux-system from existing cluster
+2. Copy the directory structure from `cumulus/`
 3. Add cluster-specific infrastructure components
-4. Bootstrap Flux pointing to new cluster path
+4. Update Terraform configuration to bootstrap Flux for the new cluster path
 
 ## Flux Commands
 
