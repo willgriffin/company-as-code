@@ -31,7 +31,6 @@ required_vars=(
     "DIGITALOCEAN_TOKEN"
     "SPACES_ACCESS_KEY_ID" 
     "SPACES_SECRET_ACCESS_KEY"
-    "SOPS_AGE_PRIVATE_KEY"
     "GITHUB_TOKEN"
 )
 
@@ -42,6 +41,71 @@ for var in "${required_vars[@]}"; do
         exit 1
     fi
 done
+
+# Handle SOPS age key - generate if not present
+if [ -z "${SOPS_AGE_PRIVATE_KEY:-}" ]; then
+    echo "🔐 SOPS age key not found. Generating new age key for this cluster..."
+    
+    # Check for required tools
+    if ! command -v age-keygen &> /dev/null; then
+        echo "❌ age-keygen not found. Please install age:"
+        echo "  # macOS: brew install age"
+        echo "  # Ubuntu: apt install age"
+        echo "  # Or download from: https://github.com/FiloSottile/age/releases"
+        exit 1
+    fi
+    
+    # Generate new age key
+    AGE_KEY_FILE=$(mktemp)
+    age-keygen -o "$AGE_KEY_FILE" 2>&1 | tee age-keygen.log
+    
+    # Extract keys
+    PUBLIC_KEY=$(grep "^Public key:" age-keygen.log | cut -d' ' -f3)
+    SOPS_AGE_PRIVATE_KEY=$(cat "$AGE_KEY_FILE")
+    
+    # Clean up temporary files
+    rm -f "$AGE_KEY_FILE" age-keygen.log
+    
+    echo "✅ Generated new age key pair"
+    echo "   Public key: $PUBLIC_KEY"
+    echo
+    echo "💾 Updating .envrc.secrets with new age key..."
+    
+    # Update .envrc.secrets
+    if grep -q "^export SOPS_AGE_PRIVATE_KEY=" .envrc.secrets; then
+        sed -i "s|^export SOPS_AGE_PRIVATE_KEY=.*|export SOPS_AGE_PRIVATE_KEY=\"$SOPS_AGE_PRIVATE_KEY\"|" .envrc.secrets
+    else
+        echo "export SOPS_AGE_PRIVATE_KEY=\"$SOPS_AGE_PRIVATE_KEY\"" >> .envrc.secrets
+    fi
+    
+    # Update .sops.yaml
+    echo "🔧 Updating .sops.yaml with new public key..."
+    cat > .sops.yaml << EOF
+creation_rules:
+  # Encrypt Kubernetes secrets
+  - path_regex: .*secrets\.enc\.ya?ml$
+    encrypted_regex: ^(data|stringData)$
+    age: $PUBLIC_KEY
+
+  # Encrypt secret templates (these will be processed by GitHub Actions)
+  - path_regex: .*secret-template\.ya?ml$
+    encrypted_regex: ^(data|stringData)$
+    age: $PUBLIC_KEY
+
+# Don't encrypt these fields in Kubernetes resources
+# This allows metadata to remain visible for GitOps operations
+encrypted_suffix: _encrypted
+EOF
+    
+    echo "✅ Updated .sops.yaml and .envrc.secrets"
+    echo
+    echo "⚠️  IMPORTANT: Remember to update the SOPS_AGE_PRIVATE_KEY secret in GitHub:"
+    echo "   1. Go to https://github.com/happyvertical/blueprint/settings/secrets/actions"
+    echo "   2. Update SOPS_AGE_PRIVATE_KEY with the value from .envrc.secrets"
+    echo
+else
+    echo "✅ Using existing SOPS age key"
+fi
 
 echo "✅ Environment loaded successfully"
 echo

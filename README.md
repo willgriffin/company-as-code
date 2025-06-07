@@ -6,7 +6,7 @@ Infrastructure as Code monorepo for Kubernetes deployments using GitOps.
 
 This repository manages cloud infrastructure and Kubernetes applications through:
 - **[Terraform](./terraform/)** - Infrastructure provisioning  
-- **[Flux Operator](./flux/)** - GitOps continuous delivery with declarative Flux management
+- **[Flux via Terraform](./flux/)** - GitOps continuous delivery with infrastructure-managed Flux
 - **SOPS + Age** - Encrypted secret management
 - **Conventional Commits** - Standardized commit messages for automation
 
@@ -27,9 +27,10 @@ This repository manages cloud infrastructure and Kubernetes applications through
    cp .envrc.secrets.example .envrc.secrets
    
    # Edit .envrc.secrets with your tokens (GitHub, DigitalOcean, etc)
+   # SOPS age key will be auto-generated if missing
    $EDITOR .envrc.secrets
    
-   # Run initial setup to generate age keys and configure SOPS
+   # Run initial setup to generate age keys and configure SOPS (optional)
    ./scripts/initial-setup
    
    # Generate secure passwords for applications
@@ -44,7 +45,8 @@ This repository manages cloud infrastructure and Kubernetes applications through
 
 2. **Create Cluster** (Single Command!)
    ```bash
-   # This does everything: provisions infrastructure, deploys Flux Operator, sets up GitOps
+   # This does everything: provisions infrastructure, deploys Flux via Terraform, sets up GitOps
+   # Auto-generates SOPS age key if not present
    ./scripts/cluster-create
    ```
 
