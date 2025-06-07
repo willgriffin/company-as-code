@@ -23,6 +23,7 @@ jobs:
   validate-config:
     name: Validate Configuration
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       config-valid: ${{ steps.validate.outputs.valid }}
       primary-domain: ${{ steps.parse-config.outputs.primary-domain }}
@@ -54,6 +55,7 @@ jobs:
   setup-secrets:
     name: Generate and Setup Secrets
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: validate-config
     if: needs.validate-config.outputs.config-valid == 'true'
     steps:
@@ -147,6 +149,7 @@ jobs:
   deploy-infrastructure:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [validate-config, setup-secrets]
     if: github.event.inputs.destroy != 'true'
     defaults:
@@ -221,6 +224,7 @@ jobs:
   generate-encrypted-secrets:
     name: Generate Encrypted Secrets
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [deploy-infrastructure]
     steps:
       - uses: actions/checkout@v4
@@ -296,6 +300,7 @@ jobs:
   wait-for-flux:
     name: Wait for Flux Reconciliation
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [generate-encrypted-secrets]
     steps:
       - uses: actions/checkout@v4
@@ -335,6 +340,7 @@ jobs:
   destroy-infrastructure:
     name: Destroy Infrastructure
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: validate-config
     if: github.event.inputs.destroy == 'true'
     defaults:
