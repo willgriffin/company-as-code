@@ -24,25 +24,25 @@ terraform apply
 terraform destroy
 ```
 
-### Flux Operator Operations
+### Flux Operations
 ```bash
-# Deploy Flux using Flux Operator (replaces bootstrap)
-./scripts/flux-operator-deploy
-
-# Uninstall Flux completely
-./scripts/flux-operator-uninstall
-
-# Check Flux Operator status
-kubectl get fluxinstance flux -n flux-system
+# Bootstrap Flux (handled by Terraform during cluster creation)
+# No manual bootstrap needed - managed via Flux Terraform provider
 
 # Check GitOps sync status
 kubectl get gitrepository,kustomizations -n flux-system
 
-# View Flux Operator logs
-kubectl logs -n flux-operator-system deployment/flux-operator
+# Trigger reconciliation
+flux reconcile kustomization flux-system -n flux-system
+
+# View Flux logs
+kubectl logs -n flux-system deployment/kustomize-controller
 
 # Check SOPS decryption status
 kubectl describe kustomization core -n flux-system | grep -A 10 decryption
+
+# Get all Flux resources
+flux get all -n flux-system
 ```
 
 ### Kubernetes Operations
@@ -77,7 +77,7 @@ kubectl describe -n <namespace> <resource-type>/<resource-name>
 
 ### Key Architectural Decisions
 1. **Single DigitalOcean Kubernetes cluster** - All services run in one cluster
-2. **Flux Operator for GitOps** - Declarative Flux management with built-in SOPS support
+2. **Flux v2 with Terraform provider** - GitOps lifecycle managed via Infrastructure as Code
 3. **SOPS + Age encryption** - All secrets encrypted at rest in Git with automatic decryption
 4. **GitOps deployment model** - All deployments through Git commits
 5. **Kustomize for configuration** - No Helm charts, pure Kubernetes manifests with Kustomize overlays

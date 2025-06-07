@@ -89,9 +89,15 @@ echo "💥 Step 3: Destroying Terraform infrastructure..."
 cd terraform/digitalocean
 
 # Initialize Terraform to ensure we have the latest state
+AWS_ACCESS_KEY_ID=$SPACES_ACCESS_KEY_ID \
+AWS_SECRET_ACCESS_KEY=$SPACES_SECRET_ACCESS_KEY \
+DO_TOKEN=$DIGITALOCEAN_TOKEN \
 terraform init -upgrade
 
 # Destroy the infrastructure
+AWS_ACCESS_KEY_ID=$SPACES_ACCESS_KEY_ID \
+AWS_SECRET_ACCESS_KEY=$SPACES_SECRET_ACCESS_KEY \
+DO_TOKEN=$DIGITALOCEAN_TOKEN \
 terraform destroy \
     -var="do_token=$DIGITALOCEAN_TOKEN" \
     -var="spaces_access_key=$SPACES_ACCESS_KEY_ID" \

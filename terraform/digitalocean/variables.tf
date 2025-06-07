@@ -82,3 +82,40 @@ variable "spaces_secret_key" {
   type        = string
   sensitive   = true
 }
+
+# Flux GitOps configuration variables
+variable "github_owner" {
+  description = "GitHub organization or user name"
+  type        = string
+  default     = "happyvertical"
+}
+
+variable "github_repository" {
+  description = "GitHub repository name for GitOps"
+  type        = string
+  default     = "blueprint"
+}
+
+variable "github_token" {
+  description = "GitHub personal access token for repository access"
+  type        = string
+  sensitive   = true
+}
+
+variable "flux_target_branch" {
+  description = "Git branch to track for GitOps"
+  type        = string
+  default     = "main"
+}
+
+variable "flux_target_path" {
+  description = "Path in repository for GitOps manifests"
+  type        = string
+  default     = "./flux/clusters/cumulus"
+}
+
+variable "sops_age_private_key" {
+  description = "Age private key for SOPS decryption"
+  type        = string
+  sensitive   = true
+}

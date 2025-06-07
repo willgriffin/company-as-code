@@ -18,3 +18,16 @@ tags = [
 ]
 
 project_name = "happyvertical-blueprint"
+
+# Flux GitOps configuration
+github_owner       = "happyvertical"
+github_repository  = "blueprint"
+flux_target_branch = "main"
+flux_target_path   = "./flux/clusters/cumulus"
+
+# Sensitive variables will be passed via environment variables:
+# TF_VAR_do_token
+# TF_VAR_spaces_access_key  
+# TF_VAR_spaces_secret_key
+# TF_VAR_github_token
+# TF_VAR_sops_age_private_key

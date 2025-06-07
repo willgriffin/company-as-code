@@ -4,15 +4,3 @@ namespace: keycloak-operator
 resources:
   - namespace.yaml
   - resources.yaml
-patches:
-  - target:
-      kind: Deployment
-      name: keycloak-operator
-    patch: |-
-      - op: remove
-        path: /spec/template/spec/containers/0/env/0
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: WATCH_NAMESPACE
-          value: ""  # Empty string means watch all namespaces

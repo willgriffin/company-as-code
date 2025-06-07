@@ -62,9 +62,6 @@ This repository manages cloud infrastructure and Kubernetes applications through
 
 **Check Status:**
 ```bash
-# Check Flux Operator status
-kubectl get fluxinstance flux -n flux-system
-
 # Check GitOps sync status  
 kubectl get gitrepository -n flux-system
 kubectl get kustomizations -n flux-system
@@ -73,25 +70,25 @@ kubectl get kustomizations -n flux-system
 kubectl get pods -A
 ```
 
-### GitOps with Flux Operator
+### GitOps with Flux
 
-This repository uses the **Flux Operator** for declarative GitOps management:
+This repository uses **Flux v2** with the **Flux Terraform provider** for GitOps continuous delivery:
 
-- **Declarative Flux Management** - Flux is configured via `FluxInstance` custom resource
-- **Built-in SOPS Support** - Automatic secret decryption with age keys
-- **No Bootstrap Required** - Deploy Flux like any other Kubernetes application
-- **Easy Upgrades** - Update Flux version by modifying the `FluxInstance` spec
+- **Infrastructure-managed GitOps** - Flux bootstrap handled by Terraform
+- **SOPS Encryption** - Secrets encrypted at rest in Git with automatic decryption
+- **Multi-stage Dependencies** - Ordered deployment of infrastructure and applications  
+- **Health Checks** - Automatic rollback on deployment failures
 
-**Manual Flux Management:**
+**Flux Management:**
 ```bash
-# Deploy Flux Operator (run after cluster creation)
-./scripts/flux-operator-deploy
+# Check Flux status (installed via Terraform)
+flux get all -n flux-system
 
-# Uninstall Flux completely
-./scripts/flux-operator-uninstall
+# Trigger reconciliation
+flux reconcile kustomization flux-system -n flux-system
 
-# Check Flux Operator logs
-kubectl logs -n flux-operator-system deployment/flux-operator
+# Check Flux logs
+kubectl logs -n flux-system deployment/kustomize-controller
 ```
 
 ## Repository Structure
