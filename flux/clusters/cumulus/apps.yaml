@@ -1,0 +1,82 @@
+# Application deployments with granular dependencies
+# Each application declares only its actual dependencies
+
+---
+# Mattermost - Team Chat
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: mattermost
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: traefik              # Needs ingress
+    - name: cert-manager-post-deploy  # Needs TLS certificates
+    - name: cloudnativepg        # Needs PostgreSQL
+    - name: keycloak            # Needs identity provider
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/applications/mattermost
+  prune: true
+  wait: true
+  timeout: 10m
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+
+---
+# Nextcloud - Cloud Storage
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: nextcloud
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: traefik              # Needs ingress
+    - name: cert-manager-post-deploy  # Needs TLS certificates
+    - name: cloudnativepg        # Needs PostgreSQL
+    - name: redis-operator       # Needs Redis for caching
+    - name: keycloak            # Needs identity provider for OIDC
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/applications/nextcloud
+  prune: true
+  wait: true
+  timeout: 10m
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+
+---
+# Mailu - Email Server
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: mailu
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: traefik              # Needs ingress
+    - name: cert-manager-post-deploy  # Needs TLS certificates
+    - name: cloudnativepg        # Needs PostgreSQL operator
+    - name: redis-operator       # Needs Redis operator
+    - name: keycloak            # Needs identity provider for OAuth
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/applications/mailu
+  prune: true
+  wait: true
+  timeout: 10m
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age

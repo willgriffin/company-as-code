@@ -1,191 +1,203 @@
-# Blueprint
+# Startup GitOps Template
 
-Infrastructure as Code monorepo for Kubernetes deployments using GitOps.
+🚀 **One-click Kubernetes deployment template** for complete infrastructure with GitOps on [DigitalOcean](https://digitalocean.pxf.io/3evZdB).
 
-## Overview
+[![Deploy](https://img.shields.io/badge/Deploy-DigitalOcean-blue?style=for-the-badge&logo=digitalocean)](../../actions/workflows/cluster-deploy.yml)
+[![Use Template](https://img.shields.io/badge/Use-Template-green?style=for-the-badge&logo=github)](../../generate)
 
-This repository manages cloud infrastructure and Kubernetes applications through:
-- **[Terraform](./terraform/)** - Infrastructure provisioning  
-- **[Flux via Terraform](./flux/)** - GitOps continuous delivery with infrastructure-managed Flux
-- **SOPS + Age** - Encrypted secret management
-- **Conventional Commits** - Standardized commit messages for automation
+> **Note**: Links to DigitalOcean are affiliate links that help support the maintenance of this template.
 
-## Quick Start
+## 🌟 What This Template Provides
 
-### Prerequisites
-- [age](https://github.com/FiloSottile/age) - For secret encryption
-- [sops](https://github.com/getsops/sops) - For secret management  
-- [kubectl](https://kubernetes.io/docs/tasks/tools/) - For Kubernetes cluster access
-- [direnv](https://direnv.net/) - For environment management
-- [terraform](https://developer.hashicorp.com/terraform/downloads) - For infrastructure provisioning
+Deploy a complete, production-ready Kubernetes infrastructure in minutes:
 
-### One-Time Setup
+### 🏗️ **Infrastructure**
+- **[DigitalOcean](https://digitalocean.pxf.io/3evZdB) Kubernetes Cluster** - Managed Kubernetes with auto-scaling
+- **GitOps with Flux v2** - Automated deployments from Git
+- **Encrypted Secrets** - SOPS + Age encryption for secure secret management
+- **Automatic DNS** - DigitalOcean DNS integration with external-dns
+- **TLS Certificates** - Automatic cert-manager with Let's Encrypt
 
-1. **Configure Secrets**
-   ```bash
-   # Copy the example secrets file
-   cp .envrc.secrets.example .envrc.secrets
-   
-   # Edit .envrc.secrets with your tokens (GitHub, DigitalOcean, etc)
-   # SOPS age key will be auto-generated if missing
-   $EDITOR .envrc.secrets
-   
-   # Run initial setup to generate age keys and configure SOPS (optional)
-   ./scripts/initial-setup
-   
-   # Generate secure passwords for applications
-   ./scripts/generate-secrets
-   
-   # Sync secrets to GitHub for CI/CD workflows
-   ./scripts/secrets-sync-to-github
-   
-   # Allow direnv to load the environment
-   direnv allow
-   ```
+### 🚀 **Applications** (All Optional)
+- **🔐 Keycloak** - Identity and access management (`auth.yourdomain.com`)
+- **💬 Mattermost** - Team chat and collaboration (`chat.yourdomain.com`)  
+- **☁️ Nextcloud** - Cloud storage and office suite (`cloud.yourdomain.com`)
+- **📧 Mailu** - Complete email server (`mail.yourdomain.com`)
 
-2. **Create Cluster** (Single Command!)
-   ```bash
-   # This does everything: provisions infrastructure, deploys Flux via Terraform, sets up GitOps
-   # Auto-generates SOPS age key if not present
-   ./scripts/cluster-create
-   ```
+## 🚀 Quick Start
 
-### Cluster Management
+### 1. Use This Template
 
-**Create/Recreate Cluster:**
-```bash
-./scripts/cluster-create
-```
+Click the **"Use this template"** button above to create your own repository.
 
-**Destroy Cluster:**
-```bash
-./scripts/cluster-destroy
-```
+### 2. Set Up Required Secrets
 
-**Check Status:**
-```bash
-# Check GitOps sync status  
-kubectl get gitrepository -n flux-system
-kubectl get kustomizations -n flux-system
+In your new repository, go to **Settings → Secrets and variables → Actions** and add:
 
-# Check application pods
-kubectl get pods -A
-```
+- **`DIGITALOCEAN_TOKEN`** - Your DigitalOcean API token ([https://cloud.digitalocean.com/account/api/tokens](https://digitalocean.pxf.io/je2Ggv))
 
-### GitOps with Flux
+**Note**: The template uses GitHub's built-in `GITHUB_TOKEN`. If you encounter permission issues, check **Settings → Actions → General → Workflow permissions** and select "Read and write permissions".
 
-This repository uses **Flux v2** with the **Flux Terraform provider** for GitOps continuous delivery:
-
-- **Infrastructure-managed GitOps** - Flux bootstrap handled by Terraform
-- **SOPS Encryption** - Secrets encrypted at rest in Git with automatic decryption
-- **Multi-stage Dependencies** - Ordered deployment of infrastructure and applications  
-- **Health Checks** - Automatic rollback on deployment failures
-
-**Flux Management:**
-```bash
-# Check Flux status (installed via Terraform)
-flux get all -n flux-system
-
-# Trigger reconciliation
-flux reconcile kustomization flux-system -n flux-system
-
-# Check Flux logs
-kubectl logs -n flux-system deployment/kustomize-controller
-```
-
-## Repository Structure
-
-```
-blueprint/
-├── terraform/              # Infrastructure as Code
-│   ├── digitalocean/      # DigitalOcean Kubernetes cluster
-│   └── README.md          # Terraform documentation
-├── flux/                   # GitOps configurations
-│   ├── clusters/          # Cluster-specific deployments
-│   │   └── cumulus/       # DigitalOcean cluster
-│   └── README.md          # Flux documentation
-├── scripts/                # Utility scripts
-│   ├── kubeconfig-get     # Retrieve kubeconfig from Terraform
-│   ├── kubeconfig-update-local      # Update local ~/.kube config
-│   └── kubeconfig-update-repo-secret # Update GitHub secret
-└── CLAUDE.md              # AI assistant context
-```
-
-## Documentation
-
-- **[Terraform Documentation](./terraform/)** - Infrastructure provisioning guides
-- **[Flux Documentation](./flux/)** - GitOps deployment guides
-- **[GitHub Actions Workflows](./.github/workflows/)** - CI/CD automation
-
-## Utility Scripts
-
-### Kubeconfig Management
-
-After deploying the cluster with Terraform, use these scripts to manage kubeconfig:
+### 3. Configure Your Deployment
 
 ```bash
-# Get kubeconfig from Terraform output
-./scripts/kubeconfig-get
+# Clone your new repository
+git clone https://github.com/yourusername/your-repo-name.git
+cd your-repo-name
 
-# Update local ~/.kube/have-[hostname].config
-./scripts/kubeconfig-update-local
-
-# Update GitHub repository KUBECONFIG secret
-./scripts/kubeconfig-update-repo-secret
+# Copy and customize configuration
+cp config.yaml.example config.yaml
+# Edit config.yaml with your domain and preferences
 ```
 
-## Prerequisites
+**Important**: Set up your domain in DigitalOcean DNS before deploying.
 
-- Terraform >= 1.0
-- kubectl
-- flux CLI
-- DigitalOcean account
-- GitHub repository access
+### 4. Deploy! 🚀
 
-## Commit Message Format
-
-This project uses [Conventional Commits](https://www.conventionalcommits.org/) for standardized commit messages:
-
-```
-<type>[optional scope]: <description>
-
-[optional body]
-
-[optional footer(s)]
-```
-
-**Types:**
-- `feat`: New feature
-- `fix`: Bug fix  
-- `docs`: Documentation only changes
-- `style`: Code style changes (formatting, missing semi-colons, etc)
-- `refactor`: Code refactoring
-- `perf`: Performance improvements
-- `test`: Adding missing tests
-- `chore`: Changes to build process or auxiliary tools
-- `ci`: Changes to CI configuration files and scripts
-
-**Examples:**
 ```bash
-git commit -m "feat: add prometheus monitoring stack"
-git commit -m "fix: correct ingress nginx configuration"
-git commit -m "docs: update deployment instructions"
-git commit -m "chore: update terraform digitalocean provider"
+# Commit your configuration
+git add config.yaml
+git commit -m "feat: configure deployment settings"
+git push
 ```
 
-**Breaking changes:**
-```bash
-git commit -m "feat!: migrate to managed kubernetes cluster
+That's it! GitHub Actions will automatically deploy your entire infrastructure. Monitor progress in the **Actions** tab.
 
-BREAKING CHANGE: removes self-managed k3s setup"
+## 📋 Configuration Options
+
+Edit `config.yaml` to customize your deployment:
+
+```yaml
+# Domain setup
+domain:
+  primary: "yourdomain.com"    # Your domain (required)
+
+# Cluster configuration  
+cluster:
+  name: "cumulus"             # Cluster name
+  region: "nyc3"              # DigitalOcean region
+  node_size: "s-1vcpu-2gb"    # Node size
+  min_nodes: 2                # Min nodes
+  max_nodes: 3                # Max nodes
+
+# Enable/disable services
+services:
+  keycloak:
+    enabled: true             # Identity management
+  mattermost:
+    enabled: true             # Team chat
+  nextcloud:
+    enabled: true             # Cloud storage
+  mailu:
+    enabled: true             # Email server
 ```
 
-## Support
+## 🎛️ Management
 
-- [Terraform DigitalOcean Provider](https://registry.terraform.io/providers/digitalocean/digitalocean/latest/docs)
-- [Flux Documentation](https://fluxcd.io/flux/)
-- [Kubernetes Documentation](https://kubernetes.io/docs/)
+### Manual Deployment Trigger
+Go to **Actions → Deploy Kubernetes Cluster → Run workflow**
 
-## License
+### Destroy Infrastructure  
+Go to **Actions → Deploy Kubernetes Cluster → Run workflow** and check "Destroy cluster"
 
-MIT
+### Monitor Deployment
+- **GitHub Actions**: Check the Actions tab for deployment progress
+- **Kubernetes**: Access your cluster using the generated kubeconfig
+
+## 🔧 How It Works
+
+This template uses modern DevOps practices for reliable, automated infrastructure:
+
+### GitOps with Flux v2
+- **Infrastructure-managed** - Flux bootstrap handled by Terraform
+- **Encrypted secrets** - SOPS + Age encryption for secure secret management  
+- **Automatic reconciliation** - Changes in Git automatically deployed to cluster
+- **Health checks** - Automatic rollback on deployment failures
+
+### Architecture
+```
+GitHub Repository (GitOps Source)
+        ↓
+   GitHub Actions (CI/CD)
+        ↓  
+   Terraform (Infrastructure)
+        ↓
+   DigitalOcean Kubernetes
+        ↓
+   Flux (GitOps Controller)
+        ↓
+   Applications (Deployed automatically)
+```
+
+## 📁 Repository Structure
+
+```
+your-kubernetes-project/
+├── config.yaml              # 📝 Your deployment configuration
+├── terraform/                # 🏗️ Infrastructure as Code
+│   └── digitalocean/         # DigitalOcean Kubernetes cluster
+├── flux/                     # 🔄 GitOps configurations  
+│   └── clusters/cumulus/     # Cluster-specific deployments
+├── .github/                  # 🚀 GitHub Actions workflows
+│   ├── workflows/            # Deployment automation
+│   └── actions/              # Reusable validation steps
+└── scripts/                  # 🛠️ Utility scripts
+```
+
+## 📚 Documentation
+
+- **[Template Setup Guide](./TEMPLATE_SETUP.md)** - Detailed setup instructions
+- **[Terraform Documentation](./terraform/)** - Infrastructure details
+- **[Flux Documentation](./flux/)** - GitOps deployment details
+
+## 🆘 Troubleshooting
+
+### Common Issues
+
+**❌ Configuration validation failed**
+- Update placeholder values in `config.yaml`
+- Ensure domain is set up in DigitalOcean DNS
+
+**❌ Missing GitHub secrets**  
+- Add `DIGITALOCEAN_TOKEN` and `GITHUB_TOKEN` in repository settings
+
+**⏳ Deployment taking too long**
+- Applications can take 10-15 minutes to fully deploy
+- Monitor progress in Actions tab and check pod status
+
+## 🌟 Features
+
+### 🔐 **Security First**
+- Encrypted secrets with SOPS + Age
+- Automatic TLS certificates
+- OAuth/OIDC integration
+- Network policies and RBAC
+
+### ⚡ **Production Ready**  
+- High availability setup
+- Auto-scaling nodes
+- Health checks and monitoring
+- Backup strategies
+
+### 🛠️ **Developer Friendly**
+- One-command deployment
+- GitOps workflow
+- Infrastructure as Code
+- Conventional commits
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## 🙏 Acknowledgments
+
+Built with:
+- [Terraform](https://terraform.io) - Infrastructure as Code
+- [Flux](https://fluxcd.io) - GitOps toolkit  
+- [SOPS](https://github.com/getsops/sops) - Secret encryption
+- [Kubernetes](https://kubernetes.io) - Container orchestration
+- [DigitalOcean](https://digitalocean.pxf.io/3evZdB) - Cloud infrastructure
+
+---
+
+⭐ **Star this repository** if you find it useful!

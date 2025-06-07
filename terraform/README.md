@@ -2,6 +2,8 @@
 
 This directory contains Terraform configurations for provisioning infrastructure across different cloud providers.
 
+> **Note**: Links to DigitalOcean are affiliate links that help support the maintenance of this template.
+
 ## Directory Structure
 
 ```
@@ -14,7 +16,7 @@ terraform/
 └── modules/         # Reusable Terraform modules (future)
 ```
 
-## DigitalOcean Infrastructure
+## [DigitalOcean](https://digitalocean.pxf.io/3evZdB) Infrastructure
 
 The DigitalOcean configuration provisions:
 - Managed Kubernetes cluster (DOKS)

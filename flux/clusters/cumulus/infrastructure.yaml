@@ -1,0 +1,117 @@
+# Individual Flux Kustomizations for granular dependency management
+# Each component can be referenced independently by applications
+
+---
+# Traefik - Ingress Controller
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: traefik
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/core/traefik
+  prune: true
+  wait: true
+  timeout: 5m
+
+---
+# External DNS - Automatic DNS management
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: external-dns
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/core/external-dns
+  prune: true
+  wait: true
+  timeout: 5m
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+
+---
+# CloudNativePG - PostgreSQL Operator
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: cloudnativepg
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/controllers/cloudnativepg
+  prune: true
+  wait: true
+  timeout: 5m
+
+---
+# Redis Operator
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: redis-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/controllers/redis-operator
+  prune: true
+  wait: true
+  timeout: 5m
+
+---
+# Keycloak Operator
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: keycloak-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/controllers/keycloak-operator
+  prune: true
+  wait: true
+  timeout: 5m
+
+---
+# Keycloak Instance - Identity Provider
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: keycloak
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: traefik
+    - name: cert-manager-post-deploy
+    - name: keycloak-operator
+    - name: cloudnativepg
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/services/keycloak
+  prune: true
+  wait: true
+  timeout: 10m
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age

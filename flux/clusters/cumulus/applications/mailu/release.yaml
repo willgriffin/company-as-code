@@ -128,39 +128,28 @@ spec:
       size: 100Gi
       storageClass: do-block-storage
       
-    # Redis
+    # External Redis configuration (using Redis operator)
     redis:
-      image:
-        repository: redis
-        tag: 7-alpine
-      resources:
-        requests:
-          memory: 64Mi
-          cpu: 25m
-        limits:
-          memory: 128Mi
-          cpu: 100m
+      enabled: false  # Disable internal Redis
+      # External Redis connection
+      external:
+        host: "rfs-mailu-redis.mailu.svc.cluster.local"
+        port: "6379"
     
-    # PostgreSQL for Mailu database
+    # External PostgreSQL configuration (using CloudNativePG)
     database:
       type: postgresql
+      # External database connection details
       postgresql:
-        image:
-          repository: postgres
-          tag: 15-alpine
-        auth:
-          database: mailu
-          username: mailu
-          password: changeme-in-production
-        persistence:
-          size: 10Gi
-        resources:
-          requests:
-            memory: 128Mi
-            cpu: 50m
-          limits:
-            memory: 256Mi
-            cpu: 200m
+        enabled: false  # Disable internal PostgreSQL
+      # External database configuration
+      external:
+        host: "mailu-postgres-rw.mailu.svc.cluster.local"
+        port: "5432"
+        database: "mailu"
+        username: "mailu"
+        passwordSecretName: "mailu-postgres-credentials"
+        passwordSecretKey: "password"
     
     # Security settings
     subnet: "10.244.0.0/16"  # Kubernetes pod network

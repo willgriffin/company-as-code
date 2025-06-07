@@ -1,0 +1,65 @@
+# Repository Configuration
+# This file contains user-customizable settings for the Kubernetes cluster deployment.
+# Update these values after creating a repository from the template.
+
+# Repository Information
+repository:
+  owner: "your-github-username"  # Update with your GitHub username/organization
+  name: "your-repo-name"         # Update with your repository name
+
+# Domain Configuration
+domain:
+  primary: "example.com"         # Primary domain for services (required)
+  subdomain_prefix: "k8s"        # Prefix for service subdomains (optional)
+  # Services will be accessible at:
+  # - auth.{primary} (Keycloak)
+  # - chat.{primary} (Mattermost)
+  # - cloud.{primary} (Nextcloud)
+  # - mail.{primary} (Mailu)
+
+# Cluster Configuration
+cluster:
+  name: "cumulus"               # Kubernetes cluster name
+  region: "nyc3"               # DigitalOcean region
+  node_size: "s-1vcpu-2gb"     # Node size
+  min_nodes: 2                 # Minimum nodes in pool
+  max_nodes: 3                 # Maximum nodes in pool
+  node_count: 2                # Initial node count
+  auto_scale: true             # Enable autoscaling
+
+# Project Configuration
+project:
+  name: "My Kubernetes Project" # Descriptive project name for tagging
+
+# Service Configuration
+services:
+  # Authentication service (Keycloak)
+  keycloak:
+    enabled: true
+    admin_user: "admin"
+    realm_name: "myrealm"
+  
+  # Chat service (Mattermost)
+  mattermost:
+    enabled: true
+    site_name: "My Team Chat"
+  
+  # Cloud storage (Nextcloud)
+  nextcloud:
+    enabled: true
+    admin_user: "admin"
+  
+  # Email service (Mailu)
+  mailu:
+    enabled: true
+    admin_user: "admin"
+
+# Advanced Configuration (usually don't need to change)
+advanced:
+  flux:
+    target_branch: "main"
+    target_path: "./flux/clusters/cumulus"
+  terraform:
+    backend_region: "nyc3"
+  kubernetes:
+    version: null  # Use latest available version

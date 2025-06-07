@@ -2,6 +2,8 @@
 
 This directory contains Flux CD configurations for GitOps-based Kubernetes deployments.
 
+> **Note**: Links to DigitalOcean are affiliate links that help support the maintenance of this template.
+
 ## Directory Structure
 
 ```

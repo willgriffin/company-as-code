@@ -22,7 +22,7 @@ spec:
           - --email-domain=*
           - --upstream=static://200
           - --http-address=0.0.0.0:4180
-          - --redis-connection-url=redis://mailu-redis:6379
+          - --redis-connection-url=redis://rfs-mailu-redis:26379
           - --session-store-type=redis
           - --cookie-secure=true
           - --cookie-domain=.happyvertical.com

@@ -1,0 +1,348 @@
+name: Deploy Kubernetes Cluster
+
+on:
+  workflow_dispatch:
+    inputs:
+      destroy:
+        description: 'Destroy cluster instead of creating it'
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches: [main]
+    paths:
+      - 'config.yaml'
+      - 'terraform/**'
+      - 'flux/**'
+      - '.github/workflows/cluster-deploy.yml'
+
+env:
+  TF_IN_AUTOMATION: true
+
+jobs:
+  validate-config:
+    name: Validate Configuration
+    runs-on: ubuntu-latest
+    outputs:
+      config-valid: ${{ steps.validate.outputs.valid }}
+      primary-domain: ${{ steps.parse-config.outputs.primary-domain }}
+      cluster-name: ${{ steps.parse-config.outputs.cluster-name }}
+      region: ${{ steps.parse-config.outputs.region }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate Repository Configuration
+        id: validate
+        uses: ./.github/actions/validate-config
+      
+      - name: Parse Configuration
+        id: parse-config
+        run: |
+          # Parse config.yaml and extract key values
+          PRIMARY_DOMAIN=$(yq eval '.domain.primary' config.yaml)
+          CLUSTER_NAME=$(yq eval '.cluster.name' config.yaml)
+          REGION=$(yq eval '.cluster.region' config.yaml)
+          
+          echo "primary-domain=$PRIMARY_DOMAIN" >> $GITHUB_OUTPUT
+          echo "cluster-name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+          echo "region=$REGION" >> $GITHUB_OUTPUT
+
+  setup-secrets:
+    name: Generate and Setup Secrets
+    runs-on: ubuntu-latest
+    needs: validate-config
+    if: needs.validate-config.outputs.config-valid == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install tools
+        run: |
+          # Install age for SOPS encryption
+          curl -Lo age.tar.gz https://github.com/FiloSottile/age/releases/latest/download/age-v1.1.1-linux-amd64.tar.gz
+          tar xf age.tar.gz
+          sudo mv age/age* /usr/local/bin/
+          
+          # Install SOPS
+          curl -Lo sops https://github.com/mozilla/sops/releases/latest/download/sops-v3.8.1.linux.amd64
+          chmod +x sops
+          sudo mv sops /usr/local/bin/
+      
+      - name: Generate SOPS Age Key
+        id: generate-age-key
+        run: |
+          # Generate age key if not already set
+          if [ -z "${{ secrets.SOPS_AGE_PRIVATE_KEY }}" ]; then
+            age-keygen > age.key 2>&1
+            PRIVATE_KEY=$(grep -v "^#" age.key)
+            PUBLIC_KEY=$(grep "^Public key:" age.key | cut -d' ' -f3)
+            
+            echo "private-key=$PRIVATE_KEY" >> $GITHUB_OUTPUT
+            echo "public-key=$PUBLIC_KEY" >> $GITHUB_OUTPUT
+            echo "age-key-generated=true" >> $GITHUB_OUTPUT
+            
+            # Update .sops.yaml with new public key
+            sed -i "s/age: age[a-z0-9]*/age: $PUBLIC_KEY/g" .sops.yaml
+          else
+            echo "age-key-generated=false" >> $GITHUB_OUTPUT
+            # Get public key from existing private key
+            echo "${{ secrets.SOPS_AGE_PRIVATE_KEY }}" | age-keygen -y > public.key
+            PUBLIC_KEY=$(cat public.key)
+            echo "public-key=$PUBLIC_KEY" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Generate Application Secrets
+        run: |
+          # Create temporary .envrc.secrets for secret generation
+          cat > .envrc.secrets << EOF
+          export DIGITALOCEAN_TOKEN="${{ secrets.DIGITALOCEAN_TOKEN }}"
+          export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          export SOPS_AGE_PRIVATE_KEY="${{ secrets.SOPS_AGE_PRIVATE_KEY || steps.generate-age-key.outputs.private-key }}"
+          
+          # Placeholder values that will be generated
+          export KEYCLOAK_DB_PASSWORD="placeholder"
+          export KEYCLOAK_ADMIN_PASSWORD="placeholder"
+          export MATTERMOST_DB_PASSWORD="placeholder"
+          export MATTERMOST_OAUTH_CLIENT_ID="placeholder"
+          export MATTERMOST_OAUTH_CLIENT_SECRET="placeholder"
+          export NEXTCLOUD_DB_PASSWORD="placeholder"
+          export NEXTCLOUD_OIDC_CLIENT_ID="placeholder"
+          export NEXTCLOUD_OIDC_CLIENT_SECRET="placeholder"
+          export MAILU_OAUTH2_CLIENT_ID="placeholder"
+          export MAILU_OAUTH2_CLIENT_SECRET="placeholder"
+          export MAILU_OAUTH2_COOKIE_SECRET="placeholder"
+          EOF
+          
+          # Generate secure passwords and secrets
+          ./scripts/generate-secrets
+      
+      - name: Update GitHub Secrets
+        if: steps.generate-age-key.outputs.age-key-generated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Update SOPS_AGE_PRIVATE_KEY secret if it was generated
+          echo "${{ steps.generate-age-key.outputs.private-key }}" | \
+            gh secret set SOPS_AGE_PRIVATE_KEY --repo ${{ github.repository }}
+      
+      - name: Commit updated .sops.yaml
+        if: steps.generate-age-key.outputs.age-key-generated == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .sops.yaml
+          git commit -m "feat: update SOPS configuration with new age key" || exit 0
+          git push
+
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: [validate-config, setup-secrets]
+    if: github.event.inputs.destroy != 'true'
+    defaults:
+      run:
+        working-directory: terraform/digitalocean
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5.0"
+      
+      - name: Parse Configuration for Terraform
+        id: parse-config
+        run: |
+          cd ../../
+          
+          # Parse config.yaml and create terraform.tfvars
+          cat > terraform/digitalocean/auto.tfvars << EOF
+          cluster_name = "$(yq eval '.cluster.name' config.yaml)"
+          region = "$(yq eval '.cluster.region' config.yaml)"
+          node_size = "$(yq eval '.cluster.node_size' config.yaml)"
+          min_nodes = $(yq eval '.cluster.min_nodes' config.yaml)
+          max_nodes = $(yq eval '.cluster.max_nodes' config.yaml)
+          node_count = $(yq eval '.cluster.node_count' config.yaml)
+          auto_scale = $(yq eval '.cluster.auto_scale' config.yaml)
+          project_name = "$(yq eval '.project.name' config.yaml)"
+          github_owner = "$(yq eval '.repository.owner' config.yaml)"
+          github_repository = "$(yq eval '.repository.name' config.yaml)"
+          flux_target_branch = "$(yq eval '.advanced.flux.target_branch' config.yaml)"
+          flux_target_path = "$(yq eval '.advanced.flux.target_path' config.yaml)"
+          EOF
+      
+      - name: Terraform Init
+        run: terraform init
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_spaces_access_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_spaces_secret_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
+      
+      - name: Terraform Plan
+        run: terraform plan
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_spaces_access_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_spaces_secret_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_sops_age_private_key: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
+      
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_spaces_access_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_spaces_secret_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_sops_age_private_key: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
+      
+      - name: Update Kubeconfig Secret
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get kubeconfig from Terraform output
+          KUBECONFIG_CONTENT=$(terraform output -raw kubeconfig)
+          
+          # Update GitHub secret
+          echo "$KUBECONFIG_CONTENT" | gh secret set KUBECONFIG --repo ${{ github.repository }}
+
+  generate-encrypted-secrets:
+    name: Generate Encrypted Secrets
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Install yq
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+      
+      - name: Update domain references
+        run: |
+          ./scripts/update-domain-references
+      
+      - name: Install tools
+        run: |
+          # Install age and SOPS
+          curl -Lo age.tar.gz https://github.com/FiloSottile/age/releases/latest/download/age-v1.1.1-linux-amd64.tar.gz
+          tar xf age.tar.gz
+          sudo mv age/age* /usr/local/bin/
+          
+          curl -Lo sops https://github.com/mozilla/sops/releases/latest/download/sops-v3.8.1.linux.amd64
+          chmod +x sops
+          sudo mv sops /usr/local/bin/
+      
+      - name: Setup environment
+        run: |
+          # Create .envrc.secrets with all required values
+          cat > .envrc.secrets << EOF
+          export DIGITALOCEAN_TOKEN="${{ secrets.DIGITALOCEAN_TOKEN }}"
+          export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          export SOPS_AGE_PRIVATE_KEY="${{ secrets.SOPS_AGE_PRIVATE_KEY }}"
+          
+          # Load all generated secrets (these would be set in previous job)
+          export KEYCLOAK_DB_PASSWORD="$(openssl rand -base64 32 | tr -d =)"
+          export KEYCLOAK_ADMIN_PASSWORD="$(openssl rand -base64 32 | tr -d =)"
+          export MATTERMOST_DB_PASSWORD="$(openssl rand -base64 32 | tr -d =)"
+          export MATTERMOST_OAUTH_CLIENT_ID="mattermost-oauth-$(openssl rand -hex 6)"
+          export MATTERMOST_OAUTH_CLIENT_SECRET="$(openssl rand -base64 48 | tr -d =)"
+          export NEXTCLOUD_DB_PASSWORD="$(openssl rand -base64 32 | tr -d =)"
+          export NEXTCLOUD_OIDC_CLIENT_ID="nextcloud-oidc-$(openssl rand -hex 6)"
+          export NEXTCLOUD_OIDC_CLIENT_SECRET="$(openssl rand -base64 48 | tr -d =)"
+          export MAILU_OAUTH2_CLIENT_ID="mailu-oauth2-$(openssl rand -hex 6)"
+          export MAILU_OAUTH2_CLIENT_SECRET="$(openssl rand -base64 48 | tr -d =)"
+          export MAILU_OAUTH2_COOKIE_SECRET="$(openssl rand -base64 64 | tr -d =)"
+          EOF
+      
+      - name: Generate encrypted secrets
+        run: |
+          source .envrc.secrets
+          ./scripts/generate-encrypted-secrets
+      
+      - name: Commit encrypted secrets and domain updates
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add flux/clusters/cumulus/*/secrets.enc.yaml
+          git add flux/clusters/cumulus/*/ingress*.yaml
+          git add flux/clusters/cumulus/*/release.yaml
+          git add flux/clusters/cumulus/*/realm-*.yaml
+          git commit -m "feat: add encrypted secrets and update domain references for cluster deployment
+
+          🤖 Generated with GitHub Actions
+          
+          Co-Authored-By: GitHub Actions <noreply@github.com>" || exit 0
+          git push
+
+  wait-for-flux:
+    name: Wait for Flux Reconciliation
+    runs-on: ubuntu-latest
+    needs: [generate-encrypted-secrets]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+      
+      - name: Setup kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+      
+      - name: Install Flux CLI
+        run: |
+          curl -s https://fluxcd.io/install.sh | sudo bash
+      
+      - name: Wait for Flux reconciliation
+        timeout-minutes: 15
+        run: |
+          echo "Waiting for Flux to reconcile..."
+          
+          # Wait for flux-system to be ready
+          kubectl wait --for=condition=ready gitrepository/flux-system -n flux-system --timeout=600s
+          
+          echo "✅ Flux system is ready"
+          
+          # Show status
+          flux get all -n flux-system
+          kubectl get pods -A
+
+  destroy-infrastructure:
+    name: Destroy Infrastructure
+    runs-on: ubuntu-latest
+    needs: validate-config
+    if: github.event.inputs.destroy == 'true'
+    defaults:
+      run:
+        working-directory: terraform/digitalocean
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5.0"
+      
+      - name: Terraform Init
+        run: terraform init
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_spaces_access_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_spaces_secret_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
+      
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_spaces_access_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_spaces_secret_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_sops_age_private_key: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}

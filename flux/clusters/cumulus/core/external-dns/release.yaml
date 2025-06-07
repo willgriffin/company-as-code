@@ -14,28 +14,20 @@ spec:
         name: external-dns
         namespace: external-dns
   values:
-    provider: aws
+    provider: digitalocean
     
     env:
-      - name: AWS_ACCESS_KEY_ID
+      - name: DO_TOKEN
         valueFrom:
           secretKeyRef:
-            name: external-dns-aws
-            key: AWS_ACCESS_KEY_ID
-      - name: AWS_SECRET_ACCESS_KEY
-        valueFrom:
-          secretKeyRef:
-            name: external-dns-aws
-            key: AWS_SECRET_ACCESS_KEY
+            name: external-dns-digitalocean
+            key: DO_TOKEN
     
-    aws:
-      region: us-east-1  # Update if your Route53 is in a different region
-      zoneType: public
-      preferCNAME: false
-      evaluateTargetHealth: true
+    digitalocean:
+      apiPageSize: 50
     
     domainFilters:
-      - happyvertical.com
+      - "example.com"  # This will be replaced by GitHub Actions during deployment
     
     sources:
       - ingress

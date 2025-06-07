@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Script to update domain references in Flux manifests based on config.yaml
+# This script should be run during GitHub Actions deployment
+
+# Find repository root
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+cd "$REPO_ROOT"
+
+# Check if config.yaml exists
+if [ ! -f "config.yaml" ]; then
+    echo "❌ config.yaml not found in repository root" >&2
+    exit 1
+fi
+
+# Check if yq is available
+if ! command -v yq &> /dev/null; then
+    echo "❌ yq is not installed. Please install yq to parse YAML files." >&2
+    exit 1
+fi
+
+# Parse configuration
+PRIMARY_DOMAIN=$(yq eval '.domain.primary' config.yaml)
+SUBDOMAIN_PREFIX=$(yq eval '.domain.subdomain_prefix // "k8s"' config.yaml)
+
+if [ "$PRIMARY_DOMAIN" = "null" ] || [ -z "$PRIMARY_DOMAIN" ]; then
+    echo "❌ domain.primary is not set in config.yaml" >&2
+    exit 1
+fi
+
+echo "🔧 Updating domain references..."
+echo "   Primary domain: $PRIMARY_DOMAIN"
+echo "   Subdomain prefix: $SUBDOMAIN_PREFIX"
+
+# Update external-dns domain filter
+echo "   Updating external-dns domain filter..."
+sed -i "s|      - \"example.com\".*|      - \"$PRIMARY_DOMAIN\"|" \
+    flux/clusters/cumulus/core/external-dns/release.yaml
+
+# Update ingress hosts in all application manifests
+echo "   Updating ingress hosts..."
+
+# Keycloak
+if [ -f "flux/clusters/cumulus/services/keycloak/ingress.yaml" ]; then
+    sed -i "s|host: auth\.example\.com|host: auth.$PRIMARY_DOMAIN|g" \
+        flux/clusters/cumulus/services/keycloak/ingress.yaml
+fi
+
+# Mattermost
+if [ -f "flux/clusters/cumulus/applications/mattermost/ingress.yaml" ]; then
+    sed -i "s|host: chat\.example\.com|host: chat.$PRIMARY_DOMAIN|g" \
+        flux/clusters/cumulus/applications/mattermost/ingress.yaml
+fi
+
+# Nextcloud
+if [ -f "flux/clusters/cumulus/applications/nextcloud/ingress.yaml" ]; then
+    sed -i "s|host: cloud\.example\.com|host: cloud.$PRIMARY_DOMAIN|g" \
+        flux/clusters/cumulus/applications/nextcloud/ingress.yaml
+fi
+
+# Mailu
+if [ -f "flux/clusters/cumulus/applications/mailu/ingress-route.yaml" ]; then
+    sed -i "s|Host(\`mail\.example\.com\`)|Host(\`mail.$PRIMARY_DOMAIN\`)|g" \
+        flux/clusters/cumulus/applications/mailu/ingress-route.yaml
+fi
+
+# Update any realm configurations that reference domains
+echo "   Updating Keycloak realm configurations..."
+if [ -f "flux/clusters/cumulus/services/keycloak/realm-happyvertical.yaml" ]; then
+    # Update valid redirect URIs and other domain references
+    sed -i "s|https://chat\.example\.com|https://chat.$PRIMARY_DOMAIN|g" \
+        flux/clusters/cumulus/services/keycloak/realm-happyvertical.yaml
+    sed -i "s|https://cloud\.example\.com|https://cloud.$PRIMARY_DOMAIN|g" \
+        flux/clusters/cumulus/services/keycloak/realm-happyvertical.yaml
+    sed -i "s|https://mail\.example\.com|https://mail.$PRIMARY_DOMAIN|g" \
+        flux/clusters/cumulus/services/keycloak/realm-happyvertical.yaml
+fi
+
+echo "✅ Domain references updated successfully"
+echo ""
+echo "Updated services will be available at:"
+echo "  🔐 Keycloak (Auth): https://auth.$PRIMARY_DOMAIN"
+echo "  💬 Mattermost (Chat): https://chat.$PRIMARY_DOMAIN"
+echo "  ☁️  Nextcloud (Cloud): https://cloud.$PRIMARY_DOMAIN"
+echo "  📧 Mailu (Mail): https://mail.$PRIMARY_DOMAIN"

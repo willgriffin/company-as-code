@@ -3,6 +3,8 @@ kind: Kustomization
 namespace: mailu
 resources:
   - namespace.yaml
+  - postgresql-cluster.yaml
+  - redis-cluster.yaml
   - repository.yaml
   - release.yaml
   - ingress-route.yaml

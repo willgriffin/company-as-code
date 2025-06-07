@@ -1,6 +1,8 @@
-# DigitalOcean Kubernetes Cluster Configuration
+# [DigitalOcean](https://digitalocean.pxf.io/3evZdB) Kubernetes Cluster Configuration
 
-This directory contains Terraform configuration for provisioning a Kubernetes cluster on DigitalOcean.
+This directory contains Terraform configuration for provisioning a Kubernetes cluster on [DigitalOcean](https://digitalocean.pxf.io/3evZdB).
+
+> **Note**: Links to DigitalOcean are affiliate links that help support the maintenance of this template.
 
 ## Cluster Specifications
 
