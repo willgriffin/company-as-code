@@ -61,17 +61,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install tools
-        run: |
-          # Install age for SOPS encryption
-          curl -Lo age.tar.gz https://github.com/FiloSottile/age/releases/latest/download/age-v1.1.1-linux-amd64.tar.gz
-          tar xf age.tar.gz
-          sudo mv age/age* /usr/local/bin/
-          
-          # Install SOPS
-          curl -Lo sops https://github.com/mozilla/sops/releases/latest/download/sops-v3.8.1.linux.amd64
-          chmod +x sops
-          sudo mv sops /usr/local/bin/
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+        with:
+          tools: 'age,sops'
       
       - name: Generate SOPS Age Key
         id: generate-age-key
@@ -231,25 +224,14 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Install yq
-        run: |
-          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
-          sudo chmod +x /usr/bin/yq
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+        with:
+          tools: 'yq,age,sops'
       
       - name: Update domain references
         run: |
           ./scripts/update-domain-references
-      
-      - name: Install tools
-        run: |
-          # Install age and SOPS
-          curl -Lo age.tar.gz https://github.com/FiloSottile/age/releases/latest/download/age-v1.1.1-linux-amd64.tar.gz
-          tar xf age.tar.gz
-          sudo mv age/age* /usr/local/bin/
-          
-          curl -Lo sops https://github.com/mozilla/sops/releases/latest/download/sops-v3.8.1.linux.amd64
-          chmod +x sops
-          sudo mv sops /usr/local/bin/
       
       - name: Setup environment
         env:
@@ -305,11 +287,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup kubectl
-        run: |
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+        with:
+          tools: 'kubectl,flux'
       
       - name: Setup kubeconfig
         env:
@@ -318,10 +299,6 @@ jobs:
           mkdir -p ~/.kube
           echo "${KUBECONFIG_CONTENT}" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
-      
-      - name: Install Flux CLI
-        run: |
-          curl -s https://fluxcd.io/install.sh | sudo bash
       
       - name: Wait for Flux reconciliation
         timeout-minutes: 15

@@ -21,11 +21,10 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Install yq
-      shell: bash
-      run: |
-        sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
-        sudo chmod +x /usr/bin/yq
+    - name: Setup tools
+      uses: ./.github/actions/setup-tools
+      with:
+        tools: 'yq'
 
     - name: Validate configuration
       id: validate
