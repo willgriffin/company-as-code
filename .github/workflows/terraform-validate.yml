@@ -11,6 +11,8 @@ jobs:
     name: Validate and Format
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # Skip this job if IS_TEMPLATE repository variable is set to 'true'
+    if: vars.IS_TEMPLATE != 'true'
     
     steps:
     - name: Checkout

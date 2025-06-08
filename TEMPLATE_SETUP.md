@@ -12,6 +12,8 @@ This repository is designed to be used as a GitHub template for quickly deployin
 2. Create a new repository in your GitHub account/organization
 3. Clone your new repository locally
 
+> **Note**: GitHub Actions workflows are automatically disabled in the template repository to prevent accidental runs. They will be fully functional in your new repository.
+
 ### 2. Set Up Required Secrets
 
 Before deploying, you need to set up the required secret and configure permissions:
