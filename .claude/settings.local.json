@@ -16,7 +16,8 @@
       "Bash(kubectl get:*)",
       "Bash(flux get kustomizations:*)",
       "Bash(export:*)",
-      "Bash(kubectl:*)"
+      "Bash(kubectl:*)",
+      "Bash(gh issue create:*)"
     ],
     "deny": []
   },
