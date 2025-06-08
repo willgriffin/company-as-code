@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
+    # Skip this job if IS_TEMPLATE repository variable is set to 'true'
+    if: vars.IS_TEMPLATE != 'true'
     permissions:
       contents: write
       deployments: write
