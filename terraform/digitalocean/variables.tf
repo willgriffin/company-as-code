@@ -119,3 +119,22 @@ variable "sops_age_private_key" {
   type        = string
   sensitive   = true
 }
+
+# Domain configuration variables
+variable "primary_domain" {
+  description = "Primary domain name for services"
+  type        = string
+  default     = "example.com"
+}
+
+variable "skip_domain_creation" {
+  description = "Whether to skip domain creation (assumes domain already exists)"
+  type        = bool
+  default     = false
+}
+
+variable "load_balancer_ip" {
+  description = "External IP address of the cluster load balancer"
+  type        = string
+  default     = "127.0.0.1" # Placeholder IP, will be updated after cluster deployment
+}

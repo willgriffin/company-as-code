@@ -1,5 +1,10 @@
 name: Deploy Kubernetes Cluster
 
+# Prevent multiple workflows from running simultaneously to avoid Terraform state conflicts
+concurrency:
+  group: terraform-deploy
+  cancel-in-progress: false
+
 on:
   workflow_dispatch:
     inputs:
@@ -15,6 +20,8 @@ on:
       - 'terraform/**'
       - 'flux/**'
       - '.github/workflows/cluster-deploy.yml'
+      - '!flux/**/secrets.enc.yaml'
+      - '!flux/**/ingress*.yaml'
 
 env:
   TF_IN_AUTOMATION: true
@@ -39,7 +46,7 @@ jobs:
         uses: ./.github/actions/validate-config
         with:
           digitalocean-token: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_TOKEN }}
           sops-age-private-key: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
       
       - name: Parse Configuration
@@ -65,8 +72,6 @@ jobs:
       
       - name: Setup tools
         uses: ./.github/actions/setup-tools
-        with:
-          tools: 'age,sops'
       
       - name: Generate SOPS Age Key
         id: generate-age-key
@@ -76,8 +81,10 @@ jobs:
           # Generate age key if not already set
           if [ -z "$SOPS_KEY" ]; then
             age-keygen > age.key 2>&1
-            PRIVATE_KEY=$(grep -v "^#" age.key)
-            PUBLIC_KEY=$(grep "^Public key:" age.key | cut -d' ' -f3)
+            # Extract the private key (lines that start with AGE-SECRET-KEY)
+            PRIVATE_KEY=$(grep "^AGE-SECRET-KEY" age.key)
+            # Extract just the age key part after "Public key: "
+            PUBLIC_KEY=$(awk '/^Public key:/ {print $3}' age.key)
             
             echo "private-key=$PRIVATE_KEY" >> $GITHUB_OUTPUT
             echo "public-key=$PUBLIC_KEY" >> $GITHUB_OUTPUT
@@ -96,7 +103,7 @@ jobs:
       - name: Generate Application Secrets
         env:
           DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           SOPS_AGE_PRIVATE_KEY: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
           GENERATED_AGE_KEY: ${{ steps.generate-age-key.outputs.private-key }}
         run: |
@@ -126,7 +133,7 @@ jobs:
       - name: Update GitHub Secrets
         if: steps.generate-age-key.outputs.age-key-generated == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           # Update SOPS_AGE_PRIVATE_KEY secret if it was generated
           echo "${{ steps.generate-age-key.outputs.private-key }}" | \
@@ -158,7 +165,12 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.5.0"
+          terraform_version: "1.12.1"
+      
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_TOKEN }}
       
       - name: Parse Configuration for Terraform
         id: parse-config
@@ -166,6 +178,28 @@ jobs:
           cd ../../
           
           # Parse config.yaml and create terraform.tfvars
+          PRIMARY_DOMAIN=$(yq eval '.domain.primary' config.yaml)
+          
+          # Check if domain already exists in DigitalOcean
+          if doctl compute domain get "$PRIMARY_DOMAIN" >/dev/null 2>&1; then
+            echo "✅ Domain $PRIMARY_DOMAIN already exists, will skip creation"
+            SKIP_DOMAIN_CREATION=true
+          else
+            echo "ℹ️ Domain $PRIMARY_DOMAIN does not exist, will create it"
+            SKIP_DOMAIN_CREATION=false
+          fi
+          
+          # Check for configuration conflicts
+          # If skip_domain_creation is explicitly set to true but domain doesn't exist, fail
+          EXPLICIT_SKIP=$(yq eval '.advanced.terraform.skip_domain_creation // false' config.yaml 2>/dev/null || echo "false")
+          if [[ "$EXPLICIT_SKIP" == "true" && "$SKIP_DOMAIN_CREATION" == "false" ]]; then
+            echo "❌ Error: skip_domain_creation is set to true in config.yaml but domain $PRIMARY_DOMAIN does not exist in DigitalOcean"
+            echo "Either:"
+            echo "  1. Create the domain in DigitalOcean first, or"
+            echo "  2. Set skip_domain_creation to false to allow domain creation"
+            exit 1
+          fi
+          
           cat > terraform/digitalocean/auto.tfvars << EOF
           cluster_name = "$(yq eval '.cluster.name' config.yaml)"
           region = "$(yq eval '.cluster.region' config.yaml)"
@@ -179,39 +213,44 @@ jobs:
           github_repository = "$(yq eval '.repository.name' config.yaml)"
           flux_target_branch = "$(yq eval '.advanced.flux.target_branch' config.yaml)"
           flux_target_path = "$(yq eval '.advanced.flux.target_path' config.yaml)"
+          primary_domain = "$PRIMARY_DOMAIN"
+          skip_domain_creation = $SKIP_DOMAIN_CREATION
           EOF
       
       - name: Terraform Init
-        run: terraform init
+        run: |
+          terraform init \
+            -backend-config="access_key=${{ secrets.SPACES_ACCESS_KEY_ID }}" \
+            -backend-config="secret_key=${{ secrets.SPACES_SECRET_ACCESS_KEY }}"
         env:
           TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          TF_VAR_spaces_access_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          TF_VAR_spaces_secret_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_spaces_access_key: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+          TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
       
       - name: Terraform Plan
         run: terraform plan
         env:
           TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          TF_VAR_spaces_access_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          TF_VAR_spaces_secret_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_spaces_access_key: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+          TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+          TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
           TF_VAR_sops_age_private_key: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
       
       - name: Terraform Apply
         run: terraform apply -auto-approve
         env:
           TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          TF_VAR_spaces_access_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          TF_VAR_spaces_secret_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_spaces_access_key: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+          TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+          TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
           TF_VAR_sops_age_private_key: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
       
       - name: Update Kubeconfig Secret
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          # Get kubeconfig from Terraform output
-          KUBECONFIG_CONTENT=$(terraform output -raw kubeconfig)
+          # Get kubeconfig from Terraform output and base64 encode it
+          KUBECONFIG_CONTENT=$(terraform output -raw kubeconfig | base64 -w 0)
           
           # Update GitHub secret
           echo "$KUBECONFIG_CONTENT" | gh secret set KUBECONFIG --repo ${{ github.repository }}
@@ -224,12 +263,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_TOKEN }}
       
       - name: Setup tools
         uses: ./.github/actions/setup-tools
-        with:
-          tools: 'yq,age,sops'
       
       - name: Update domain references
         run: |
@@ -238,7 +275,7 @@ jobs:
       - name: Setup environment
         env:
           DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           SOPS_AGE_PRIVATE_KEY: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
         run: |
           # Create .envrc.secrets with all required values
@@ -274,12 +311,38 @@ jobs:
           git add flux/clusters/cumulus/*/ingress*.yaml
           git add flux/clusters/cumulus/*/release.yaml
           git add flux/clusters/cumulus/*/realm-*.yaml
+          
+          # Check if there are any changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
           git commit -m "feat: add encrypted secrets and update domain references for cluster deployment
 
           🤖 Generated with GitHub Actions
           
-          Co-Authored-By: GitHub Actions <noreply@github.com>" || exit 0
-          git push
+          Co-Authored-By: GitHub Actions <noreply@github.com>"
+          
+          # Handle potential push conflicts by rebasing
+          MAX_RETRIES=3
+          RETRY_COUNT=0
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if git push; then
+              echo "Successfully pushed changes"
+              break
+            else
+              echo "Push failed, attempting to rebase and retry..."
+              git pull --rebase
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              
+              if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+                echo "Failed to push after $MAX_RETRIES retries"
+                exit 1
+              fi
+            fi
+          done
 
   wait-for-flux:
     name: Wait for Flux Reconciliation
@@ -291,8 +354,6 @@ jobs:
       
       - name: Setup tools
         uses: ./.github/actions/setup-tools
-        with:
-          tools: 'kubectl,flux'
       
       - name: Setup kubeconfig
         env:
@@ -315,6 +376,32 @@ jobs:
           # Show status
           flux get all -n flux-system
           kubectl get pods -A
+      
+      - name: Setup Terraform for DNS Update
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.12.1"
+      
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+      
+      - name: Update DNS Records
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_spaces_access_key: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+          TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+          TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
+          TF_VAR_sops_age_private_key: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
+          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+        run: |
+          # Use the update-dns-records script which handles both IP and hostname cases
+          ./scripts/update-dns-records || {
+            echo "⚠️  Automatic DNS update failed. You can manually update later with:"
+            echo "  ./scripts/update-dns-records"
+            exit 0
+          }
 
   destroy-infrastructure:
     name: Destroy Infrastructure
@@ -334,17 +421,20 @@ jobs:
           terraform_version: "1.5.0"
       
       - name: Terraform Init
-        run: terraform init
+        run: |
+          terraform init \
+            -backend-config="access_key=${{ secrets.SPACES_ACCESS_KEY_ID }}" \
+            -backend-config="secret_key=${{ secrets.SPACES_SECRET_ACCESS_KEY }}"
         env:
           TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          TF_VAR_spaces_access_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          TF_VAR_spaces_secret_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_spaces_access_key: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+          TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
       
       - name: Terraform Destroy
         run: terraform destroy -auto-approve
         env:
           TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          TF_VAR_spaces_access_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          TF_VAR_spaces_secret_key: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_spaces_access_key: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+          TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+          TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
           TF_VAR_sops_age_private_key: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}

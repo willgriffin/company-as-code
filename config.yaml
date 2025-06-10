@@ -61,5 +61,6 @@ advanced:
     target_path: "./flux/clusters/cumulus"
   terraform:
     backend_region: "nyc3"
+    # skip_domain_creation: false  # Set to true if domain already exists in DigitalOcean
   kubernetes:
     version: null  # Use latest available version

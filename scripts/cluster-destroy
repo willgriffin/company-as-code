@@ -91,8 +91,26 @@ terraform destroy -auto-approve
 echo "✅ Infrastructure destroyed"
 cd "$REPO_ROOT"
 
-# Step 3: Optional - Clean up encrypted secrets from git
-echo "🔒 Step 3: Clean up options..."
+# Step 3: Clean up orphaned resources
+echo "🧹 Step 3: Checking for orphaned DigitalOcean resources..."
+echo
+echo "Kubernetes may have created load balancers and volumes that Terraform doesn't track."
+echo "Running orphaned resource cleanup..."
+echo
+
+# Run the cleanup script
+if [ -f "$REPO_ROOT/scripts/cluster-cleanup-orphaned-resources" ]; then
+    "$REPO_ROOT/scripts/cluster-cleanup-orphaned-resources"
+else
+    echo "⚠️  Orphaned resource cleanup script not found"
+    echo "You may need to manually clean up:"
+    echo "• Unattached volumes: doctl compute volume list"
+    echo "• Orphaned load balancers: doctl compute load-balancer list"
+fi
+
+# Step 4: Optional - Clean up encrypted secrets from git
+echo
+echo "🔒 Step 4: Clean up options..."
 echo
 echo "The cluster has been destroyed, but encrypted secrets remain in git."
 echo "You may want to:"
