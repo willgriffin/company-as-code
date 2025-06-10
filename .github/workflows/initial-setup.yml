@@ -117,15 +117,15 @@ jobs:
         fi
         
         # Replace placeholders in config.yaml
-        sed -i "s/domain_name: .*/domain_name: \"${{ inputs.domain_name }}\"/" config.yaml
-        sed -i "s/cluster_name: .*/cluster_name: \"${{ inputs.cluster_name }}\"/" config.yaml
-        sed -i "s/email: .*/email: \"${{ inputs.email }}\"/" config.yaml
+        sed -i "s/^domain_name: .*/domain_name: \"${{ inputs.domain_name }}\"/" config.yaml
+        sed -i "s/^cluster_name: .*/cluster_name: \"${{ inputs.cluster_name }}\"/" config.yaml
+        sed -i "s/^email: .*/email: \"${{ inputs.email }}\"/" config.yaml
         
         # Update application enablement
-        sed -i "s/keycloak_enabled: .*/keycloak_enabled: ${{ inputs.enable_keycloak }}/" config.yaml
-        sed -i "s/mattermost_enabled: .*/mattermost_enabled: ${{ inputs.enable_mattermost }}/" config.yaml
-        sed -i "s/nextcloud_enabled: .*/nextcloud_enabled: ${{ inputs.enable_nextcloud }}/" config.yaml
-        sed -i "s/mailu_enabled: .*/mailu_enabled: ${{ inputs.enable_mailu }}/" config.yaml
+        sed -i "s/^keycloak_enabled: .*/keycloak_enabled: ${{ inputs.enable_keycloak }}/" config.yaml
+        sed -i "s/^mattermost_enabled: .*/mattermost_enabled: ${{ inputs.enable_mattermost }}/" config.yaml
+        sed -i "s/^nextcloud_enabled: .*/nextcloud_enabled: ${{ inputs.enable_nextcloud }}/" config.yaml
+        sed -i "s/^mailu_enabled: .*/mailu_enabled: ${{ inputs.enable_mailu }}/" config.yaml
         
         echo "✓ Updated config.yaml with user inputs"
 
@@ -133,7 +133,7 @@ jobs:
       run: |
         # Update domain references in Terraform files
         if [ -f "terraform/digitalocean/terraform.tfvars" ]; then
-          sed -i 's/domain_name = .*/domain_name = "${{ inputs.domain_name }}"/' terraform/digitalocean/terraform.tfvars
+          sed -i 's/^domain_name = .*/domain_name = "${{ inputs.domain_name }}"/' terraform/digitalocean/terraform.tfvars
         fi
         
         # Update domain references in flux configurations
