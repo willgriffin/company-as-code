@@ -14,7 +14,6 @@ on:
       cluster_name:
         description: 'Kubernetes cluster name'
         required: true
-        default: 'mycluster'
         type: string
       email:
         description: 'Email for Let''s Encrypt certificates'
