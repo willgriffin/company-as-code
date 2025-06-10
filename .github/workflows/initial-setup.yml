@@ -76,8 +76,8 @@ jobs:
     - name: Install required tools
       run: |
         # Install age and sops
-        curl -L https://github.com/FiloSottile/age/releases/latest/download/age-v1.1.1-linux-amd64.tar.gz | tar -xz -C /tmp
-        sudo mv /tmp/age/age* /usr/local/bin/
+        curl -L https://github.com/FiloSottile/age/releases/latest/download/age-v1.1.1-linux-amd64.tar.gz | tar -xz --strip-components=1 -C /tmp
+        sudo mv /tmp/age* /usr/local/bin/
         
         curl -L https://github.com/mozilla/sops/releases/latest/download/sops-v3.8.1.linux.amd64 -o /tmp/sops
         chmod +x /tmp/sops
