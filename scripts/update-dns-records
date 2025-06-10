@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Script to update DNS records with the actual load balancer IP
+# This should be run after the cluster is deployed and services are running
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+cd "$REPO_ROOT"
+
+# Source environment variables if .envrc exists
+if [ -f ".envrc" ]; then
+    source .envrc
+fi
+
+# Check if required tools are available
+for tool in kubectl; do
+    if ! command -v "$tool" &> /dev/null; then
+        echo "Error: $tool is not installed. Please install it first." >&2
+        exit 1
+    fi
+done
+
+# Check for terraform - it might be in a different location in CI
+if ! command -v terraform &> /dev/null; then
+    # In GitHub Actions, terraform might not be in PATH yet
+    if [ -n "$GITHUB_ACTIONS" ]; then
+        echo "⚠️  Terraform not found in PATH in GitHub Actions. The DNS update step requires terraform to be installed in the same job."
+        exit 1
+    else
+        echo "Error: terraform is not installed. Please install it first." >&2
+        exit 1
+    fi
+fi
+
+# Check if we're in the terraform directory
+if [ ! -d "terraform/digitalocean" ]; then
+    echo "Error: terraform/digitalocean directory not found. Please run from repository root." >&2
+    exit 1
+fi
+
+cd terraform/digitalocean
+
+# Initialize terraform if needed
+if [ ! -d ".terraform" ]; then
+    echo "🔧 Initializing Terraform..."
+    # Check if we have backend credentials
+    if [ -n "$TF_VAR_spaces_access_key" ] && [ -n "$TF_VAR_spaces_secret_key" ]; then
+        terraform init \
+            -backend-config="access_key=$TF_VAR_spaces_access_key" \
+            -backend-config="secret_key=$TF_VAR_spaces_secret_key" || {
+            echo "❌ Failed to initialize Terraform with backend"
+            exit 1
+        }
+    else
+        # Initialize without backend if no credentials
+        terraform init -backend=false || {
+            echo "❌ Failed to initialize Terraform"
+            exit 1
+        }
+    fi
+fi
+
+echo "🔍 Getting load balancer IP from cluster..."
+
+# Get load balancer IP from kubectl
+if kubectl cluster-info &> /dev/null; then
+    # Method 1: Try to get from Traefik service if it exists
+    LB_IP=$(kubectl get service -n traefik traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+    
+    # Debug: Show what we got
+    if [ -n "$LB_IP" ] && [ "$LB_IP" != "null" ]; then
+        echo "🔍 Found IP directly: $LB_IP"
+    fi
+    
+    # If no IP, check if there's a hostname (DigitalOcean sometimes returns hostname)
+    if [ -z "$LB_IP" ]; then
+        LB_HOSTNAME=$(kubectl get service -n traefik traefik -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
+        echo "🔍 Checking for hostname... found: '$LB_HOSTNAME'"
+        
+        if [ -n "$LB_HOSTNAME" ] && [ "$LB_HOSTNAME" != "null" ]; then
+            # Try to get the actual load balancer IP from DigitalOcean API
+            if command -v doctl &> /dev/null; then
+                echo "🔍 Detected hostname instead of IP, checking DigitalOcean load balancers..."
+                LB_IP=$(doctl compute load-balancer list --format IP --no-header | head -1)
+                echo "🔍 Found IP from doctl: $LB_IP"
+            else
+                echo "⚠️  doctl not available, cannot resolve hostname to IP"
+            fi
+        fi
+    fi
+    
+    # Method 2: If Traefik not found, try to get any LoadBalancer service
+    if [ -z "$LB_IP" ]; then
+        LB_IP=$(kubectl get services --all-namespaces -o jsonpath='{range .items[*]}{.status.loadBalancer.ingress[0].ip}{"\n"}{end}' | grep -v '^$' | head -1 || echo "")
+    fi
+    
+    # Method 3: Check for hostname in any LoadBalancer service
+    if [ -z "$LB_IP" ]; then
+        LB_HOSTNAME=$(kubectl get services --all-namespaces -o jsonpath='{range .items[*]}{.status.loadBalancer.ingress[0].hostname}{"\n"}{end}' | grep -v '^$' | head -1 || echo "")
+        if [ -n "$LB_HOSTNAME" ] && [ "$LB_HOSTNAME" != "null" ] && command -v doctl &> /dev/null; then
+            echo "🔍 Detected hostname instead of IP, checking DigitalOcean load balancers..."
+            LB_IP=$(doctl compute load-balancer list --format IP --no-header | head -1)
+        fi
+    fi
+    
+    # Method 4: Get from ingress-nginx if available
+    if [ -z "$LB_IP" ]; then
+        LB_IP=$(kubectl get service -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+    fi
+else
+    echo "⚠️  Cannot connect to cluster. Please ensure kubeconfig is set up correctly."
+    echo "You can manually specify the load balancer IP:"
+    echo "terraform apply -var=\"load_balancer_ip=YOUR_IP_HERE\""
+    exit 1
+fi
+
+if [ -z "$LB_IP" ] || [ "$LB_IP" = "null" ]; then
+    echo "⚠️  Could not automatically detect load balancer IP."
+    echo "Please wait for services to be deployed or manually specify the IP:"
+    echo "terraform apply -var=\"load_balancer_ip=YOUR_IP_HERE\""
+    exit 1
+fi
+
+echo "✅ Found load balancer IP: $LB_IP"
+
+# Validate IP format
+if [[ ! $LB_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+    echo "❌ Invalid IP address format: $LB_IP"
+    exit 1
+fi
+
+echo "🔄 Updating DNS records with IP: $LB_IP"
+
+# Update terraform with the new IP
+terraform apply -var="load_balancer_ip=$LB_IP" -auto-approve
+
+if [ $? -eq 0 ]; then
+    echo "✅ DNS records updated successfully!"
+    echo ""
+    echo "📋 Your services should now be accessible at:"
+    terraform output dns_records
+    echo ""
+    echo "🌐 Load balancer IP: $LB_IP"
+else
+    echo "❌ Failed to update DNS records"
+    exit 1
+fi

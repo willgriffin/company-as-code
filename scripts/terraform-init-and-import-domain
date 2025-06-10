@@ -1,0 +1,219 @@
+#!/usr/bin/env bash
+
+# Terraform Init and Domain Import Script
+# This script initializes Terraform with Spaces backend and imports an existing domain
+
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Function to print colored output
+print_info() {
+    echo -e "${BLUE}ℹ️  $1${NC}"
+}
+
+print_success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠️  $1${NC}"
+}
+
+print_error() {
+    echo -e "${RED}❌ $1${NC}"
+}
+
+# Check if we're in the right directory
+if [[ ! -f "config.yaml" ]]; then
+    print_error "config.yaml not found. Please run this script from the repository root."
+    exit 1
+fi
+
+if [[ ! -f "terraform/digitalocean/backend-config.hcl" ]]; then
+    print_error "terraform/digitalocean/backend-config.hcl not found."
+    print_info "Please create it from backend-config.hcl.example with your Spaces credentials:"
+    print_info "  cp terraform/digitalocean/backend-config.hcl.example terraform/digitalocean/backend-config.hcl"
+    print_info "  # Edit backend-config.hcl with your access_key and secret_key"
+    exit 1
+fi
+
+# Parse config.yaml for domain
+PRIMARY_DOMAIN=$(yq '.domain.primary' config.yaml)
+CLUSTER_NAME=$(yq '.cluster.name' config.yaml)
+REGION=$(yq '.cluster.region' config.yaml)
+NODE_SIZE=$(yq '.cluster.node_size' config.yaml)
+MIN_NODES=$(yq '.cluster.min_nodes' config.yaml)
+MAX_NODES=$(yq '.cluster.max_nodes' config.yaml)
+NODE_COUNT=$(yq '.cluster.node_count' config.yaml)
+AUTO_SCALE=$(yq '.cluster.auto_scale' config.yaml)
+PROJECT_NAME=$(yq '.project.name' config.yaml)
+GITHUB_OWNER=$(yq '.repository.owner' config.yaml)
+GITHUB_REPOSITORY=$(yq '.repository.name' config.yaml)
+FLUX_TARGET_BRANCH=$(yq '.advanced.flux.target_branch' config.yaml)
+FLUX_TARGET_PATH=$(yq '.advanced.flux.target_path' config.yaml)
+
+print_info "Parsed configuration:"
+echo "  Domain: $PRIMARY_DOMAIN"
+echo "  Cluster: $CLUSTER_NAME"
+echo "  Region: $REGION"
+echo ""
+
+# Check required environment variables
+REQUIRED_VARS=(
+    "DIGITALOCEAN_TOKEN"
+    "SPACES_ACCESS_KEY_ID" 
+    "SPACES_SECRET_ACCESS_KEY"
+    "GITHUB_TOKEN"
+)
+
+print_info "Checking required environment variables..."
+for var in "${REQUIRED_VARS[@]}"; do
+    if [[ -z "${!var:-}" ]]; then
+        print_error "Environment variable $var is not set"
+        exit 1
+    fi
+    print_success "$var is set"
+done
+
+# Handle SOPS age key
+if [[ -z "${SOPS_AGE_PRIVATE_KEY:-}" ]]; then
+    print_warning "SOPS_AGE_PRIVATE_KEY not set, checking GitHub secrets..."
+    
+    # Try to get the SOPS public key from GitHub secrets
+    if command -v gh &> /dev/null && gh auth status &> /dev/null 2>&1; then
+        SOPS_PUBLIC_KEY=$(gh api repos/$GITHUB_OWNER/$GITHUB_REPOSITORY/actions/secrets/SOPS_AGE_PUBLIC_KEY 2>/dev/null | jq -r '.name' 2>/dev/null || echo "")
+        
+        if [[ "$SOPS_PUBLIC_KEY" == "SOPS_AGE_PUBLIC_KEY" ]]; then
+            print_info "SOPS_AGE_PUBLIC_KEY exists in GitHub secrets"
+            print_warning "Using existing SOPS configuration from GitHub"
+            print_info "To decrypt secrets locally, you'll need the private key from the workflow that created it"
+            
+            # For local runs, we can proceed without the private key if it exists in GitHub
+            SKIP_SOPS_GENERATION=true
+        else
+            print_info "No SOPS key found in GitHub secrets, will generate new one"
+            SKIP_SOPS_GENERATION=false
+        fi
+    else
+        print_warning "Cannot check GitHub secrets (gh CLI not available or not authenticated)"
+        print_info "Will generate new SOPS age key"
+        SKIP_SOPS_GENERATION=false
+    fi
+    
+    if [[ "$SKIP_SOPS_GENERATION" == "false" ]]; then
+        print_info "Generating new SOPS age key..."
+        # Generate age key
+        if ! command -v age-keygen &> /dev/null; then
+            print_error "age-keygen is not installed. Please install age first."
+            exit 1
+        fi
+        
+        # Generate key and capture output
+        AGE_KEY_OUTPUT=$(age-keygen 2>&1)
+        SOPS_AGE_PUBLIC_KEY=$(echo "$AGE_KEY_OUTPUT" | grep "public key:" | cut -d' ' -f3)
+        SOPS_AGE_PRIVATE_KEY=$(echo "$AGE_KEY_OUTPUT" | grep "AGE-SECRET-KEY" | head -1)
+        
+        export SOPS_AGE_PRIVATE_KEY
+        
+        print_success "Generated new SOPS age key"
+        print_warning "IMPORTANT: Save this private key securely!"
+        echo "Private key: $SOPS_AGE_PRIVATE_KEY"
+        echo
+        print_info "This key will be needed to decrypt secrets in the future"
+    fi
+else
+    print_success "SOPS_AGE_PRIVATE_KEY is set"
+    # Extract public key from private key if we have age installed
+    if command -v age-keygen &> /dev/null; then
+        SOPS_AGE_PUBLIC_KEY=$(echo "$SOPS_AGE_PRIVATE_KEY" | age-keygen -y 2>/dev/null || echo "")
+    fi
+fi
+
+# Change to terraform directory
+cd terraform/digitalocean
+
+print_info "Initializing Terraform with Spaces backend..."
+
+# Create terraform.tfvars from config
+cat > auto.tfvars << EOF
+cluster_name = "$CLUSTER_NAME"
+region = "$REGION"
+node_size = "$NODE_SIZE"
+min_nodes = $MIN_NODES
+max_nodes = $MAX_NODES
+node_count = $NODE_COUNT
+auto_scale = $AUTO_SCALE
+project_name = "$PROJECT_NAME"
+github_owner = "$GITHUB_OWNER"
+github_repository = "$GITHUB_REPOSITORY"
+flux_target_branch = "$FLUX_TARGET_BRANCH"
+flux_target_path = "$FLUX_TARGET_PATH"
+primary_domain = "$PRIMARY_DOMAIN"
+EOF
+
+print_success "Created auto.tfvars"
+
+# Initialize Terraform with backend config
+terraform init -backend-config=backend-config.hcl
+
+print_success "Terraform initialized"
+
+# Set Terraform variables
+export TF_VAR_do_token="$DIGITALOCEAN_TOKEN"
+export TF_VAR_spaces_access_key="$SPACES_ACCESS_KEY_ID"
+export TF_VAR_spaces_secret_key="$SPACES_SECRET_ACCESS_KEY"
+export TF_VAR_github_token="$GITHUB_TOKEN"
+if [[ -n "${SOPS_AGE_PRIVATE_KEY:-}" ]]; then
+    export TF_VAR_sops_age_private_key="$SOPS_AGE_PRIVATE_KEY"
+fi
+
+# Check if domain exists in DigitalOcean
+print_info "Checking if domain $PRIMARY_DOMAIN exists in DigitalOcean..."
+
+DOMAIN_EXISTS=false
+if doctl compute domain get "$PRIMARY_DOMAIN" >/dev/null 2>&1; then
+    print_success "Domain $PRIMARY_DOMAIN already exists in DigitalOcean"
+    print_info "Setting skip_domain_creation=true to use existing domain"
+    DOMAIN_EXISTS=true
+    
+    # Add domain skip variable to auto.tfvars
+    echo "skip_domain_creation = true" >> auto.tfvars
+else
+    print_info "Domain $PRIMARY_DOMAIN does not exist in DigitalOcean"
+    print_info "Setting skip_domain_creation=false to create new domain"
+    
+    # Add domain skip variable to auto.tfvars
+    echo "skip_domain_creation = false" >> auto.tfvars
+fi
+
+# Check for configuration conflicts
+# If skip_domain_creation is explicitly set to true but domain doesn't exist, fail
+EXPLICIT_SKIP=$(yq '.advanced.terraform.skip_domain_creation // false' config.yaml 2>/dev/null || echo "false")
+if [[ "$EXPLICIT_SKIP" == "true" && "$DOMAIN_EXISTS" == "false" ]]; then
+    print_error "Configuration conflict detected!"
+    print_error "skip_domain_creation is set to true in config.yaml but domain $PRIMARY_DOMAIN does not exist in DigitalOcean"
+    echo
+    print_info "To resolve this issue:"
+    print_info "  1. Create the domain in DigitalOcean first:"
+    print_info "     doctl compute domain create $PRIMARY_DOMAIN"
+    print_info "  2. OR set skip_domain_creation to false in config.yaml to allow domain creation"
+    echo
+    exit 1
+fi
+
+print_info "Running terraform plan to show what will be changed..."
+terraform plan
+
+print_success "Terraform initialization and domain import complete!"
+print_info "Next steps:"
+print_info "  1. Review the terraform plan output above"
+print_info "  2. If everything looks good, run: terraform apply"
+print_info "  3. Or use the GitHub Actions workflow for deployment"
+
+cd - >/dev/null
