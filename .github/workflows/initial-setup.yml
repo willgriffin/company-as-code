@@ -133,7 +133,7 @@ jobs:
       run: |
         # Update domain references in Terraform files
         if [ -f "terraform/digitalocean/terraform.tfvars" ]; then
-          sed -i "s/domain_name = .*/domain_name = \"${{ inputs.domain_name }}\"/" terraform/digitalocean/terraform.tfvars
+          sed -i 's/domain_name = .*/domain_name = "${{ inputs.domain_name }}"/' terraform/digitalocean/terraform.tfvars
         fi
         
         # Update domain references in flux configurations
