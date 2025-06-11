@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: keycloak
 resources:
   - namespace.yaml
+  - resource-quota.yaml
   - postgresql-cluster.yaml
   - keycloak-cr.yaml
   - realm-happyvertical.yaml

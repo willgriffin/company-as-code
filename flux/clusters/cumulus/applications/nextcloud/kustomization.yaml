@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: nextcloud
 resources:
   - namespace.yaml
+  - resource-quota.yaml
   - postgresql-cluster.yaml
   - redis-cluster.yaml
   - oidc-config.yaml
