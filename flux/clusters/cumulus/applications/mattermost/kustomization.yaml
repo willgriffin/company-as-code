@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: mattermost
 resources:
   - namespace.yaml
+  - resource-quota.yaml
   - postgresql-cluster.yaml
   - pvc.yaml
   - deployment.yaml

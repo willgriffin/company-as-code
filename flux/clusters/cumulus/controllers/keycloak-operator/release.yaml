@@ -111,3 +111,10 @@ spec:
               fieldPath: metadata.namespace
         - name: OPERATOR_KEYCLOAK_IMAGE
           value: quay.io/keycloak/keycloak:26.0.7
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
