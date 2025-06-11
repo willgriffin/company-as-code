@@ -86,10 +86,14 @@ if kubectl cluster-info &> /dev/null; then
             # Try to get the actual load balancer IP from DigitalOcean API (with retry)
             if command -v doctl &> /dev/null; then
                 echo "🔍 Detected hostname instead of IP, checking DigitalOcean load balancers..."
-                LB_IP=$(retry 5 2 doctl compute load-balancer list --format IP --no-header | head -1) || {
+                LB_IP_OUTPUT=$(retry 5 2 doctl compute load-balancer list --format IP --no-header) || {
                     echo "⚠️  Failed to get load balancer IP from DigitalOcean API after retries"
                     LB_IP=""
                 }
+                if [ -n "$LB_IP_OUTPUT" ]; then
+                    LB_IP=$(echo "$LB_IP_OUTPUT" | head -1)
+                    echo "🔍 Found IP from doctl: $LB_IP"
+                fi
                 echo "🔍 Found IP from doctl: $LB_IP"
             else
                 echo "⚠️  doctl not available, cannot resolve hostname to IP"
