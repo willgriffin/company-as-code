@@ -228,10 +228,19 @@ This is the prioritized list of work that has been vetted and is ready for devel
 ```mermaid
 graph TD
     A[Attention on Backlog Issue] --> B{Does it meet 'Definition of Ready'?};
-    B -- No --> C[Comment explaining what's needed for Definition of Ready];
-    B -- Yes --> D{Are all questions answered?};
-    D -- No --> E[Comment to Clarify Remaining Questions];
-    D -- Yes --> F[Auto-progress to 'To Do'];
+    B -- No --> C{Missing acceptance criteria?};
+    C -- Yes --> D[Analyze issue and generate reasonable defaults];
+    C -- No --> E{Missing estimation?};
+    E -- Yes --> F[Provide complexity estimate based on scope];
+    E -- No --> G[Comment explaining other missing requirements];
+    D --> H[Add generated criteria and estimation];
+    F --> H;
+    H --> I{Now meets Definition of Ready?};
+    I -- Yes --> J[Auto-progress to 'To Do'];
+    I -- No --> G;
+    B -- Yes --> K{Are all questions answered?};
+    K -- No --> L[Comment to Clarify Remaining Questions];
+    K -- Yes --> J;
 ```
 
 ## 4. Development & CI/CD Lanes

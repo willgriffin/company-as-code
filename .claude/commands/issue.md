@@ -31,6 +31,8 @@ Analyzes the current state of a GitHub issue and automatically advances it to th
 **BACKLOG:**
 - Check Definition of Ready (acceptance criteria, estimates, no blockers)
 - Look for clarifying comments
+- If acceptance criteria missing: analyze issue and generate reasonable defaults based on problem description and proposed solution
+- If estimation missing: provide complexity estimate (S/M/L) based on scope analysis
 - Decision: request missing info or move to todo
 - If Definition of Ready is met: automatically progress to todo
 - If not ready to progress: add comment explaining what's needed for Definition of Ready
