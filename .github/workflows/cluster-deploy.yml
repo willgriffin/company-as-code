@@ -13,6 +13,10 @@ on:
         required: false
         default: false
         type: boolean
+      terraform_version:
+        description: 'Terraform version to use (defaults to version from tool-versions.txt)'
+        required: false
+        type: string
   push:
     branches: [main]
     paths:
@@ -38,6 +42,7 @@ jobs:
       primary-domain: ${{ steps.parse-config.outputs.primary-domain }}
       cluster-name: ${{ steps.parse-config.outputs.cluster-name }}
       region: ${{ steps.parse-config.outputs.region }}
+      terraform-version: ${{ steps.terraform-version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       
@@ -60,6 +65,19 @@ jobs:
           echo "primary-domain=$PRIMARY_DOMAIN" >> $GITHUB_OUTPUT
           echo "cluster-name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
           echo "region=$REGION" >> $GITHUB_OUTPUT
+      
+      - name: Determine Terraform Version
+        id: terraform-version
+        run: |
+          # Use input version if provided, otherwise read from tool-versions.txt
+          if [ -n "${{ github.event.inputs.terraform_version }}" ]; then
+            TF_VERSION="${{ github.event.inputs.terraform_version }}"
+          else
+            TF_VERSION=$(grep '^terraform=' tool-versions.txt | cut -d'=' -f2)
+          fi
+          
+          echo "version=$TF_VERSION" >> $GITHUB_OUTPUT
+          echo "Using Terraform version: $TF_VERSION"
 
   setup-secrets:
     name: Generate and Setup Secrets
@@ -165,7 +183,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.12.1"
+          terraform_version: ${{ needs.validate-config.outputs.terraform-version }}
       
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
@@ -380,7 +398,7 @@ jobs:
       - name: Setup Terraform for DNS Update
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.12.1"
+          terraform_version: ${{ needs.validate-config.outputs.terraform-version }}
       
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
@@ -418,7 +436,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.5.0"
+          terraform_version: ${{ needs.validate-config.outputs.terraform-version }}
       
       - name: Terraform Init
         run: |
