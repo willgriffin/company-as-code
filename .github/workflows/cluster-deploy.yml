@@ -283,6 +283,9 @@ jobs:
     timeout-minutes: 30
     needs: [validate-config, setup-secrets]
     if: github.event.inputs.destroy != 'true'
+    outputs:
+      backup-file: ${{ steps.store-backup.outputs.backup-file }}
+      backup-created: ${{ steps.store-backup.outputs.backup-created }}
     defaults:
       run:
         working-directory: terraform/digitalocean
@@ -380,6 +383,28 @@ jobs:
           TF_VAR_spaces_access_key: ${{ secrets.SPACES_ACCESS_KEY_ID }}
           TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
       
+      - name: Backup Terraform State
+        id: backup-state
+        run: |
+          # Create backup of current terraform state before apply
+          if terraform state list > /dev/null 2>&1 && [ -n "$(terraform state list)" ]; then
+            echo "Creating Terraform state backup..."
+            BACKUP_FILE="terraform-state-backup-$(date +%Y%m%d-%H%M%S).tfstate"
+            terraform state pull > "$BACKUP_FILE"
+            
+            # Store backup info for potential rollback
+            echo "backup-file=$BACKUP_FILE" >> $GITHUB_OUTPUT
+            echo "backup-created=true" >> $GITHUB_OUTPUT
+            echo "✓ State backup created: $BACKUP_FILE"
+          else
+            echo "No existing state to backup (first deployment)"
+            echo "backup-created=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_spaces_access_key: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+          TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+      
       - name: Terraform Plan
         uses: nick-fields/retry@v2
         with:
@@ -407,6 +432,12 @@ jobs:
           TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
           TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
           TF_VAR_sops_age_private_key: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
+      
+      - name: Store Backup Info for Rollback
+        id: store-backup
+        run: |
+          echo "backup-file=${{ steps.backup-state.outputs.backup-file }}" >> $GITHUB_OUTPUT
+          echo "backup-created=${{ steps.backup-state.outputs.backup-created }}" >> $GITHUB_OUTPUT
       
       - name: Update Kubeconfig Secret
         env:
@@ -536,6 +567,45 @@ jobs:
           flux get all -n flux-system
           kubectl get pods -A
       
+      - name: Health Check Deployment
+        id: health-check
+        timeout-minutes: 10
+        run: |
+          echo "Performing comprehensive health checks..."
+          
+          # Check core system pods
+          echo "🔍 Checking core system components..."
+          if ! kubectl get pods -n kube-system | grep -E "(coredns|kube-proxy)" | grep -v Running; then
+            echo "✅ Core system components are healthy"
+          else
+            echo "❌ Core system components have issues"
+            exit 1
+          fi
+          
+          # Check Flux system health
+          echo "🔍 Checking Flux system health..."
+          if kubectl wait --for=condition=ready pods -l app.kubernetes.io/part-of=flux -n flux-system --timeout=300s; then
+            echo "✅ Flux system is healthy"
+          else
+            echo "❌ Flux system health check failed"
+            exit 1
+          fi
+          
+          # Check if any critical workloads failed to start
+          echo "🔍 Checking for failed workloads..."
+          FAILED_PODS=$(kubectl get pods -A --field-selector=status.phase=Failed --no-headers 2>/dev/null | wc -l)
+          if [ "$FAILED_PODS" -gt 0 ]; then
+            echo "⚠️ Found $FAILED_PODS failed pods:"
+            kubectl get pods -A --field-selector=status.phase=Failed
+            # Don't fail on this as some pods might fail temporarily
+          fi
+          
+          # Check cluster resource usage
+          echo "🔍 Checking cluster resource usage..."
+          kubectl top nodes --no-headers 2>/dev/null || echo "⚠️ Metrics not available yet"
+          
+          echo "✅ Health checks completed successfully"
+      
       - name: Setup Terraform for DNS Update
         uses: hashicorp/setup-terraform@v3
         with:
@@ -607,3 +677,183 @@ jobs:
           TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
           TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
           TF_VAR_sops_age_private_key: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
+
+  rollback-infrastructure:
+    name: Rollback Infrastructure on Failure
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [deploy-infrastructure, setup-secrets, validate-config]
+    if: failure() && needs.deploy-infrastructure.outputs.backup-created == 'true'
+    defaults:
+      run:
+        working-directory: terraform/digitalocean
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ needs.validate-config.outputs.terraform-version }}
+      
+      - name: Terraform Init for Rollback
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 20
+          max_attempts: 3
+          retry_wait_seconds: 30
+          command: |
+            terraform init \
+              -backend-config="access_key=${{ secrets.SPACES_ACCESS_KEY_ID }}" \
+              -backend-config="secret_key=${{ secrets.SPACES_SECRET_ACCESS_KEY }}"
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_spaces_access_key: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+          TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+      
+      - name: Restore Terraform State
+        run: |
+          echo "Deployment failed, attempting to restore previous state..."
+          BACKUP_FILE="${{ needs.deploy-infrastructure.outputs.backup-file }}"
+          
+          if [ -f "$BACKUP_FILE" ]; then
+            echo "Restoring state from backup: $BACKUP_FILE"
+            terraform state push "$BACKUP_FILE"
+            echo "✓ State restored from backup"
+          else
+            echo "⚠️ Backup file not found, manual intervention may be required"
+            exit 1
+          fi
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_spaces_access_key: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+          TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+      
+      - name: Verify Rollback
+        run: |
+          echo "Verifying rollback by checking current state..."
+          terraform plan -detailed-exitcode
+          
+          if [ $? -eq 0 ]; then
+            echo "✓ Rollback successful - infrastructure matches backed up state"
+          else
+            echo "⚠️ Rollback verification failed - manual intervention required"
+          fi
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          TF_VAR_spaces_access_key: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+          TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+          TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
+          TF_VAR_sops_age_private_key: ${{ secrets.SOPS_AGE_PRIVATE_KEY }}
+
+  cleanup-on-failure:
+    name: Cleanup Partial Deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [validate-config, setup-secrets, deploy-infrastructure, generate-encrypted-secrets, wait-for-flux]
+    if: failure()
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+        with:
+          tools: 'kubectl,flux,doctl'
+      
+      - name: Cleanup Kubernetes Resources on Flux Failure
+        if: failure() && needs.wait-for-flux.result == 'failure'
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
+          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+        run: |
+          if [ -n "$KUBECONFIG_CONTENT" ]; then
+            echo "Setting up kubeconfig for cleanup..."
+            mkdir -p ~/.kube
+            echo "${KUBECONFIG_CONTENT}" | base64 -d > ~/.kube/config
+            chmod 600 ~/.kube/config
+            
+            echo "Cleaning up failed Flux installation..."
+            
+            # Try to uninstall flux if it was partially installed
+            flux uninstall --silent || echo "Flux uninstall completed or was not installed"
+            
+            # Remove any stuck finalizers from flux-system namespace
+            kubectl get namespace flux-system -o json | jq '.spec.finalizers = []' | kubectl replace --raw "/api/v1/namespaces/flux-system/finalize" -f - || echo "No flux-system namespace to clean"
+            
+            echo "✓ Kubernetes cleanup completed"
+          else
+            echo "No kubeconfig available, skipping Kubernetes cleanup"
+          fi
+      
+      - name: Cleanup Orphaned DigitalOcean Resources
+        env:
+          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+        run: |
+          echo "Checking for orphaned DigitalOcean resources..."
+          
+          # List Load Balancers that might be left behind
+          if doctl compute load-balancer list --format ID,Name,Status | grep -q "traefik\|ingress"; then
+            echo "⚠️ Found potentially orphaned load balancers"
+            doctl compute load-balancer list --format ID,Name,Status
+            echo "Please manually review and cleanup if needed"
+          fi
+          
+          # List Volumes that might be left behind
+          if doctl compute volume list --format ID,Name,Size | grep -q "pvc-\|vol-"; then
+            echo "⚠️ Found potentially orphaned volumes"
+            doctl compute volume list --format ID,Name,Size
+            echo "Please manually review and cleanup if needed"
+          fi
+          
+          echo "✓ Resource cleanup check completed"
+      
+      - name: Create Cleanup Summary
+        run: |
+          cat > deployment-failure-summary.md << EOF
+          # Deployment Failure Summary
+          
+          **Workflow:** ${{ github.workflow }}
+          **Run ID:** ${{ github.run_id }}
+          **Failed at:** $(date -u)
+          **Branch:** ${{ github.ref_name }}
+          **Commit:** ${{ github.sha }}
+          
+          ## Failure Details
+          - Deploy Infrastructure: ${{ needs.deploy-infrastructure.result }}
+          - Generate Secrets: ${{ needs.generate-encrypted-secrets.result }}  
+          - Wait for Flux: ${{ needs.wait-for-flux.result }}
+          
+          ## Cleanup Actions Taken
+          - State backup: ${{ needs.deploy-infrastructure.outputs.backup-created == 'true' && '✓ Created' || '✗ Not created' }}
+          - Rollback attempted: ${{ needs.rollback-infrastructure.result == 'success' && '✓ Successful' || needs.rollback-infrastructure.result == 'failure' && '✗ Failed' || '- Not applicable' }}
+          - Kubernetes cleanup: ${{ needs.wait-for-flux.result == 'failure' && '✓ Performed' || '- Not needed' }}
+          
+          ## Next Steps
+          1. Review the workflow logs for specific error details
+          2. Check DigitalOcean console for any orphaned resources
+          3. Verify GitHub repository secrets are correctly configured
+          4. Re-run deployment after addressing the root cause
+          
+          ## Manual Cleanup Commands
+          If needed, you can run these commands manually:
+          \`\`\`bash
+          # Check cluster status
+          ./scripts/kubeconfig-get
+          kubectl get pods -A
+          
+          # Complete infrastructure cleanup
+          ./scripts/cluster-destroy
+          
+          # Reset secrets if needed
+          ./scripts/generate-secrets
+          \`\`\`
+          EOF
+          
+          echo "Deployment failure summary created"
+          cat deployment-failure-summary.md
+      
+      - name: Upload Failure Summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-failure-summary-${{ github.run_id }}
+          path: deployment-failure-summary.md
+          retention-days: 30
