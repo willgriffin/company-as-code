@@ -65,107 +65,142 @@ runs:
       if: >-
         steps.cache-tools.outputs.cache-hit != 'true' &&
         contains(inputs.tools, 'age')
-      shell: bash
-      run: |
-        echo "Installing age v${{ steps.versions.outputs.age-version }}..."
-        AGE_URL="https://github.com/FiloSottile/age/releases/download"
-        A_VER="${{ steps.versions.outputs.age-version }}"
-        AGE_FILE="age-v$A_VER-linux-amd64.tar.gz"
-        curl -Lo age.tar.gz "$AGE_URL/v$A_VER/$AGE_FILE"
-        tar xf age.tar.gz
-        sudo mv age/age* /usr/local/bin/
-        rm -rf age age.tar.gz
-        echo "✅ age installed"
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_wait_seconds: 5
+        shell: bash
+        command: |
+          echo "Installing age v${{ steps.versions.outputs.age-version }}..."
+          AGE_URL="https://github.com/FiloSottile/age/releases/download"
+          A_VER="${{ steps.versions.outputs.age-version }}"
+          AGE_FILE="age-v$A_VER-linux-amd64.tar.gz"
+          curl -Lo age.tar.gz "$AGE_URL/v$A_VER/$AGE_FILE"
+          tar xf age.tar.gz
+          sudo mv age/age* /usr/local/bin/
+          rm -rf age age.tar.gz
+          echo "✅ age installed"
 
     - name: Install SOPS
       if: >-
         steps.cache-tools.outputs.cache-hit != 'true' &&
         contains(inputs.tools, 'sops')
-      shell: bash
-      run: |
-        echo "Installing SOPS v${{ steps.versions.outputs.sops-version }}..."
-        SOPS_URL="https://github.com/mozilla/sops/releases/download"
-        SOPS_FILE="sops-v${{ steps.versions.outputs.sops-version }}.linux.amd64"
-        curl -Lo sops \
-          "$SOPS_URL/v${{ steps.versions.outputs.sops-version }}/$SOPS_FILE"
-        chmod +x sops
-        sudo mv sops /usr/local/bin/
-        echo "✅ SOPS installed"
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_wait_seconds: 10
+        shell: bash
+        command: |
+          echo "Installing SOPS v${{ steps.versions.outputs.sops-version }}..."
+          SOPS_URL="https://github.com/mozilla/sops/releases/download"
+          SOPS_FILE="sops-v${{ steps.versions.outputs.sops-version }}.linux.amd64"
+          curl -Lo sops \
+            "$SOPS_URL/v${{ steps.versions.outputs.sops-version }}/$SOPS_FILE"
+          chmod +x sops
+          sudo mv sops /usr/local/bin/
+          echo "✅ SOPS installed"
 
     - name: Install yq
       if: >-
         steps.cache-tools.outputs.cache-hit != 'true' &&
         contains(inputs.tools, 'yq')
-      shell: bash
-      run: |
-        echo "Installing yq v${{ steps.versions.outputs.yq-version }}..."
-        YQ_URL="https://github.com/mikefarah/yq/releases/download"
-        YQ_FILE="yq_linux_amd64"
-        sudo wget "$YQ_URL/v${{ steps.versions.outputs.yq-version }}/$YQ_FILE" \
-          -O /usr/bin/yq
-        sudo chmod +x /usr/bin/yq
-        echo "✅ yq installed"
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_wait_seconds: 10
+        shell: bash
+        command: |
+          echo "Installing yq v${{ steps.versions.outputs.yq-version }}..."
+          YQ_URL="https://github.com/mikefarah/yq/releases/download"
+          YQ_FILE="yq_linux_amd64"
+          sudo wget "$YQ_URL/v${{ steps.versions.outputs.yq-version }}/$YQ_FILE" \
+            -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+          echo "✅ yq installed"
 
     - name: Install kubectl
       if: >-
         steps.cache-tools.outputs.cache-hit != 'true' &&
         contains(inputs.tools, 'kubectl')
-      shell: bash
-      run: |
-        echo "Installing kubectl v${{ steps.versions.outputs.kubectl-version }}..."
-        KUBECTL_URL="https://dl.k8s.io/release"
-        K_VER="${{ steps.versions.outputs.kubectl-version }}"
-        KUBECTL_FILE="v$K_VER/bin/linux/amd64/kubectl"
-        curl -LO "$KUBECTL_URL/$KUBECTL_FILE"
-        chmod +x kubectl
-        sudo mv kubectl /usr/local/bin/
-        echo "✅ kubectl installed"
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_wait_seconds: 10
+        shell: bash
+        command: |
+          echo "Installing kubectl v${{ steps.versions.outputs.kubectl-version }}..."
+          KUBECTL_URL="https://dl.k8s.io/release"
+          K_VER="${{ steps.versions.outputs.kubectl-version }}"
+          KUBECTL_FILE="v$K_VER/bin/linux/amd64/kubectl"
+          curl -LO "$KUBECTL_URL/$KUBECTL_FILE"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          echo "✅ kubectl installed"
 
     - name: Install flux CLI
       if: >-
         steps.cache-tools.outputs.cache-hit != 'true' &&
         contains(inputs.tools, 'flux')
-      shell: bash
-      run: |
-        echo "Installing flux CLI v${{ steps.versions.outputs.flux-version }}..."
-        FLUX_URL="https://github.com/fluxcd/flux2/releases/download"
-        F_VER="${{ steps.versions.outputs.flux-version }}"
-        FLUX_FILE="flux_${F_VER}_linux_amd64.tar.gz"
-        curl -Lo flux.tar.gz "$FLUX_URL/v$F_VER/$FLUX_FILE"
-        tar xf flux.tar.gz
-        sudo mv flux /usr/local/bin/
-        rm -f flux.tar.gz
-        echo "✅ flux CLI installed"
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_wait_seconds: 10
+        shell: bash
+        command: |
+          echo "Installing flux CLI v${{ steps.versions.outputs.flux-version }}..."
+          FLUX_URL="https://github.com/fluxcd/flux2/releases/download"
+          F_VER="${{ steps.versions.outputs.flux-version }}"
+          FLUX_FILE="flux_${F_VER}_linux_amd64.tar.gz"
+          curl -Lo flux.tar.gz "$FLUX_URL/v$F_VER/$FLUX_FILE"
+          tar xf flux.tar.gz
+          sudo mv flux /usr/local/bin/
+          rm -f flux.tar.gz
+          echo "✅ flux CLI installed"
 
     - name: Install gomplate
       if: >-
         steps.cache-tools.outputs.cache-hit != 'true' &&
         contains(inputs.tools, 'gomplate')
-      shell: bash
-      run: |
-        echo "Installing gomplate v${{ steps.versions.outputs.gomplate-version }}..."
-        GOMPLATE_URL="https://github.com/hairyhenderson/gomplate/releases/download"
-        G_VER="${{ steps.versions.outputs.gomplate-version }}"
-        curl -o gomplate -sSL "$GOMPLATE_URL/v$G_VER/gomplate_linux-amd64"
-        chmod +x gomplate
-        sudo mv gomplate /usr/local/bin/
-        echo "✅ gomplate installed"
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_wait_seconds: 10
+        shell: bash
+        command: |
+          echo "Installing gomplate v${{ steps.versions.outputs.gomplate-version }}..."
+          GOMPLATE_URL="https://github.com/hairyhenderson/gomplate/releases/download"
+          G_VER="${{ steps.versions.outputs.gomplate-version }}"
+          curl -o gomplate -sSL "$GOMPLATE_URL/v$G_VER/gomplate_linux-amd64"
+          chmod +x gomplate
+          sudo mv gomplate /usr/local/bin/
+          echo "✅ gomplate installed"
 
     - name: Install doctl
       if: >-
         steps.cache-tools.outputs.cache-hit != 'true' &&
         contains(inputs.tools, 'doctl')
-      shell: bash
-      run: |
-        echo "Installing doctl v${{ steps.versions.outputs.doctl-version }}..."
-        DOCTL_URL="https://github.com/digitalocean/doctl/releases/download"
-        D_VER="${{ steps.versions.outputs.doctl-version }}"
-        DOCTL_FILE="doctl-${D_VER}-linux-amd64.tar.gz"
-        curl -Lo doctl.tar.gz "$DOCTL_URL/v$D_VER/$DOCTL_FILE"
-        tar xf doctl.tar.gz
-        sudo mv doctl /usr/local/bin/
-        rm -f doctl.tar.gz
-        echo "✅ doctl installed"
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_wait_seconds: 10
+        shell: bash
+        command: |
+          echo "Installing doctl v${{ steps.versions.outputs.doctl-version }}..."
+          DOCTL_URL="https://github.com/digitalocean/doctl/releases/download"
+          D_VER="${{ steps.versions.outputs.doctl-version }}"
+          DOCTL_FILE="doctl-${D_VER}-linux-amd64.tar.gz"
+          curl -Lo doctl.tar.gz "$DOCTL_URL/v$D_VER/$DOCTL_FILE"
+          tar xf doctl.tar.gz
+          sudo mv doctl /usr/local/bin/
+          rm -f doctl.tar.gz
+          echo "✅ doctl installed"
 
     - name: Verify installations
       shell: bash

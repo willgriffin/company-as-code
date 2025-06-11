@@ -7,6 +7,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Source retry function
+source "$SCRIPT_DIR/lib/retry.sh"
+
 cd "$REPO_ROOT"
 
 # Source environment variables if .envrc exists
@@ -47,16 +50,16 @@ if [ ! -d ".terraform" ]; then
     echo "🔧 Initializing Terraform..."
     # Check if we have backend credentials
     if [ -n "$TF_VAR_spaces_access_key" ] && [ -n "$TF_VAR_spaces_secret_key" ]; then
-        terraform init \
+        retry 3 5 terraform init \
             -backend-config="access_key=$TF_VAR_spaces_access_key" \
             -backend-config="secret_key=$TF_VAR_spaces_secret_key" || {
-            echo "❌ Failed to initialize Terraform with backend"
+            echo "❌ Failed to initialize Terraform with backend after retries"
             exit 1
         }
     else
         # Initialize without backend if no credentials
-        terraform init -backend=false || {
-            echo "❌ Failed to initialize Terraform"
+        retry 3 5 terraform init -backend=false || {
+            echo "❌ Failed to initialize Terraform after retries"
             exit 1
         }
     fi
@@ -80,10 +83,17 @@ if kubectl cluster-info &> /dev/null; then
         echo "🔍 Checking for hostname... found: '$LB_HOSTNAME'"
         
         if [ -n "$LB_HOSTNAME" ] && [ "$LB_HOSTNAME" != "null" ]; then
-            # Try to get the actual load balancer IP from DigitalOcean API
+            # Try to get the actual load balancer IP from DigitalOcean API (with retry)
             if command -v doctl &> /dev/null; then
                 echo "🔍 Detected hostname instead of IP, checking DigitalOcean load balancers..."
-                LB_IP=$(doctl compute load-balancer list --format IP --no-header | head -1)
+                LB_IP_OUTPUT=$(retry 5 2 doctl compute load-balancer list --format IP --no-header) || {
+                    echo "⚠️  Failed to get load balancer IP from DigitalOcean API after retries"
+                    LB_IP=""
+                }
+                if [ -n "$LB_IP_OUTPUT" ]; then
+                    LB_IP=$(echo "$LB_IP_OUTPUT" | head -1)
+                    echo "🔍 Found IP from doctl: $LB_IP"
+                fi
                 echo "🔍 Found IP from doctl: $LB_IP"
             else
                 echo "⚠️  doctl not available, cannot resolve hostname to IP"
@@ -101,7 +111,10 @@ if kubectl cluster-info &> /dev/null; then
         LB_HOSTNAME=$(kubectl get services --all-namespaces -o jsonpath='{range .items[*]}{.status.loadBalancer.ingress[0].hostname}{"\n"}{end}' | grep -v '^$' | head -1 || echo "")
         if [ -n "$LB_HOSTNAME" ] && [ "$LB_HOSTNAME" != "null" ] && command -v doctl &> /dev/null; then
             echo "🔍 Detected hostname instead of IP, checking DigitalOcean load balancers..."
-            LB_IP=$(doctl compute load-balancer list --format IP --no-header | head -1)
+            LB_IP=$( (retry 5 2 doctl compute load-balancer list --format IP --no-header | head -1) ) || {
+                echo "⚠️  Failed to get load balancer IP from DigitalOcean API after retries"
+                LB_IP=""
+            }
         fi
     fi
     
@@ -133,8 +146,8 @@ fi
 
 echo "🔄 Updating DNS records with IP: $LB_IP"
 
-# Update terraform with the new IP
-terraform apply -var="load_balancer_ip=$LB_IP" -auto-approve
+# Update terraform with the new IP (with retry)
+retry 3 30 terraform apply -var="load_balancer_ip=$LB_IP" -auto-approve
 
 if [ $? -eq 0 ]; then
     echo "✅ DNS records updated successfully!"
@@ -144,6 +157,6 @@ if [ $? -eq 0 ]; then
     echo ""
     echo "🌐 Load balancer IP: $LB_IP"
 else
-    echo "❌ Failed to update DNS records"
+    echo "❌ Failed to update DNS records after retries"
     exit 1
 fi
