@@ -38,6 +38,8 @@ In your new repository, go to **Settings → Secrets and variables → Actions**
 
 - **`DIGITALOCEAN_TOKEN`** - Your DigitalOcean API token ([https://cloud.digitalocean.com/account/api/tokens](https://digitalocean.pxf.io/je2Ggv))
 
+> **Note**: Spaces access keys for Terraform state storage are automatically created during deployment. No manual setup required!
+
 **Note**: The template uses GitHub's built-in `GITHUB_TOKEN`. If you encounter permission issues, check **Settings → Actions → General → Workflow permissions** and select "Read and write permissions".
 
 ### 3. Configure Your Deployment

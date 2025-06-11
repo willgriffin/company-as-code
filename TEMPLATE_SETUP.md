@@ -32,6 +32,17 @@ Go to **Settings → Secrets and variables → Actions** in your GitHub reposito
 4. Select "Read" and "Write" scopes
 5. Copy the token and add it as `DIGITALOCEAN_TOKEN` secret
 
+#### Automatic Spaces Access Keys
+
+The deployment workflow automatically creates DigitalOcean Spaces access keys for Terraform state storage during the first deployment. These keys:
+
+- Are created with minimal required permissions
+- Follow the principle of least privilege (only access object storage)
+- Are automatically stored as GitHub Secrets for future deployments
+- Use unique names to avoid conflicts with existing keys
+
+**No manual setup of Spaces keys is required!** 🎉
+
 #### GitHub Token (Usually Not Required)
 
 The template uses GitHub's built-in `GITHUB_TOKEN`, which is automatically provided to workflows. However, if you encounter permission issues, you may need to:
