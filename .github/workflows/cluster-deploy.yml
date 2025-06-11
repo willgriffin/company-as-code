@@ -178,7 +178,7 @@ jobs:
                 echo "::add-mask::$SECRET_KEY"
               else
                 echo "❌ Failed to extract valid credentials from doctl output"
-                echo "doctl output: $OUTPUT"
+                echo "Error: Unable to extract credentials. Please check the doctl command and permissions."
                 exit 1
               fi
             else
