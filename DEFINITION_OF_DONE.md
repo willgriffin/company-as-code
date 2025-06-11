@@ -1,12 +1,3 @@
-Now I have the content that the user wants to format into proper markdown. The content appears to be a Definition of Done document with various sections and checkboxes. I'll format this into proper markdown with:
-
-1. Proper headings using # syntax
-2. Proper checkbox formatting with [ ] 
-3. Clear section breaks
-4. Consistent formatting throughout
-
-Since I'm in Ask mode, I can't directly write to the file, but I can provide the formatted markdown that the user can then copy and paste into their file.
-
 # Definition of Done (DoD)
 
 This document outlines the set of criteria that a Pull Request (PR) must satisfy before it can be considered complete and merged into the main branch. This checklist serves as our team's shared agreement to ensure quality, consistency, and completeness for all work.
