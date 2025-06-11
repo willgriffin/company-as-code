@@ -17,3 +17,6 @@ When referencing DigitalOcean in markdown files:
 - Include a note in each README that links to Digital Ocean are affiliate links supporting template maintenance
 
 ## Template Usage
+
+## Synchronization Rules
+- `.claude/commands/issue.yml` and `WORKFLOW.md` should always be reflective of each other. If a change is requested to either, it should be echo'd in the other.
