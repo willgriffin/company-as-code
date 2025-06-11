@@ -5,3 +5,4 @@ resources:
   - redis-operator
   - keycloak-operator
   - velero
+  - sentry-operator

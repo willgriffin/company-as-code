@@ -4,3 +4,4 @@ resources:
   - nextcloud
   - mattermost
   - mailu
+  - sentry
