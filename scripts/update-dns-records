@@ -111,7 +111,7 @@ if kubectl cluster-info &> /dev/null; then
         LB_HOSTNAME=$(kubectl get services --all-namespaces -o jsonpath='{range .items[*]}{.status.loadBalancer.ingress[0].hostname}{"\n"}{end}' | grep -v '^$' | head -1 || echo "")
         if [ -n "$LB_HOSTNAME" ] && [ "$LB_HOSTNAME" != "null" ] && command -v doctl &> /dev/null; then
             echo "🔍 Detected hostname instead of IP, checking DigitalOcean load balancers..."
-            LB_IP=$(retry 5 2 doctl compute load-balancer list --format IP --no-header | head -1) || {
+            LB_IP=$( (retry 5 2 doctl compute load-balancer list --format IP --no-header | head -1) ) || {
                 echo "⚠️  Failed to get load balancer IP from DigitalOcean API after retries"
                 LB_IP=""
             }
