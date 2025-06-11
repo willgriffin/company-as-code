@@ -71,7 +71,7 @@ For each application, create secrets following the pattern `<APP>_<ENV>_<SECRET>
   - `MAILU_PROD_OAUTH2_CLIENT_ID`
   - `MAILU_PROD_OAUTH2_CLIENT_SECRET`
   - `MAILU_PROD_OAUTH2_COOKIE_SECRET`
-  - `MAILU_DB_PASSWORD`
+  - `MAILU_PROD_DB_PASSWORD`
 
 **Backup and Disaster Recovery:**
 - `BACKUP_SPACES_ACCESS_KEY`: DigitalOcean Spaces access key for backup storage
