@@ -144,12 +144,3 @@ spec:
         configMap:
           name: nextcloud-oidc-config
           defaultMode: 0755
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: nextcloud-admin
-  namespace: nextcloud
-type: Opaque
-stringData:
-  password: "changeme-in-production"

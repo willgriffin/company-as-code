@@ -17,3 +17,7 @@ When referencing DigitalOcean in markdown files:
 - Include a note in each README that links to Digital Ocean are affiliate links supporting template maintenance
 
 ## Template Usage
+
+## Tools and Technologies
+
+- We're using gomplate for templates
