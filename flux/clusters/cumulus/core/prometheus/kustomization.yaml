@@ -8,3 +8,6 @@ resources:
   - ingress.yaml
   - secrets-template.yaml
   - keycloak-setup.yaml
+  - servicemonitor-examples.yaml
+  - prometheus-rules.yaml
+  - monitoring-integration.yaml

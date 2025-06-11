@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: knative-serving
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: knative-eventing
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: knative-operator
+  namespace: knative-operator
+spec:
+  interval: 10m
+  url: https://github.com/knative/operator
+  ref:
+    tag: knative-v1.15.2
+  ignore: |
+    /*
+    !/config/
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: knative-operator
+  namespace: knative-operator
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: knative-operator
+  path: "./config"
+  prune: true
+  wait: true
+  timeout: 5m

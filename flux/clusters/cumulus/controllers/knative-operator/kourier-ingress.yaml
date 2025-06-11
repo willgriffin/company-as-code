@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kourier-ingress
+  namespace: kourier-system
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    traefik.ingress.kubernetes.io/router.middlewares: default-redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - "*.{{ (datasource "config").domain.primary }}"
+      secretName: kourier-wildcard-tls
+  rules:
+    - host: "*.{{ (datasource "config").domain.primary }}"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kourier
+                port:
+                  number: 80

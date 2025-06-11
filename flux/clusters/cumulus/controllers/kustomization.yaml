@@ -6,3 +6,4 @@ resources:
   - keycloak-operator
   - velero
   - sentry-operator
+  - knative-operator
