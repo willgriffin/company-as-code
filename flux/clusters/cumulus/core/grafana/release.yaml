@@ -37,3 +37,23 @@ spec:
             url: http://kube-prometheus-stack-prometheus.prometheus.svc.cluster.local:9090
             access: proxy
             isDefault: true
+          - name: Jaeger
+            type: jaeger
+            url: http://jaeger-query.jaeger.svc.cluster.local:16686
+            access: proxy
+            editable: true
+          - name: Loki
+            type: loki
+            url: http://loki.loki.svc.cluster.local:3100
+            access: proxy
+            editable: true
+          - name: Sentry
+            type: sentry
+            url: http://sentry-nginx.sentry.svc.cluster.local
+            access: proxy
+            editable: true
+            jsonData:
+              orgSlug: "default"
+              projectSlug: "default"
+            secureJsonData:
+              authToken: "${SENTRY_AUTH_TOKEN}"

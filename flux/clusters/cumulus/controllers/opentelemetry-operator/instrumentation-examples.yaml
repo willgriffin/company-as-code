@@ -1,0 +1,182 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opentelemetry-instrumentation-examples
+  namespace: opentelemetry-operator-system
+data:
+  examples: |
+    OpenTelemetry Auto-Instrumentation Examples
+    ==========================================
+    
+    The OpenTelemetry Operator enables automatic instrumentation by simply adding annotations
+    to your deployments. No code changes required!
+    
+    ## Available Languages:
+    - Java (Spring Boot, etc.)
+    - Node.js (Express, etc.)
+    - Python (Django, Flask, etc.)
+    - .NET Core
+    - Go (experimental)
+    
+    ## Basic Usage - Add Annotation to Deployment:
+    
+    ### Java Application:
+    ```yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: my-java-app
+    spec:
+      template:
+        metadata:
+          annotations:
+            instrumentation.opentelemetry.io/inject-java: "opentelemetry-operator-system/default-instrumentation"
+        spec:
+          containers:
+          - name: app
+            image: my-java-app:latest
+    ```
+    
+    ### Node.js Application:
+    ```yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: my-nodejs-app
+    spec:
+      template:
+        metadata:
+          annotations:
+            instrumentation.opentelemetry.io/inject-nodejs: "opentelemetry-operator-system/default-instrumentation"
+        spec:
+          containers:
+          - name: app
+            image: my-nodejs-app:latest
+    ```
+    
+    ### Python Application:
+    ```yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: my-python-app
+    spec:
+      template:
+        metadata:
+          annotations:
+            instrumentation.opentelemetry.io/inject-python: "opentelemetry-operator-system/default-instrumentation"
+        spec:
+          containers:
+          - name: app
+            image: my-python-app:latest
+    ```
+    
+    ### .NET Application:
+    ```yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: my-dotnet-app
+    spec:
+      template:
+        metadata:
+          annotations:
+            instrumentation.opentelemetry.io/inject-dotnet: "opentelemetry-operator-system/default-instrumentation"
+        spec:
+          containers:
+          - name: app
+            image: my-dotnet-app:latest
+    ```
+    
+    ## Knative Serverless Applications:
+    
+    ### Node.js Knative Service:
+    ```yaml
+    apiVersion: serving.knative.dev/v1
+    kind: Service
+    metadata:
+      name: my-serverless-api
+    spec:
+      template:
+        metadata:
+          annotations:
+            instrumentation.opentelemetry.io/inject-nodejs: "opentelemetry-operator-system/default-instrumentation"
+        spec:
+          containers:
+          - image: my-api:latest
+            ports:
+            - containerPort: 8080
+    ```
+    
+    ## Custom Instrumentation Configuration:
+    
+    You can create custom instrumentation configs for specific needs:
+    
+    ```yaml
+    apiVersion: opentelemetry.io/v1alpha1
+    kind: Instrumentation
+    metadata:
+      name: high-throughput-instrumentation
+      namespace: production
+    spec:
+      exporter:
+        endpoint: http://otel-collector-collector.opentelemetry-operator-system.svc.cluster.local:4318
+      sampler:
+        type: parentbased_traceidratio
+        argument: "0.1"  # Sample only 10% for high-traffic apps
+      java:
+        env:
+          - name: OTEL_JAVAAGENT_DEBUG
+            value: "false"
+          - name: OTEL_INSTRUMENTATION_KAFKA_ENABLED
+            value: "true"
+    ```
+    
+    Then reference it in your deployment:
+    ```yaml
+    annotations:
+      instrumentation.opentelemetry.io/inject-java: "production/high-throughput-instrumentation"
+    ```
+    
+    ## What Gets Automatically Instrumented:
+    
+    ### Java:
+    - HTTP clients/servers (Spring Boot, Servlet)
+    - Database calls (JDBC, JPA, MongoDB)
+    - Message queues (Kafka, RabbitMQ)
+    - Redis, Elasticsearch
+    
+    ### Node.js:
+    - HTTP/HTTPS
+    - Express.js
+    - Database drivers (MySQL, PostgreSQL, MongoDB)
+    - Redis
+    
+    ### Python:
+    - HTTP requests (requests, urllib3)
+    - Web frameworks (Django, Flask, FastAPI)
+    - Database (SQLAlchemy, psycopg2, pymongo)
+    - Redis, Celery
+    
+    ## Viewing Traces:
+    
+    After instrumentation, traces will be:
+    1. Collected by OpenTelemetry agents
+    2. Sent to OpenTelemetry Collector
+    3. Forwarded to Jaeger
+    4. Viewable at https://tracing.{{ (datasource "config").domain.primary }}
+    
+    ## Best Practices:
+    
+    1. **Start with default sampling** (25%) and adjust based on volume
+    2. **Use namespace-specific instrumentation** for different environments
+    3. **Monitor collector metrics** in Prometheus/Grafana
+    4. **Add custom attributes** for business context
+    5. **Correlate with logs** using trace IDs
+    
+    ## Integration with Existing Stack:
+    
+    - **Prometheus**: Metrics from OTel collector
+    - **Grafana**: Dashboards showing traces + metrics
+    - **Sentry**: Correlated error tracking with trace context
+    - **Logs**: Trace IDs automatically injected

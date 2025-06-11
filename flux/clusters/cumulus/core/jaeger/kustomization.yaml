@@ -8,5 +8,3 @@ resources:
   - ingress.yaml
   - secrets-template.yaml
   - keycloak-setup.yaml
-  - unified-dashboards.yaml
-  - observability-summary.yaml

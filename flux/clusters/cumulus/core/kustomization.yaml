@@ -7,3 +7,5 @@ resources:
   - backup-schedules
   - prometheus
   - grafana
+  - jaeger
+  - loki
