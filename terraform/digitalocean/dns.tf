@@ -26,7 +26,7 @@ locals {
 
 # DNS Records for services
 resource "digitalocean_record" "keycloak" {
-  domain = local.domain_name
+  domain = local.domain_id
   type   = "A"
   name   = "auth"
   value  = var.load_balancer_ip
