@@ -2,6 +2,8 @@
 
 This document describes how secrets are managed in the Blueprint infrastructure using SOPS (Secrets OPerationS) for encryption and GitHub Actions for templating.
 
+> **Note for Template Users**: This template does not include any encrypted secrets (`.enc.yaml` files). These are generated during your initial deployment with your own encryption keys. The template only provides secret templates that define the structure.
+
 ## Overview
 
 The secrets management system uses:
@@ -19,10 +21,17 @@ GitHub Secrets → Templates → GitHub Actions → SOPS Encryption → Git → 
 
 ## Initial Setup
 
+> **Important**: When using this template, encrypted secret files (`.enc.yaml`) are automatically generated during the deployment process. You don't need to create them manually.
+
 ### 1. Generate age Key Pair
 
+The initial setup script will generate this for you, but you can also do it manually:
+
 ```bash
-# Generate a new age key pair
+# Run the initial setup script (recommended)
+./scripts/initial-setup
+
+# Or generate manually:
 age-keygen -o age.key
 
 # The output will show:
@@ -52,6 +61,7 @@ For each application, create secrets following the pattern `<APP>_<ENV>_<SECRET>
 
 - Nextcloud:
   - `NEXTCLOUD_PROD_DB_PASSWORD`
+  - `NEXTCLOUD_PROD_ADMIN_PASSWORD`
   - `NEXTCLOUD_PROD_OIDC_CLIENT_ID`
   - `NEXTCLOUD_PROD_OIDC_CLIENT_SECRET`
   - `NEXTCLOUD_PROD_SPACES_ACCESS_KEY`

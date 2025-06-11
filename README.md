@@ -11,6 +11,8 @@
 
 Deploy a complete, production-ready Kubernetes infrastructure in minutes:
 
+> **Template Note**: This template includes secret templates (`.yaml` files) but not encrypted secrets (`.enc.yaml` files). Encrypted secrets are automatically generated during your first deployment with your own unique encryption keys.
+
 ### 🏗️ **Infrastructure**
 - **[DigitalOcean](https://digitalocean.pxf.io/3evZdB) Kubernetes Cluster** - Managed Kubernetes with auto-scaling
 - **GitOps with Flux v2** - Automated deployments from Git

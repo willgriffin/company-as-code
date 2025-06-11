@@ -18,5 +18,9 @@ When referencing DigitalOcean in markdown files:
 
 ## Template Usage
 
+## Tools and Technologies
+
+- We're using gomplate for templates
+
 ## Synchronization Rules
 - `.claude/commands/issue.yml` and `WORKFLOW.md` should always be reflective of each other. If a change is requested to either, it should be echo'd in the other.
