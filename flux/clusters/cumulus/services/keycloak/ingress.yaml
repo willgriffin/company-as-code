@@ -11,10 +11,10 @@ spec:
   ingressClassName: traefik
   tls:
   - hosts:
-    - auth.happyvertical.com
+    - auth.{{ (datasource "config").domain.primary }}
     secretName: keycloak-tls
   rules:
-  - host: auth.happyvertical.com
+  - host: auth.{{ (datasource "config").domain.primary }}
     http:
       paths:
       - path: /

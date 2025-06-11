@@ -15,18 +15,18 @@ spec:
         namespace: mailu
   values:
     # Main mail domain
-    domain: happyvertical.com
+    domain: {{ (datasource "config").domain.primary }}
     
     # Initial admin account
     initialAccount:
       enabled: true
       username: admin
-      domain: happyvertical.com
+      domain: {{ (datasource "config").domain.primary }}
       password: changeme-in-production
     
     # Hostnames
     hostnames:
-      - mail.happyvertical.com
+      - mail.{{ (datasource "config").domain.primary }}
     
     # Use external ingress
     ingress:

@@ -21,11 +21,11 @@ data:
     su -s /bin/sh www-data -c "php /var/www/html/occ app:enable oidc_login"
     
     # Configure OIDC settings
-    su -s /bin/sh www-data -c "php /var/www/html/occ config:system:set oidc_login_provider_url --value='https://auth.happyvertical.com/realms/happyvertical'"
+    su -s /bin/sh www-data -c "php /var/www/html/occ config:system:set oidc_login_provider_url --value='https://auth.{{ (datasource "config").domain.primary }}/realms/happyvertical'"
     su -s /bin/sh www-data -c "php /var/www/html/occ config:system:set oidc_login_client_id --value='nextcloud'"
     su -s /bin/sh www-data -c "php /var/www/html/occ config:system:set oidc_login_client_secret --value='${OIDC_CLIENT_SECRET:-changeme-configure-in-keycloak}'"
     su -s /bin/sh www-data -c "php /var/www/html/occ config:system:set oidc_login_auto_redirect --value=false --type=boolean"
-    su -s /bin/sh www-data -c "php /var/www/html/occ config:system:set oidc_login_logout_url --value='https://auth.happyvertical.com/realms/happyvertical/protocol/openid-connect/logout?post_logout_redirect_uri=https%3A%2F%2Fcloud.happyvertical.com%2F'"
+    su -s /bin/sh www-data -c "php /var/www/html/occ config:system:set oidc_login_logout_url --value='https://auth.{{ (datasource "config").domain.primary }}/realms/happyvertical/protocol/openid-connect/logout?post_logout_redirect_uri=https%3A%2F%2Fcloud.{{ (datasource "config").domain.primary }}%2F'"
     su -s /bin/sh www-data -c "php /var/www/html/occ config:system:set oidc_login_button_text --value='Login with Keycloak'"
     su -s /bin/sh www-data -c "php /var/www/html/occ config:system:set oidc_login_code_challenge_method --value='S256'"
     su -s /bin/sh www-data -c "php /var/www/html/occ config:system:set oidc_login_attributes id --value='preferred_username'"

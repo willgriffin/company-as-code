@@ -10,7 +10,7 @@ spec:
     - websecure
   routes:
     # Admin interface
-    - match: Host(`mail.happyvertical.com`) && PathPrefix(`/admin`)
+    - match: Host(`mail.{{ (datasource "config").domain.primary }}`) && PathPrefix(`/admin`)
       kind: Rule
       services:
         - name: mailu-admin
@@ -18,7 +18,7 @@ spec:
       middlewares:
         - name: keycloak-auth
     # Webmail
-    - match: Host(`mail.happyvertical.com`) && PathPrefix(`/webmail`)
+    - match: Host(`mail.{{ (datasource "config").domain.primary }}`) && PathPrefix(`/webmail`)
       kind: Rule
       services:
         - name: mailu-roundcube
@@ -26,7 +26,7 @@ spec:
       middlewares:
         - name: keycloak-auth
     # Root redirect
-    - match: Host(`mail.happyvertical.com`) && Path(`/`)
+    - match: Host(`mail.{{ (datasource "config").domain.primary }}`) && Path(`/`)
       kind: Rule
       services:
         - name: mailu-admin
@@ -36,7 +36,7 @@ spec:
   tls:
     secretName: mailu-tls
     domains:
-      - main: mail.happyvertical.com
+      - main: mail.{{ (datasource "config").domain.primary }}
 ---
 apiVersion: traefik.containo.us/v1alpha1
 kind: Middleware
@@ -46,7 +46,7 @@ metadata:
 spec:
   redirectRegex:
     regex: ^https://mail\.happyvertical\.com/$
-    replacement: https://mail.happyvertical.com/webmail/
+    replacement: https://mail.{{ (datasource "config").domain.primary }}/webmail/
 ---
 apiVersion: traefik.containo.us/v1alpha1
 kind: Middleware
