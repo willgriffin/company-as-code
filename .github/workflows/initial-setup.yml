@@ -1,0 +1,224 @@
+name: Interactive Initial Setup
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain_name:
+        description: 'Your domain name (e.g., example.com)'
+        required: true
+        type: string
+      digitalocean_token:
+        description: 'DigitalOcean API Token'
+        required: true
+        type: string
+      cluster_name:
+        description: 'Kubernetes cluster name'
+        required: true
+        type: string
+      email:
+        description: 'Email for Let''s Encrypt certificates'
+        required: true
+        type: string
+      enable_keycloak:
+        description: 'Enable Keycloak identity provider'
+        required: false
+        default: true
+        type: boolean
+      enable_mattermost:
+        description: 'Enable Mattermost chat platform'
+        required: false
+        default: false
+        type: boolean
+      enable_nextcloud:
+        description: 'Enable Nextcloud file storage'
+        required: false
+        default: false
+        type: boolean
+      enable_mailu:
+        description: 'Enable Mailu email server'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    name: Configure Repository
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Validate inputs
+      run: |
+        # Validate domain name format
+        if ! echo "${{ inputs.domain_name }}" | grep -E '^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$'; then
+          echo "Error: Invalid domain name format"
+          exit 1
+        fi
+        
+        # Validate email format
+        if ! echo "${{ inputs.email }}" | grep -E '^[^@]+@[^@]+\.[^@]+$'; then
+          echo "Error: Invalid email format"
+          exit 1
+        fi
+        
+        # Validate cluster name (kubernetes naming conventions)
+        if ! echo "${{ inputs.cluster_name }}" | grep -E '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'; then
+          echo "Error: Cluster name must follow Kubernetes naming conventions (lowercase alphanumeric and hyphens)"
+          exit 1
+        fi
+        
+        echo "✓ All inputs validated successfully"
+
+    - name: Install required tools
+      run: |
+        # Install age and sops
+        curl -L https://github.com/FiloSottile/age/releases/latest/download/age-v1.1.1-linux-amd64.tar.gz | tar -xz --strip-components=1 -C /tmp
+        sudo mv /tmp/age* /usr/local/bin/
+        
+        curl -L https://github.com/mozilla/sops/releases/latest/download/sops-v3.8.1.linux.amd64 -o /tmp/sops
+        chmod +x /tmp/sops
+        sudo mv /tmp/sops /usr/local/bin/
+        
+        # Verify installations
+        age --version
+        sops --version
+
+    - name: Create configuration files
+      run: |
+        # Create .envrc.secrets from example if it doesn't exist
+        if [ ! -f ".envrc.secrets" ]; then
+          if [ -f ".envrc.secrets.example" ]; then
+            cp .envrc.secrets.example .envrc.secrets
+            echo "✓ Created .envrc.secrets from example"
+          else
+            echo "Creating basic .envrc.secrets file..."
+            cat > .envrc.secrets << 'EOF'
+        # SOPS age private key for secret encryption
+        export SOPS_AGE_PRIVATE_KEY="AGE-SECRET-KEY-PLACEHOLDER"
+        
+        # DigitalOcean configuration
+        export DIGITALOCEAN_TOKEN="${{ inputs.digitalocean_token }}"
+        EOF
+          fi
+        fi
+        
+        # Update .envrc.secrets with DigitalOcean token
+        sed -i 's/^export DIGITALOCEAN_TOKEN=.*/export DIGITALOCEAN_TOKEN="${{ inputs.digitalocean_token }}"/' .envrc.secrets
+
+    - name: Update configuration files
+      run: |
+        # Update config.yaml with user inputs
+        if [ -f "config.yaml.example" ]; then
+          cp config.yaml.example config.yaml
+        fi
+        
+        # Replace placeholders in config.yaml
+        sed -i "s/^domain_name: .*/domain_name: \"${{ inputs.domain_name }}\"/" config.yaml
+        sed -i "s/^cluster_name: .*/cluster_name: \"${{ inputs.cluster_name }}\"/" config.yaml
+        sed -i "s/^email: .*/email: \"${{ inputs.email }}\"/" config.yaml
+        
+        # Update application enablement
+        sed -i "s/^keycloak_enabled: .*/keycloak_enabled: ${{ inputs.enable_keycloak }}/" config.yaml
+        sed -i "s/^mattermost_enabled: .*/mattermost_enabled: ${{ inputs.enable_mattermost }}/" config.yaml
+        sed -i "s/^nextcloud_enabled: .*/nextcloud_enabled: ${{ inputs.enable_nextcloud }}/" config.yaml
+        sed -i "s/^mailu_enabled: .*/mailu_enabled: ${{ inputs.enable_mailu }}/" config.yaml
+        
+        echo "✓ Updated config.yaml with user inputs"
+
+    - name: Update domain references
+      run: |
+        # Update domain references in Terraform files
+        if [ -f "terraform/digitalocean/terraform.tfvars" ]; then
+          sed -i 's/^domain_name = .*/domain_name = "${{ inputs.domain_name }}"/' terraform/digitalocean/terraform.tfvars
+        fi
+        
+        # Update domain references in flux configurations
+        find flux/ -name "*.yaml" -type f -exec sed -i "s/example\.com/${{ inputs.domain_name }}/g" {} \;
+        
+        echo "✓ Updated domain references throughout codebase"
+
+    - name: Run initial setup script
+      run: |
+        # Make scripts executable
+        chmod +x scripts/*
+        
+        # Run the initial setup to generate age keys and update SOPS config
+        ./scripts/initial-setup
+        
+        echo "✓ Completed initial setup (age keys and SOPS configuration)"
+
+    - name: Generate application secrets
+      run: |
+        # Run the generate-secrets script if it exists
+        if [ -f "scripts/generate-secrets" ]; then
+          ./scripts/generate-secrets
+          echo "✓ Generated application secrets"
+        fi
+
+    - name: Configure Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+    - name: Commit configuration
+      run: |
+        # Add all modified files
+        git add config.yaml
+        git add .sops.yaml
+        git add terraform/digitalocean/terraform.tfvars || true
+        git add flux/ || true
+        
+        # Check if there are changes to commit
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "feat: configure repository for ${{ inputs.domain_name }}
+
+        - Set domain to ${{ inputs.domain_name }}
+        - Set cluster name to ${{ inputs.cluster_name }}
+        - Set email to ${{ inputs.email }}
+        - Applications enabled: Keycloak=${{ inputs.enable_keycloak }}, Mattermost=${{ inputs.enable_mattermost }}, Nextcloud=${{ inputs.enable_nextcloud }}, Mailu=${{ inputs.enable_mailu }}
+        - Generated SOPS age keys and configuration
+        - Updated domain references throughout codebase"
+          
+          git push
+          echo "✓ Committed and pushed configuration changes"
+        fi
+
+    - name: Create setup summary
+      run: |
+        echo "## 🎉 Repository Setup Complete!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Your repository has been configured with the following settings:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Domain | ${{ inputs.domain_name }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Cluster | ${{ inputs.cluster_name }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Email | ${{ inputs.email }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Keycloak | ${{ inputs.enable_keycloak }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Mattermost | ${{ inputs.enable_mattermost }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Nextcloud | ${{ inputs.enable_nextcloud }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Mailu | ${{ inputs.enable_mailu }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "1. **Update GitHub Secrets**: Add your DigitalOcean API token as \`DIGITALOCEAN_TOKEN\` in repository secrets" >> $GITHUB_STEP_SUMMARY
+        echo "2. **Configure SOPS**: The SOPS age private key has been generated - you'll need to add it as \`SOPS_AGE_PRIVATE_KEY\` in repository secrets" >> $GITHUB_STEP_SUMMARY
+        echo "3. **Deploy Infrastructure**: Run \`./scripts/cluster-create\` to deploy your Kubernetes cluster" >> $GITHUB_STEP_SUMMARY
+        echo "4. **Sync Secrets**: Run \`./scripts/secrets-sync-to-github\` to sync encrypted secrets to GitHub" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📚 **Documentation**: See README.md for detailed deployment instructions" >> $GITHUB_STEP_SUMMARY
+
+    - name: Security reminder
+      run: |
+        echo "🔒 SECURITY REMINDER:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY  
+        echo "- The \`.envrc.secrets\` file contains sensitive information and is gitignored" >> $GITHUB_STEP_SUMMARY
+        echo "- Your DigitalOcean API token is only stored in workflow inputs (not committed)" >> $GITHUB_STEP_SUMMARY
+        echo "- Generated age keys are used for SOPS encryption of secrets" >> $GITHUB_STEP_SUMMARY
+        echo "- Make sure to add required secrets to GitHub repository secrets before deployment" >> $GITHUB_STEP_SUMMARY
