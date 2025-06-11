@@ -156,14 +156,18 @@ jobs:
             KEY_NAME="terraform-state-$(date +%s)"
             
             # Create Spaces access key with full access (needed for Terraform state)
-            # Retry this API call as it can hit rate limits
+            # Retry this API call as it can hit rate limits with exponential backoff
+            create_spaces_key() {
+              doctl spaces keys create "$KEY_NAME" \
+                --grants "bucket=;permission=fullaccess" \
+                --output json \
+                --access-token "$DIGITALOCEAN_TOKEN"
+            }
+            
             retry_count=0
             max_retries=5
             while [ $retry_count -lt $max_retries ]; do
-              OUTPUT=$(doctl spaces keys create "$KEY_NAME" \
-                --grants "bucket=;permission=fullaccess" \
-                --output json \
-                --access-token "$DIGITALOCEAN_TOKEN" 2>&1)
+              OUTPUT=$(create_spaces_key 2>&1)
               exit_code=$?
               
               if [ $exit_code -eq 0 ]; then
@@ -172,16 +176,16 @@ jobs:
                 retry_count=$((retry_count + 1))
                 if [ $retry_count -lt $max_retries ]; then
                   wait_time=$((2 ** retry_count))
-                  echo "Attempt $retry_count/$max_retries failed, retrying in ${wait_time}s..."
+                  echo "Attempt $retry_count/$max_retries failed (exit code: $exit_code), retrying in ${wait_time}s..."
                   sleep $wait_time
                 else
-                  echo "Failed after $max_retries attempts"
+                  echo "Failed to create Spaces access key after $max_retries attempts"
                   exit $exit_code
                 fi
               fi
             done
             
-            if [[ $? -eq 0 ]]; then
+            if [[ $exit_code -eq 0 ]]; then
               # Extract credentials from JSON output
               ACCESS_KEY=$(echo "$OUTPUT" | jq -r '.access_key')
               SECRET_KEY=$(echo "$OUTPUT" | jq -r '.secret_key')
@@ -309,11 +313,14 @@ jobs:
           retry_count=0
           max_retries=5
           while [ $retry_count -lt $max_retries ]; do
-            if doctl compute domain get "$PRIMARY_DOMAIN" >/dev/null 2>&1; then
+            doctl compute domain get "$PRIMARY_DOMAIN" >/dev/null 2>&1
+            exit_code=$?
+            
+            if [ $exit_code -eq 0 ]; then
               echo "✅ Domain $PRIMARY_DOMAIN already exists, will skip creation"
               SKIP_DOMAIN_CREATION=true
               break
-            elif [ $? -eq 1 ]; then
+            elif [ $exit_code -eq 1 ]; then
               echo "ℹ️ Domain $PRIMARY_DOMAIN does not exist, will create it"
               SKIP_DOMAIN_CREATION=false
               break
@@ -321,7 +328,7 @@ jobs:
               retry_count=$((retry_count + 1))
               if [ $retry_count -lt $max_retries ]; then
                 wait_time=$((2 ** retry_count))
-                echo "API call failed, retrying in ${wait_time}s... (attempt $retry_count/$max_retries)"
+                echo "API call failed (exit code: $exit_code), retrying in ${wait_time}s... (attempt $retry_count/$max_retries)"
                 sleep $wait_time
               else
                 echo "Failed to check domain after $max_retries attempts"
