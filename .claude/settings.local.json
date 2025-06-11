@@ -26,7 +26,8 @@
       "Bash(gh issue edit:*)",
       "Bash(git checkout:*)",
       "Bash(git pull:*)",
-      "Bash(terraform validate:*)"
+      "Bash(terraform validate:*)",
+      "Bash(rg:*)"
     ],
     "deny": []
   },
