@@ -1,0 +1,64 @@
+#!/bin/bash
+# Command: project:issue:transition
+# Description: Manually transition an issue between workflow states
+# Usage: /project:issue:transition <issue_number> <new_status>
+
+ISSUE_NUMBER=$1
+NEW_STATUS=$2
+
+if [ -z "$ISSUE_NUMBER" ] || [ -z "$NEW_STATUS" ]; then
+    echo "Usage: /project:issue:transition <issue_number> <new_status>"
+    echo "Valid statuses: new-issue, icebox, backlog, to-do, in-progress, code-review, testing, ready-for-deployment, deployed"
+    exit 1
+fi
+
+# Validate new status
+VALID_STATUSES=("new-issue" "icebox" "backlog" "to-do" "in-progress" "code-review" "testing" "ready-for-deployment" "deployed")
+if [[ ! " ${VALID_STATUSES[@]} " =~ " ${NEW_STATUS} " ]]; then
+    echo "Error: Invalid status '$NEW_STATUS'"
+    echo "Valid statuses: ${VALID_STATUSES[*]}"
+    exit 1
+fi
+
+# Get current status
+CURRENT_STATUS=$(gh issue view $ISSUE_NUMBER --json labels --jq '.labels[] | select(.name | startswith("status:")) | .name' | head -1)
+
+if [ -z "$CURRENT_STATUS" ]; then
+    echo "Issue #$ISSUE_NUMBER has no current status label"
+else
+    echo "Current status: $CURRENT_STATUS"
+fi
+
+# Remove all status labels
+echo "Removing existing status labels..."
+for status in "${VALID_STATUSES[@]}"; do
+    gh issue edit $ISSUE_NUMBER --remove-label "status:$status" 2>/dev/null
+done
+
+# Add new status label
+echo "Adding new status: status:$NEW_STATUS"
+gh issue edit $ISSUE_NUMBER --add-label "status:$NEW_STATUS"
+
+echo "✅ Issue #$ISSUE_NUMBER transitioned to: $NEW_STATUS"
+
+# Provide context-specific advice
+case "$NEW_STATUS" in
+    "to-do")
+        echo "📝 Ready for development. Use: /project:issue:start $ISSUE_NUMBER"
+        ;;
+    "in-progress")
+        echo "💻 Remember to create a feature branch: git checkout -b issue-$ISSUE_NUMBER"
+        ;;
+    "code-review")
+        echo "👀 Don't forget to create a PR if you haven't already"
+        ;;
+    "testing")
+        echo "🧪 Monitor CI/CD pipeline for test results"
+        ;;
+    "ready-for-deployment")
+        echo "🚀 Ready to deploy when appropriate"
+        ;;
+    "deployed")
+        echo "✨ Monitor production for any issues"
+        ;;
+esac
