@@ -1,60 +1,29 @@
 #!/bin/bash
 # Command: project:issue:triage
-# Description: Triage a new issue
-# Usage: /project:issue:triage <issue_number> <action>
-# Actions: duplicate <original_issue>, unclear, invalid, backlog, icebox
+# Description: Claude automatically triages new issues by analyzing content
+# Usage: /project:issue:triage <issue_number>
+# Claude will analyze the issue and make triage decisions
 
 ISSUE_NUMBER=$1
-ACTION=$2
 
-if [ -z "$ISSUE_NUMBER" ] || [ -z "$ACTION" ]; then
-    echo "Usage: /project:issue:triage <issue_number> <action>"
-    echo "Actions: duplicate <original_issue>, unclear, invalid, backlog, icebox"
+if [ -z "$ISSUE_NUMBER" ]; then
+    echo "Usage: /project:issue:triage <issue_number>"
     exit 1
 fi
 
-case "$ACTION" in
-    "duplicate")
-        ORIGINAL=$3
-        if [ -z "$ORIGINAL" ]; then
-            echo "Error: Please specify the original issue number"
-            exit 1
-        fi
-        gh issue close $ISSUE_NUMBER -c "Duplicate of #$ORIGINAL"
-        gh issue edit $ISSUE_NUMBER --add-label "duplicate"
-        echo "Issue #$ISSUE_NUMBER closed as duplicate of #$ORIGINAL"
-        ;;
-        
-    "unclear")
-        gh issue comment $ISSUE_NUMBER -b "Thank you for reporting this issue. Could you please provide more details about:
-- Steps to reproduce the issue
-- Expected behavior
-- Actual behavior
-- Any error messages or logs"
-        gh issue edit $ISSUE_NUMBER --add-label "needs-info"
-        echo "Requested more information on issue #$ISSUE_NUMBER"
-        ;;
-        
-    "invalid")
-        gh issue close $ISSUE_NUMBER -c "This issue doesn't appear to be a bug or valid feature request for this project. If you believe this was closed in error, please provide additional context."
-        gh issue edit $ISSUE_NUMBER --add-label "invalid"
-        echo "Issue #$ISSUE_NUMBER closed as invalid"
-        ;;
-        
-    "backlog")
-        gh issue edit $ISSUE_NUMBER --add-label "status:backlog" --remove-label "status:new-issue"
-        echo "Issue #$ISSUE_NUMBER moved to backlog"
-        ;;
-        
-    "icebox")
-        gh issue edit $ISSUE_NUMBER --add-label "status:icebox" --remove-label "status:new-issue"
-        gh issue comment $ISSUE_NUMBER -b "This is a valid request but not a current priority. We'll keep it in the icebox for future consideration."
-        echo "Issue #$ISSUE_NUMBER moved to icebox"
-        ;;
-        
-    *)
-        echo "Unknown action: $ACTION"
-        echo "Valid actions: duplicate, unclear, invalid, backlog, icebox"
-        exit 1
-        ;;
-esac
+echo "CLAUDE_ACTION_REQUIRED: AUTO_TRIAGE_ISSUE"
+echo "ISSUE_NUMBER: $ISSUE_NUMBER"
+echo ""
+echo "Claude will now automatically triage this issue by:"
+echo "1. Analyzing issue content for clarity and completeness"
+echo "2. Searching for potential duplicates"
+echo "3. Determining if it's a valid bug/feature request"
+echo "4. Assessing priority and actionability"
+echo "5. Making a triage decision:"
+echo "   - Close as duplicate (with reference)"
+echo "   - Request more information"
+echo "   - Close as invalid/out-of-scope"
+echo "   - Move to icebox (valid but not current priority)"
+echo "   - Move to backlog (ready for refinement)"
+echo ""
+echo "The decision will be based on issue content, project context, and similar issues."

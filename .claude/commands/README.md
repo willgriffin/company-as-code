@@ -1,11 +1,56 @@
 # Claude Project Issue Commands
 
-Custom slash commands for managing GitHub issues through their workflow states as defined in docs/WORKFLOW.md.
+Custom slash commands for managing GitHub issues through their workflow states. By default, these commands trigger Claude to actively perform the work, not just provide guidance.
 
-## Main Command
+## Primary Commands (Claude Does the Work)
 
 ### `/project:issue <issue_number>`
-Analyzes the current state of an issue and provides context-specific guidance and actions based on its workflow status.
+**Claude automatically analyzes and executes the appropriate workflow action.**
+
+This is the main command that intelligently advances issues through the workflow:
+
+**Behavior by State:**
+- **New Issue/No Status** → Triages (search duplicates, assess clarity, move to backlog/icebox)
+- **Icebox** → Reviews relevance, moves to backlog or closes if stale
+- **Backlog** → Checks Definition of Ready, requests info or moves to todo
+- **To-Do** → Assigns self, creates branch, starts implementation
+- **In Progress** → Implements solution or creates PR when ready
+- **Code Review** → Handles feedback or merges when approved
+- **Testing** → Monitors CI/CD, fixes failures or advances
+- **Ready for Deploy** → Triggers deployment if automated
+- **Deployed** → Monitors for issues, closes when stable
+
+**Re-run Behavior:**
+When run again on the same issue, Claude checks for new comments/feedback and acts accordingly:
+- Implements requested changes
+- Addresses review feedback
+- Updates based on new information
+
+### `/project:issue:implement <issue_number>`
+**Claude reads the issue and implements the solution.**
+
+Claude will:
+- Understand requirements from the issue
+- Analyze codebase patterns
+- Write the implementation
+- Create tests
+- Update documentation
+- Prepare changes for review
+
+### `/project:issue:triage <issue_number>`
+**Claude automatically triages new issues.**
+
+Claude will:
+- Analyze issue clarity and completeness
+- Search for duplicates
+- Assess validity and priority
+- Make and execute triage decisions
+- Add appropriate labels and comments
+
+## Guidance Commands (Instructions Only)
+
+### `/project:issue:guide <issue_number>`
+Provides context-specific guidance and suggested actions based on workflow status without Claude taking action.
 
 **Example:**
 ```
