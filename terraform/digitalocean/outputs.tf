@@ -66,3 +66,40 @@ output "node_pool_node_counts" {
   description = "Node counts for each pool"
   value       = [for np in digitalocean_kubernetes_cluster.main.node_pool : np.node_count]
 }
+
+# Backup storage outputs
+output "backup_bucket_name" {
+  description = "Name of the backup storage bucket"
+  value       = digitalocean_spaces_bucket.backup.name
+}
+
+output "backup_bucket_region" {
+  description = "Region of the backup storage bucket"
+  value       = digitalocean_spaces_bucket.backup.region
+}
+
+output "backup_bucket_endpoint" {
+  description = "Endpoint URL for the backup storage bucket"
+  value       = "https://${digitalocean_spaces_bucket.backup.region}.digitaloceanspaces.com"
+}
+
+output "backup_bucket_domain" {
+  description = "Domain name of the backup storage bucket"
+  value       = digitalocean_spaces_bucket.backup.bucket_domain_name
+}
+
+output "archive_bucket_name" {
+  description = "Name of the archive storage bucket (if enabled)"
+  value       = var.enable_archive_bucket ? digitalocean_spaces_bucket.archive[0].name : null
+}
+
+output "backup_configuration" {
+  description = "Backup configuration summary"
+  value = {
+    retention_days         = var.backup_retention_days
+    version_retention_days = var.backup_version_retention_days
+    archive_days          = var.backup_archive_days
+    archive_enabled       = var.enable_archive_bucket
+    encryption_enabled    = var.backup_encryption_enabled
+  }
+}
