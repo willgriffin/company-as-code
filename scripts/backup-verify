@@ -1,0 +1,189 @@
+#!/usr/bin/env bash
+# Backup verification script
+# Verifies that backup systems are working correctly
+
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Import retry utility
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/retry.sh"
+
+log() {
+    echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"
+}
+
+error() {
+    echo -e "${RED}[ERROR]${NC} $1" >&2
+}
+
+warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+# Check if kubectl is available and connected
+check_kubectl() {
+    log "Checking kubectl connectivity..."
+    if ! kubectl cluster-info >/dev/null 2>&1; then
+        error "kubectl is not connected to a cluster"
+        exit 1
+    fi
+    success "kubectl connectivity verified"
+}
+
+# Verify CloudNativePG backup status
+verify_postgres_backups() {
+    log "Verifying PostgreSQL backup status..."
+    
+    local clusters=("keycloak-pg" "mattermost-pg" "nextcloud-pg" "mailu-postgres")
+    local namespaces=("keycloak" "mattermost" "nextcloud" "mailu")
+    
+    for i in "${!clusters[@]}"; do
+        local cluster="${clusters[$i]}"
+        local namespace="${namespaces[$i]}"
+        
+        log "Checking backup status for ${cluster} in namespace ${namespace}..."
+        
+        # Check if cluster exists
+        if ! kubectl get cluster "${cluster}" -n "${namespace}" >/dev/null 2>&1; then
+            warning "Cluster ${cluster} not found in namespace ${namespace}"
+            continue
+        fi
+        
+        # Check backup configuration
+        local backup_config
+        backup_config=$(kubectl get cluster "${cluster}" -n "${namespace}" -o jsonpath='{.spec.backup}' 2>/dev/null || echo "")
+        
+        if [[ -z "$backup_config" ]]; then
+            error "No backup configuration found for ${cluster}"
+            continue
+        fi
+        
+        # Check if backup destination is configured
+        local destination
+        destination=$(kubectl get cluster "${cluster}" -n "${namespace}" -o jsonpath='{.spec.backup.barmanObjectStore.destinationPath}' 2>/dev/null || echo "")
+        
+        if [[ -n "$destination" ]]; then
+            success "Backup destination configured for ${cluster}: ${destination}"
+        else
+            error "No backup destination configured for ${cluster}"
+        fi
+        
+        # Check backup credentials secret
+        local secret_name
+        secret_name=$(kubectl get cluster "${cluster}" -n "${namespace}" -o jsonpath='{.spec.backup.barmanObjectStore.s3Credentials.accessKeyId.name}' 2>/dev/null || echo "")
+        
+        if [[ -n "$secret_name" ]] && kubectl get secret "${secret_name}" -n "${namespace}" >/dev/null 2>&1; then
+            success "Backup credentials secret ${secret_name} exists for ${cluster}"
+        else
+            error "Backup credentials secret missing or not found for ${cluster}"
+        fi
+    done
+}
+
+# Verify Velero backup status
+verify_velero_backups() {
+    log "Verifying Velero backup status..."
+    
+    # Check if Velero is deployed
+    if ! kubectl get deployment velero -n velero >/dev/null 2>&1; then
+        error "Velero deployment not found"
+        return 1
+    fi
+    
+    # Check if Velero is ready
+    local ready_replicas
+    ready_replicas=$(kubectl get deployment velero -n velero -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    
+    if [[ "$ready_replicas" == "1" ]]; then
+        success "Velero deployment is ready"
+    else
+        error "Velero deployment is not ready"
+        return 1
+    fi
+    
+    # Check backup storage location
+    local bsl_phase
+    bsl_phase=$(kubectl get backupstoragelocation default -n velero -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
+    
+    if [[ "$bsl_phase" == "Available" ]]; then
+        success "Backup storage location is available"
+    else
+        error "Backup storage location is not available (phase: ${bsl_phase})"
+    fi
+    
+    # Check recent backups
+    log "Checking recent Velero backups..."
+    local recent_backups
+    recent_backups=$(kubectl get backup -n velero --sort-by='.metadata.creationTimestamp' --no-headers 2>/dev/null | tail -5 || echo "")
+    
+    if [[ -n "$recent_backups" ]]; then
+        success "Recent backups found:"
+        echo "$recent_backups" | while IFS= read -r line; do
+            echo "  - $line"
+        done
+    else
+        warning "No recent backups found"
+    fi
+    
+    # Check backup schedules
+    log "Checking backup schedules..."
+    local schedules
+    schedules=$(kubectl get schedule -n velero --no-headers 2>/dev/null || echo "")
+    
+    if [[ -n "$schedules" ]]; then
+        success "Backup schedules found:"
+        echo "$schedules" | while IFS= read -r line; do
+            echo "  - $line"
+        done
+    else
+        error "No backup schedules found"
+    fi
+}
+
+# Check backup storage connectivity
+verify_backup_storage() {
+    log "Verifying backup storage connectivity..."
+    
+    # This would require AWS CLI or similar tools configured
+    # For now, we'll check if the necessary secrets exist
+    
+    local backup_secrets=("keycloak-postgres-backup-credentials" "mattermost-postgres-backup-credentials" "nextcloud-postgres-backup-credentials" "mailu-postgres-backup-credentials")
+    local namespaces=("keycloak" "mattermost" "nextcloud" "mailu")
+    
+    for i in "${!backup_secrets[@]}"; do
+        local secret="${backup_secrets[$i]}"
+        local namespace="${namespaces[$i]}"
+        
+        if kubectl get secret "${secret}" -n "${namespace}" >/dev/null 2>&1; then
+            success "Backup credentials secret ${secret} exists in ${namespace}"
+        else
+            error "Backup credentials secret ${secret} missing in ${namespace}"
+        fi
+    done
+}
+
+# Main verification function
+main() {
+    log "Starting backup verification..."
+    
+    check_kubectl
+    verify_postgres_backups
+    verify_velero_backups
+    verify_backup_storage
+    
+    log "Backup verification completed"
+}
+
+# Run main function
+main "$@"

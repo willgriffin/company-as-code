@@ -4,3 +4,4 @@ resources:
   - cloudnativepg
   - redis-operator
   - keycloak-operator
+  - velero

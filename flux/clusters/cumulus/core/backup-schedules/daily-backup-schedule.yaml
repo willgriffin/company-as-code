@@ -1,0 +1,41 @@
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: daily-application-backup
+  namespace: velero
+spec:
+  # Run daily at 2 AM UTC
+  schedule: "0 2 * * *"
+  template:
+    # Include all application namespaces
+    includedNamespaces:
+    - keycloak
+    - mattermost
+    - nextcloud
+    - mailu
+    
+    # Exclude system and temporary resources
+    excludedResources:
+    - events
+    - events.events.k8s.io
+    - backups.velero.io
+    - restores.velero.io
+    - resticrepositories.velero.io
+    
+    # Backup persistent volumes
+    defaultVolumesToRestic: true
+    
+    # Retention policy - keep for 30 days
+    ttl: "720h"
+    
+    # Storage location
+    storageLocation: default
+    
+    # Include cluster-scoped resources
+    includeClusterResources: true
+    
+    # Backup labels for identification
+    metadata:
+      labels:
+        backup-type: "daily"
+        backup-scope: "applications"

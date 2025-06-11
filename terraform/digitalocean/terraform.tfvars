@@ -25,6 +25,14 @@ github_repository  = "blueprint"
 flux_target_branch = "main"
 flux_target_path   = "./flux/clusters/cumulus"
 
+# Backup configuration
+backup_retention_days         = 30
+backup_version_retention_days = 7
+backup_archive_days          = 90
+enable_archive_bucket        = false
+backup_encryption_enabled    = true
+# backup_region = "nyc1"  # Optional: different region for backup redundancy
+
 # Sensitive variables will be passed via environment variables:
 # TF_VAR_do_token
 # TF_VAR_spaces_access_key  

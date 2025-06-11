@@ -138,3 +138,46 @@ variable "load_balancer_ip" {
   type        = string
   default     = "127.0.0.1" # Placeholder IP, will be updated after cluster deployment
 }
+
+# Backup configuration variables
+variable "backup_retention_days" {
+  description = "Number of days to retain backup files"
+  type        = number
+  default     = 30
+}
+
+variable "backup_version_retention_days" {
+  description = "Number of days to retain non-current backup versions"
+  type        = number
+  default     = 7
+}
+
+variable "backup_archive_days" {
+  description = "Number of days before moving backups to archive storage"
+  type        = number
+  default     = 90
+}
+
+variable "enable_archive_bucket" {
+  description = "Enable separate archive bucket for long-term storage"
+  type        = bool
+  default     = false
+}
+
+variable "archive_retention_days" {
+  description = "Number of days to retain archived backups"
+  type        = number
+  default     = 2555  # 7 years
+}
+
+variable "backup_region" {
+  description = "Region for backup storage (defaults to main region if not specified)"
+  type        = string
+  default     = null
+}
+
+variable "backup_encryption_enabled" {
+  description = "Enable server-side encryption for backup buckets"
+  type        = bool
+  default     = true
+}
