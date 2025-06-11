@@ -5,6 +5,10 @@
 
 set -euo pipefail
 
+# Get script directory for sourcing retry function
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/retry.sh"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -159,8 +163,8 @@ EOF
 
 print_success "Created auto.tfvars"
 
-# Initialize Terraform with backend config
-terraform init -backend-config=backend-config.hcl
+# Initialize Terraform with backend config (with retry)
+retry 3 5 terraform init -backend-config=backend-config.hcl
 
 print_success "Terraform initialized"
 
@@ -177,7 +181,7 @@ fi
 print_info "Checking if domain $PRIMARY_DOMAIN exists in DigitalOcean..."
 
 DOMAIN_EXISTS=false
-if doctl compute domain get "$PRIMARY_DOMAIN" >/dev/null 2>&1; then
+if retry 5 2 doctl compute domain get "$PRIMARY_DOMAIN" >/dev/null 2>&1; then
     print_success "Domain $PRIMARY_DOMAIN already exists in DigitalOcean"
     print_info "Setting skip_domain_creation=true to use existing domain"
     DOMAIN_EXISTS=true
@@ -208,7 +212,7 @@ if [[ "$EXPLICIT_SKIP" == "true" && "$DOMAIN_EXISTS" == "false" ]]; then
 fi
 
 print_info "Running terraform plan to show what will be changed..."
-terraform plan
+retry 3 10 terraform plan
 
 print_success "Terraform initialization and domain import complete!"
 print_info "Next steps:"
