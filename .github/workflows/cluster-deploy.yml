@@ -91,7 +91,7 @@ jobs:
       - name: Setup tools
         uses: ./.github/actions/setup-tools
         with:
-          tools: 'age,sops,yq,kubectl,flux,gomplate'
+          tools: 'age,sops,yq,kubectl,flux,gomplate,doctl'
       
       - name: Process Domain Templates
         run: |
@@ -141,6 +141,56 @@ jobs:
             echo "public-key=$PUBLIC_KEY" >> $GITHUB_OUTPUT
           fi
       
+      - name: Setup Spaces Access Keys
+        id: setup-spaces-keys
+        env:
+          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          SPACES_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+          SPACES_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+        run: |
+          # Check if Spaces credentials already exist
+          if [[ -z "$SPACES_ACCESS_KEY_ID" || -z "$SPACES_SECRET_ACCESS_KEY" ]]; then
+            echo "Creating DigitalOcean Spaces access keys for Terraform state storage..."
+            
+            # Create unique key name with timestamp
+            KEY_NAME="terraform-state-$(date +%s)"
+            
+            # Create Spaces access key with full access (needed for Terraform state)
+            OUTPUT=$(doctl spaces keys create "$KEY_NAME" \
+              --grants "bucket=;permission=fullaccess" \
+              --output json \
+              --access-token "$DIGITALOCEAN_TOKEN")
+            
+            if [[ $? -eq 0 ]]; then
+              # Extract credentials from JSON output
+              ACCESS_KEY=$(echo "$OUTPUT" | jq -r '.access_key')
+              SECRET_KEY=$(echo "$OUTPUT" | jq -r '.secret_key')
+              
+              # Validate we got valid credentials
+              if [[ "$ACCESS_KEY" != "null" && "$SECRET_KEY" != "null" && -n "$ACCESS_KEY" && -n "$SECRET_KEY" ]]; then
+                echo "✓ Successfully created Spaces access keys"
+                echo "spaces-key-created=true" >> $GITHUB_OUTPUT
+                echo "access-key=$ACCESS_KEY" >> $GITHUB_OUTPUT
+                echo "secret-key=$SECRET_KEY" >> $GITHUB_OUTPUT
+                
+                # Mask the sensitive values in logs
+                echo "::add-mask::$ACCESS_KEY"
+                echo "::add-mask::$SECRET_KEY"
+              else
+                echo "❌ Failed to extract valid credentials from doctl output"
+                echo "doctl output: $OUTPUT"
+                exit 1
+              fi
+            else
+              echo "❌ Failed to create Spaces access keys"
+              echo "This might be due to insufficient permissions or rate limits"
+              exit 1
+            fi
+          else
+            echo "✓ Spaces access keys already exist, skipping creation"
+            echo "spaces-key-created=false" >> $GITHUB_OUTPUT
+          fi
+      
       - name: Generate Application Secrets
         env:
           DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
@@ -172,13 +222,27 @@ jobs:
           ./scripts/generate-secrets
       
       - name: Update GitHub Secrets
-        if: steps.generate-age-key.outputs.age-key-generated == 'true'
+        if: steps.generate-age-key.outputs.age-key-generated == 'true' || steps.setup-spaces-keys.outputs.spaces-key-created == 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           # Update SOPS_AGE_PRIVATE_KEY secret if it was generated
-          echo "${{ steps.generate-age-key.outputs.private-key }}" | \
-            gh secret set SOPS_AGE_PRIVATE_KEY --repo ${{ github.repository }}
+          if [[ "${{ steps.generate-age-key.outputs.age-key-generated }}" == "true" ]]; then
+            echo "Updating SOPS_AGE_PRIVATE_KEY secret..."
+            echo "${{ steps.generate-age-key.outputs.private-key }}" | \
+              gh secret set SOPS_AGE_PRIVATE_KEY --repo ${{ github.repository }}
+            echo "✓ SOPS_AGE_PRIVATE_KEY updated"
+          fi
+          
+          # Update Spaces access keys if they were generated
+          if [[ "${{ steps.setup-spaces-keys.outputs.spaces-key-created }}" == "true" ]]; then
+            echo "Updating Spaces access key secrets..."
+            echo "${{ steps.setup-spaces-keys.outputs.access-key }}" | \
+              gh secret set SPACES_ACCESS_KEY_ID --repo ${{ github.repository }}
+            echo "${{ steps.setup-spaces-keys.outputs.secret-key }}" | \
+              gh secret set SPACES_SECRET_ACCESS_KEY --repo ${{ github.repository }}
+            echo "✓ Spaces access keys updated"
+          fi
       
       - name: Commit updated .sops.yaml
         if: steps.generate-age-key.outputs.age-key-generated == 'true'

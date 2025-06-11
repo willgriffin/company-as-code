@@ -7,3 +7,4 @@ kubectl=1.31.0
 flux=2.3.0
 gomplate=3.11.7
 terraform=1.12.1
+doctl=1.117.0
