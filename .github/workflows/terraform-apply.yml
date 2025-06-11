@@ -19,6 +19,9 @@ jobs:
     environment: production
     # Skip this job if IS_TEMPLATE repository variable is set to 'true'
     if: vars.IS_TEMPLATE != 'true'
+    outputs:
+      backup-file: ${{ steps.backup-state.outputs.backup-file }}
+      backup-created: ${{ steps.backup-state.outputs.backup-created }}
     permissions:
       contents: write
       deployments: write
@@ -47,6 +50,30 @@ jobs:
         working-directory: ./terraform/digitalocean
       env:
         TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+
+    - name: Backup Terraform State
+      id: backup-state
+      run: |
+        # Create backup of current terraform state before apply
+        STATE_LIST=$(terraform state list)
+        if [ -n "$STATE_LIST" ]; then
+          echo "Creating Terraform state backup..."
+          BACKUP_FILE="terraform-state-backup-$(date +%Y%m%d-%H%M%S).tfstate"
+          terraform state pull > "$BACKUP_FILE"
+          
+          # Store backup info for potential rollback
+          echo "backup-file=$BACKUP_FILE" >> $GITHUB_OUTPUT
+          echo "backup-created=true" >> $GITHUB_OUTPUT
+          echo "✓ State backup created: $BACKUP_FILE"
+        else
+          echo "No existing state to backup (first deployment)"
+          echo "backup-created=false" >> $GITHUB_OUTPUT
+        fi
+      working-directory: ./terraform/digitalocean
+      env:
+        TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+        TF_VAR_spaces_access_key: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+        TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
 
     - name: Terraform Plan
       id: plan
@@ -124,3 +151,67 @@ jobs:
             environment_url: 'https://cloud.digitalocean.com',
             description: 'Terraform Apply ${{ steps.apply.outcome }}'
           });
+
+  rollback-on-failure:
+    name: Rollback on Terraform Apply Failure
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: terraform-apply
+    if: failure() && needs.terraform-apply.outputs.backup-created == 'true'
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.12.1
+
+    - name: Terraform Init for Rollback
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 20
+        max_attempts: 3
+        retry_wait_seconds: 30
+        command: |
+          terraform init \
+            -backend-config="access_key=${{ secrets.SPACES_ACCESS_KEY_ID }}" \
+            -backend-config="secret_key=${{ secrets.SPACES_SECRET_ACCESS_KEY }}"
+        working-directory: ./terraform/digitalocean
+      env:
+        TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+
+    - name: Restore Terraform State
+      run: |
+        echo "Terraform apply failed, attempting to restore previous state..."
+        BACKUP_FILE="${{ needs.terraform-apply.outputs.backup-file }}"
+        
+        if [ -f "$BACKUP_FILE" ]; then
+          echo "Restoring state from backup: $BACKUP_FILE"
+          terraform state push "$BACKUP_FILE"
+          echo "✓ State restored from backup"
+        else
+          echo "⚠️ Backup file not found, manual intervention may be required"
+          exit 1
+        fi
+      working-directory: ./terraform/digitalocean
+      env:
+        TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+        TF_VAR_spaces_access_key: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+        TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+
+    - name: Verify Rollback
+      run: |
+        echo "Verifying rollback by checking current state..."
+        terraform plan -detailed-exitcode
+        
+        if [ $? -eq 0 ]; then
+          echo "✓ Rollback successful - infrastructure matches backed up state"
+        else
+          echo "⚠️ Rollback verification failed - manual intervention required"
+        fi
+      working-directory: ./terraform/digitalocean
+      env:
+        TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+        TF_VAR_spaces_access_key: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+        TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
