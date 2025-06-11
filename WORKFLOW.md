@@ -280,14 +280,15 @@ graph TD
 The submitted Pull Request (PR) is reviewed by peers. The goal is to ensure code quality, correctness, and adherence to team standards before it is merged.
 ```mermaid
 graph TD
-    A[Attention on PR for Review] --> B[Review Code for Quality & Logic];
-    B -- C{Are changes required?};
-    C -- Yes --> D[Request Changes in PR];
-    D -- Yes --> E[Move Issue back to 'In Progress'];
-    C -- No --> F[Approve Pull Request];
-    F --> G[Merge PR into `main` branch];
-    G --> H[Automated CI Pipeline Triggered];
-    H --> I[Move Issue to 'Testing'];
+    A[Attention on PR for Review] --> B[Send Review Request to Copilot];
+    B --> C[Review Code for Quality & Logic];
+    C -- D{Are changes required?};
+    D -- Yes --> E[Request Changes in PR];
+    E -- Yes --> F[Move Issue back to 'In Progress'];
+    D -- No --> G[Approve Pull Request];
+    G --> H[Merge PR into `main` branch];
+    H --> I[Automated CI Pipeline Triggered];
+    I --> J[Move Issue to 'Testing'];
 ```
 
 ### 4.4. Testing (QA)

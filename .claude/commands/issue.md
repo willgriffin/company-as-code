@@ -51,6 +51,7 @@ Analyzes the current state of a GitHub issue and automatically advances it to th
 - If ready, create PR and move to code-review
 
 **CODE-REVIEW:**
+- Send review request to copilot for the PR
 - Check PR review status
 - If changes requested, implement them
 - If approved but not merged, check why
