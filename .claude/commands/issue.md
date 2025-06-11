@@ -20,6 +20,8 @@ Analyzes the current state of a GitHub issue and automatically advances it to th
 - Assess clarity (check for repro steps, acceptance criteria)
 - Determine validity for this project
 - Decision: close as duplicate/invalid, request info, or move to icebox/backlog
+- If issue is clear, valid, and actionable now: automatically progress to backlog
+- If not ready to progress: add comment explaining what's missing or unclear
 
 **ICEBOX:**
 - Check latest comments for priority changes
@@ -30,8 +32,12 @@ Analyzes the current state of a GitHub issue and automatically advances it to th
 - Check Definition of Ready (acceptance criteria, estimates, no blockers)
 - Look for clarifying comments
 - Decision: request missing info or move to todo
+- If Definition of Ready is met: automatically progress to todo
+- If not ready to progress: add comment explaining what's needed for Definition of Ready
 
 **TO-DO:**
+- Add implementation plan as comment if one doesn't exist
+- If confidence in approach is low: add comment explaining concerns and questions
 - Automatically assign to self
 - Create feature branch (`issue-<number>`)
 - Move to in-progress  

@@ -203,6 +203,9 @@ graph TD
     H -- No --> I[Move to Icebox];
     H -- Yes --> J[Add Labels & Estimates];
     J --> K[Move to Backlog];
+    K --> L{Ready & Complete?};
+    L -- Yes --> M[Auto-progress to Backlog];
+    L -- No --> N[Comment explaining what's missing];
 ```
 
 ### 3.2. Icebox
@@ -225,10 +228,10 @@ This is the prioritized list of work that has been vetted and is ready for devel
 ```mermaid
 graph TD
     A[Attention on Backlog Issue] --> B{Does it meet 'Definition of Ready'?};
-    B -- No --> C[Refine Acceptance Criteria, Add Details/Designs];
+    B -- No --> C[Comment explaining what's needed for Definition of Ready];
     B -- Yes --> D{Are all questions answered?};
     D -- No --> E[Comment to Clarify Remaining Questions];
-    D -- Yes --> F[Move to 'To Do'];
+    D -- Yes --> F[Auto-progress to 'To Do'];
 ```
 
 ## 4. Development & CI/CD Lanes
@@ -241,8 +244,11 @@ This lane contains fully refined and prioritized issues that are ready for a dev
 ```mermaid
 graph TD
     A[Ready for New Work] --> B[Select Highest Priority Issue from 'To Do'];
-    B --> C[Assign Issue to Self];
-    C --> D[Move Issue to 'In Progress'];
+    B --> C[Add Implementation Plan if Missing];
+    C --> D{High confidence in approach?};
+    D -- No --> E[Comment explaining concerns and questions];
+    D -- Yes --> F[Assign Issue to Self];
+    F --> G[Move Issue to 'In Progress'];
 ```
 
 ### 4.2. In Progress
