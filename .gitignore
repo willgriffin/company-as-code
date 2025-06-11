@@ -13,3 +13,6 @@ override.tf.json
 *_override.tf.json
 # Local secrets - NEVER commit
 .envrc.secrets
+
+# Claude local settings
+.claude/settings.local.json
