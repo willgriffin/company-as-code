@@ -55,7 +55,8 @@ jobs:
       id: backup-state
       run: |
         # Create backup of current terraform state before apply
-        if terraform state list > /dev/null 2>&1 && [ -n "$(terraform state list)" ]; then
+        STATE_LIST=$(terraform state list)
+        if [ -n "$STATE_LIST" ]; then
           echo "Creating Terraform state backup..."
           BACKUP_FILE="terraform-state-backup-$(date +%Y%m%d-%H%M%S).tfstate"
           terraform state pull > "$BACKUP_FILE"
