@@ -20,7 +20,13 @@
       "Bash(gh issue create:*)",
       "Bash(gh pr view:*)",
       "mcp__context7__resolve-library-id",
-      "mcp__context7__get-library-docs"
+      "mcp__context7__get-library-docs",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue edit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(terraform validate:*)"
     ],
     "deny": []
   },
