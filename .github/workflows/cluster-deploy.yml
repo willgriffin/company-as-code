@@ -366,7 +366,7 @@ jobs:
     name: Wait for Flux Reconciliation
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [generate-encrypted-secrets]
+    needs: [validate-config, generate-encrypted-secrets]
     steps:
       - uses: actions/checkout@v4
       
