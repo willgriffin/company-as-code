@@ -90,6 +90,29 @@ jobs:
       
       - name: Setup tools
         uses: ./.github/actions/setup-tools
+        with:
+          tools: 'age,sops,yq,kubectl,flux,gomplate'
+      
+      - name: Process Domain Templates
+        run: |
+          echo "Processing domain templates with gomplate..."
+          
+          # Process all YAML files that contain gomplate template syntax
+          find flux/clusters/cumulus -name "*.yaml" -type f | while read -r file; do
+            if grep -q "(datasource \"config\")" "$file" 2>/dev/null; then
+              echo "  Processing: $file"
+              # Create temporary file for gomplate output
+              temp_file=$(mktemp)
+              
+              # Process template with config.yaml as datasource
+              gomplate --datasource config=config.yaml --file "$file" --out "$temp_file"
+              
+              # Replace original file with processed version
+              mv "$temp_file" "$file"
+            fi
+          done
+          
+          echo "✓ Domain templates processed successfully"
       
       - name: Generate SOPS Age Key
         id: generate-age-key

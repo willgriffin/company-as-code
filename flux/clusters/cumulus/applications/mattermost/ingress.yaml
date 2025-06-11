@@ -11,10 +11,10 @@ spec:
   ingressClassName: traefik
   tls:
   - hosts:
-    - chat.happyvertical.com
+    - chat.{{ (datasource "config").domain.primary }}
     secretName: mattermost-tls
   rules:
-  - host: chat.happyvertical.com
+  - host: chat.{{ (datasource "config").domain.primary }}
     http:
       paths:
       - path: /

@@ -12,10 +12,10 @@ spec:
   ingressClassName: traefik
   tls:
   - hosts:
-    - cloud.happyvertical.com
+    - cloud.{{ (datasource "config").domain.primary }}
     secretName: nextcloud-tls
   rules:
-  - host: cloud.happyvertical.com
+  - host: cloud.{{ (datasource "config").domain.primary }}
     http:
       paths:
       - path: /

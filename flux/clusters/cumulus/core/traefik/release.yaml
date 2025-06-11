@@ -22,7 +22,7 @@ spec:
       type: LoadBalancer
       annotations:
         service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol: "true"
-        service.beta.kubernetes.io/do-loadbalancer-hostname: "happyvertical.com"
+        service.beta.kubernetes.io/do-loadbalancer-hostname: "{{ (datasource "config").domain.primary }}"
     ports:
       web:
         port: 8000
@@ -45,7 +45,7 @@ spec:
     additionalArguments:
       - "--entrypoints.websecure.http.tls.certresolver=letsencrypt"
       - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.email=admin@happyvertical.com"
+      - "--certificatesresolvers.letsencrypt.acme.email=admin@{{ (datasource "config").domain.primary }}"
       - "--certificatesresolvers.letsencrypt.acme.storage=/data/acme.json"
     persistence:
       enabled: true
