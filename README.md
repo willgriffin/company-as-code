@@ -37,6 +37,8 @@ Click the **"Use this template"** button above to create your own repository.
 In your new repository, go to **Settings → Secrets and variables → Actions** and add:
 
 - **`DIGITALOCEAN_TOKEN`** - Your DigitalOcean API token ([https://cloud.digitalocean.com/account/api/tokens](https://digitalocean.pxf.io/je2Ggv))
+- **`SPACES_ACCESS_KEY_ID`** - DigitalOcean Spaces access key for Terraform state storage
+- **`SPACES_SECRET_ACCESS_KEY`** - DigitalOcean Spaces secret key for Terraform state storage
 
 **Note**: The template uses GitHub's built-in `GITHUB_TOKEN`. If you encounter permission issues, check **Settings → Actions → General → Workflow permissions** and select "Read and write permissions".
 

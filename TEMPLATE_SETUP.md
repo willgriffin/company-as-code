@@ -16,13 +16,15 @@ This repository is designed to be used as a GitHub template for quickly deployin
 
 ### 2. Set Up Required Secrets
 
-Before deploying, you need to set up the required secret and configure permissions:
+Before deploying, you need to set up the required secrets and configure permissions:
 
-#### Required Secret
+#### Required Secrets
 
 Go to **Settings → Secrets and variables → Actions** in your GitHub repository and add:
 
 - **`DIGITALOCEAN_TOKEN`**: Your DigitalOcean API token with read/write access
+- **`SPACES_ACCESS_KEY_ID`**: DigitalOcean Spaces access key for Terraform state storage
+- **`SPACES_SECRET_ACCESS_KEY`**: DigitalOcean Spaces secret key for Terraform state storage
 
 #### Creating DigitalOcean Token
 
@@ -31,6 +33,17 @@ Go to **Settings → Secrets and variables → Actions** in your GitHub reposito
 3. Name it (e.g., "Kubernetes Template")
 4. Select "Read" and "Write" scopes
 5. Copy the token and add it as `DIGITALOCEAN_TOKEN` secret
+
+#### Creating Spaces Access Keys
+
+1. Go to [https://cloud.digitalocean.com/account/api/tokens](https://digitalocean.pxf.io/je2Ggv)
+2. Scroll down to "Spaces access keys"
+3. Click "Generate New Key"
+4. Name it (e.g., "Terraform State Storage")
+5. Save both the Access Key ID and Secret Access Key
+6. Add them as `SPACES_ACCESS_KEY_ID` and `SPACES_SECRET_ACCESS_KEY` secrets
+
+> **Security Note**: These separate credentials follow the principle of least privilege. The Spaces keys only have access to object storage, not your entire DigitalOcean infrastructure.
 
 #### GitHub Token (Usually Not Required)
 
