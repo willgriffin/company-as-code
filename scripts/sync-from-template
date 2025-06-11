@@ -1,0 +1,219 @@
+#!/bin/bash
+# Script: sync-from-template
+# Description: Pull latest changes from template repo, only updating unmodified files
+# Usage: ./scripts/sync-from-template [--dry-run] [--force-file <file>]
+
+set -e
+
+TEMPLATE_REPO="willgriffin/startup-gitops-template"
+TEMPLATE_REMOTE="template-upstream"
+DRY_RUN=false
+FORCE_FILES=()
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --force-file)
+            FORCE_FILES+=("$2")
+            shift 2
+            ;;
+        -h|--help)
+            echo "Usage: $0 [--dry-run] [--force-file <file>]"
+            echo ""
+            echo "Options:"
+            echo "  --dry-run        Show what would be updated without making changes"
+            echo "  --force-file     Force update specific file even if locally modified"
+            echo ""
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+echo "🔄 Syncing from template repository: $TEMPLATE_REPO"
+
+# Add template as remote if it doesn't exist
+if ! git remote get-url $TEMPLATE_REMOTE &>/dev/null; then
+    echo "📡 Adding template remote..."
+    git remote add $TEMPLATE_REMOTE "https://github.com/$TEMPLATE_REPO.git"
+fi
+
+# Fetch latest from template
+echo "📥 Fetching latest template changes..."
+git fetch $TEMPLATE_REMOTE main
+
+# Get list of files that exist in template
+TEMPLATE_FILES=$(git ls-tree -r --name-only $TEMPLATE_REMOTE/main)
+
+# Get list of files modified in this repo vs initial commit
+INITIAL_COMMIT=$(git rev-list --max-parents=0 HEAD)
+MODIFIED_FILES=$(git diff --name-only $INITIAL_COMMIT HEAD 2>/dev/null || echo "")
+
+# Files to update
+UPDATE_FILES=()
+SKIP_FILES=()
+FORCE_UPDATE_FILES=()
+
+echo ""
+echo "🔍 Analyzing files for updates..."
+
+for file in $TEMPLATE_FILES; do
+    # Skip if file doesn't exist in template anymore
+    if ! git cat-file -e "$TEMPLATE_REMOTE/main:$file" 2>/dev/null; then
+        continue
+    fi
+    
+    # Check if file is in force update list
+    if [[ " ${FORCE_FILES[@]} " =~ " ${file} " ]]; then
+        FORCE_UPDATE_FILES+=("$file")
+        continue
+    fi
+    
+    # Skip if file has been modified locally
+    if echo "$MODIFIED_FILES" | grep -q "^$file$"; then
+        SKIP_FILES+=("$file")
+        continue
+    fi
+    
+    # Check if file exists locally
+    if [ ! -f "$file" ]; then
+        UPDATE_FILES+=("$file")
+        continue
+    fi
+    
+    # Check if file differs from template
+    if ! git diff --quiet HEAD "$TEMPLATE_REMOTE/main" -- "$file" 2>/dev/null; then
+        UPDATE_FILES+=("$file")
+    fi
+done
+
+# Report what will be done
+echo ""
+echo "📊 Sync Summary:"
+echo "  Files to update: ${#UPDATE_FILES[@]}"
+echo "  Files to skip (locally modified): ${#SKIP_FILES[@]}"
+echo "  Files to force update: ${#FORCE_UPDATE_FILES[@]}"
+
+if [ ${#UPDATE_FILES[@]} -gt 0 ]; then
+    echo ""
+    echo "✅ Files to update:"
+    printf "  - %s\n" "${UPDATE_FILES[@]}"
+fi
+
+if [ ${#FORCE_UPDATE_FILES[@]} -gt 0 ]; then
+    echo ""
+    echo "⚠️  Files to force update (overwriting local changes):"
+    printf "  - %s\n" "${FORCE_UPDATE_FILES[@]}"
+fi
+
+if [ ${#SKIP_FILES[@]} -gt 0 ]; then
+    echo ""
+    echo "⏭️  Files skipped (locally modified):"
+    printf "  - %s\n" "${SKIP_FILES[@]}" | head -10
+    if [ ${#SKIP_FILES[@]} -gt 10 ]; then
+        echo "  ... and $((${#SKIP_FILES[@]} - 10)) more"
+    fi
+fi
+
+# Exit if dry run
+if [ "$DRY_RUN" = true ]; then
+    echo ""
+    echo "🔍 Dry run complete. Use without --dry-run to apply changes."
+    exit 0
+fi
+
+# Confirm if there are changes to make
+TOTAL_CHANGES=$((${#UPDATE_FILES[@]} + ${#FORCE_UPDATE_FILES[@]}))
+if [ $TOTAL_CHANGES -eq 0 ]; then
+    echo ""
+    echo "✨ No updates needed. Repository is up to date with template."
+    exit 0
+fi
+
+echo ""
+read -p "🤔 Proceed with sync? (y/N): " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "❌ Sync cancelled."
+    exit 0
+fi
+
+# Create backup branch
+BACKUP_BRANCH="backup-before-template-sync-$(date +%Y%m%d-%H%M%S)"
+echo ""
+echo "💾 Creating backup branch: $BACKUP_BRANCH"
+git branch $BACKUP_BRANCH
+
+# Apply updates
+echo ""
+echo "🔄 Applying updates..."
+
+# Update regular files
+for file in "${UPDATE_FILES[@]}"; do
+    echo "  📝 Updating: $file"
+    
+    # Create directory if it doesn't exist
+    mkdir -p "$(dirname "$file")"
+    
+    # Copy file from template
+    git show "$TEMPLATE_REMOTE/main:$file" > "$file"
+done
+
+# Force update files
+for file in "${FORCE_UPDATE_FILES[@]}"; do
+    echo "  ⚠️  Force updating: $file"
+    
+    # Create directory if it doesn't exist
+    mkdir -p "$(dirname "$file")"
+    
+    # Copy file from template
+    git show "$TEMPLATE_REMOTE/main:$file" > "$file"
+done
+
+# Stage changes
+echo ""
+echo "📦 Staging changes..."
+git add .
+
+# Show what changed
+if git diff --staged --quiet; then
+    echo "✨ No changes to commit."
+else
+    echo ""
+    echo "📋 Changes staged:"
+    git diff --staged --name-only | sed 's/^/  - /'
+    
+    echo ""
+    read -p "💾 Commit these changes? (Y/n): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        COMMIT_MSG="sync: update from template
+
+Updated ${#UPDATE_FILES[@]} files from template repository
+$([ ${#FORCE_UPDATE_FILES[@]} -gt 0 ] && echo "Force updated ${#FORCE_UPDATE_FILES[@]} files")
+
+Template: $TEMPLATE_REPO
+Backup branch: $BACKUP_BRANCH"
+
+        git commit -m "$COMMIT_MSG"
+        echo "✅ Changes committed successfully!"
+    else
+        echo "📝 Changes staged but not committed. You can review with 'git diff --staged'"
+    fi
+fi
+
+echo ""
+echo "🎉 Template sync complete!"
+echo "📂 Backup created at branch: $BACKUP_BRANCH"
+echo ""
+echo "Next steps:"
+echo "  - Review changes: git log -1 --stat"
+echo "  - If issues occur: git reset --hard $BACKUP_BRANCH"
+echo "  - Clean up backup: git branch -d $BACKUP_BRANCH"
