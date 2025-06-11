@@ -1,0 +1,29 @@
+#!/bin/bash
+# Command: project:issue:triage
+# Description: Claude automatically triages new issues by analyzing content
+# Usage: /project:issue:triage <issue_number>
+# Claude will analyze the issue and make triage decisions
+
+ISSUE_NUMBER=$1
+
+if [ -z "$ISSUE_NUMBER" ]; then
+    echo "Usage: /project:issue:triage <issue_number>"
+    exit 1
+fi
+
+echo "CLAUDE_ACTION_REQUIRED: AUTO_TRIAGE_ISSUE"
+echo "ISSUE_NUMBER: $ISSUE_NUMBER"
+echo ""
+echo "Claude will now automatically triage this issue by:"
+echo "1. Analyzing issue content for clarity and completeness"
+echo "2. Searching for potential duplicates"
+echo "3. Determining if it's a valid bug/feature request"
+echo "4. Assessing priority and actionability"
+echo "5. Making a triage decision:"
+echo "   - Close as duplicate (with reference)"
+echo "   - Request more information"
+echo "   - Close as invalid/out-of-scope"
+echo "   - Move to icebox (valid but not current priority)"
+echo "   - Move to backlog (ready for refinement)"
+echo ""
+echo "The decision will be based on issue content, project context, and similar issues."

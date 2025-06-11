@@ -1,0 +1,26 @@
+#!/bin/bash
+# Command: project:issue:implement
+# Description: Claude analyzes the issue and implements the solution
+# Usage: /project:issue:implement <issue_number>
+# Claude will read the issue, understand requirements, and write the implementation
+
+ISSUE_NUMBER=$1
+
+if [ -z "$ISSUE_NUMBER" ]; then
+    echo "Usage: /project:issue:implement <issue_number>"
+    exit 1
+fi
+
+echo "CLAUDE_ACTION_REQUIRED: IMPLEMENT_ISSUE"
+echo "ISSUE_NUMBER: $ISSUE_NUMBER"
+echo ""
+echo "Claude will now:"
+echo "1. Read issue #$ISSUE_NUMBER to understand requirements"
+echo "2. Analyze the codebase to understand patterns and conventions"
+echo "3. Create or checkout the appropriate branch"
+echo "4. Implement the solution following project standards"
+echo "5. Write tests if applicable"
+echo "6. Update documentation if needed"
+echo "7. Prepare the changes for review"
+echo ""
+echo "This command triggers Claude to actively implement the issue requirements."

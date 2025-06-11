@@ -1,0 +1,44 @@
+#!/bin/bash
+# Command: project:issue:start
+# Description: Start work on an issue (moves from to-do to in-progress)
+# Usage: /project:issue:start <issue_number>
+
+ISSUE_NUMBER=$1
+
+if [ -z "$ISSUE_NUMBER" ]; then
+    echo "Usage: /project:issue:start <issue_number>"
+    exit 1
+fi
+
+# Check current status
+CURRENT_STATUS=$(gh issue view $ISSUE_NUMBER --json labels --jq '.labels[] | select(.name | startswith("status:")) | .name' | head -1)
+
+if [ "$CURRENT_STATUS" != "status:to-do" ]; then
+    echo "Warning: Issue #$ISSUE_NUMBER is not in 'to-do' status (current: $CURRENT_STATUS)"
+    echo "Continue anyway? (y/n)"
+    read -r CONFIRM
+    if [ "$CONFIRM" != "y" ]; then
+        exit 1
+    fi
+fi
+
+# Assign to self and update status
+gh issue edit $ISSUE_NUMBER --add-assignee @me
+gh issue edit $ISSUE_NUMBER --add-label "status:in-progress" --remove-label "status:to-do" --remove-label "status:backlog"
+
+# Create feature branch
+BRANCH_NAME="issue-$ISSUE_NUMBER"
+git checkout -b "$BRANCH_NAME" 2>/dev/null || {
+    echo "Branch $BRANCH_NAME already exists. Checking it out..."
+    git checkout "$BRANCH_NAME"
+}
+
+echo "✅ Started work on issue #$ISSUE_NUMBER"
+echo "📌 Assigned to you"
+echo "🔀 Branch: $BRANCH_NAME"
+echo ""
+echo "CLAUDE_ACTION_AVAILABLE: To have Claude implement this issue, run:"
+echo "/project:issue:implement $ISSUE_NUMBER"
+echo ""
+echo "Or implement manually and when ready:"
+echo "/project:issue:review $ISSUE_NUMBER"

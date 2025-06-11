@@ -18,7 +18,9 @@
       "Bash(export:*)",
       "Bash(kubectl:*)",
       "Bash(gh issue create:*)",
-      "Bash(gh pr view:*)"
+      "Bash(gh pr view:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs"
     ],
     "deny": []
   },

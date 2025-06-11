@@ -1,0 +1,82 @@
+#!/bin/bash
+# Command: project:issue
+# Description: Smart issue management - Claude analyzes issue state and advances it to the next lane
+# Usage: /project:issue <issue_number>
+# Claude will detect the current state and perform the appropriate action to progress the issue
+
+ISSUE_NUMBER=$1
+
+if [ -z "$ISSUE_NUMBER" ]; then
+    echo "Usage: /project:issue <issue_number>"
+    exit 1
+fi
+
+# This command signals Claude to:
+# 1. Fetch the issue and understand its current state
+# 2. Check if there's new feedback since last action
+# 3. Take the appropriate action based on the workflow
+
+cat << 'EOF'
+CLAUDE_SMART_ISSUE_WORKFLOW
+
+I need to analyze issue and take action based on WORKFLOW.md. Here's what I'll do:
+
+1. Fetch issue data including labels, comments, and linked PRs
+2. Determine current state from status: label
+3. Take appropriate action:
+
+NEW ISSUE or NO STATUS:
+- Search for duplicates using title keywords
+- Assess clarity (check for repro steps, acceptance criteria)
+- Determine validity for this project
+- Decision: close as duplicate/invalid, request info, or move to icebox/backlog
+
+ICEBOX:
+- Check latest comments for priority changes
+- Assess if still relevant to project
+- Decision: close as stale, keep in icebox with update, or move to backlog
+
+BACKLOG:
+- Check Definition of Ready (acceptance criteria, estimates, no blockers)
+- Look for clarifying comments
+- Decision: request missing info or move to todo
+
+TO-DO:
+- Assign to self
+- Create feature branch
+- Move to in-progress
+- Start implementation
+
+IN-PROGRESS:
+- Check for review comments or feedback
+- If re-running, implement requested changes
+- If ready, create PR and move to code-review
+
+CODE-REVIEW:
+- Check PR review status
+- If changes requested, implement them
+- If approved but not merged, check why
+- If merged, should auto-move to testing
+
+TESTING:
+- Check CI/CD pipeline status
+- If failed, analyze errors and fix or create bug issue
+- If passed, move to ready-for-deployment
+
+READY-FOR-DEPLOYMENT:
+- Check deployment readiness
+- Trigger deployment if automated
+- Move to deployed
+
+DEPLOYED:
+- Check for production issues
+- Create follow-up bugs if needed
+- Mark complete if stable
+
+EOF
+
+echo ""
+echo "ISSUE_NUMBER: $ISSUE_NUMBER"
+echo "ACTION: SMART_WORKFLOW_ADVANCE"
+echo ""
+echo "Claude will now analyze issue #$ISSUE_NUMBER and take the appropriate action to advance it through the workflow."
