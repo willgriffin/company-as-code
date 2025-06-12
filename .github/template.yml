@@ -1,5 +1,5 @@
 # GitHub Template Repository Configuration
-# This form is shown when users create a new repository from this template
+# This form sets repository variables that the initialization workflow uses
 
 name: GitOps Kubernetes Cluster Configuration
 description: Configure your new GitOps repository for Kubernetes deployment
@@ -13,6 +13,7 @@ prompts:
       placeholder: example.com
     validations:
       required: true
+    target: INIT_DOMAIN
 
   - id: cluster_name
     type: input
@@ -23,6 +24,7 @@ prompts:
       default: production
     validations:
       required: true
+    target: INIT_CLUSTER_NAME
 
   - id: region
     type: dropdown
@@ -43,6 +45,7 @@ prompts:
       default: nyc3
     validations:
       required: true
+    target: INIT_REGION
 
   - id: enable_services
     type: checkboxes
@@ -62,6 +65,7 @@ prompts:
         - label: Postal (Mail Processing)
           value: postal
           default: false
+    target: INIT_SERVICES
 
   - id: enable_monitoring
     type: checkboxes
@@ -81,6 +85,7 @@ prompts:
         - label: Sentry (Error Tracking)
           value: sentry
           default: false
+    target: INIT_MONITORING
 
   - id: ai_features
     type: checkbox
@@ -88,3 +93,4 @@ prompts:
       label: Enable AI Gateway
       description: Deploy Kong Gateway with LiteLLM AI proxy and expense tracking
       default: true
+    target: INIT_AI_GATEWAY

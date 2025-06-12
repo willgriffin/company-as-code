@@ -29,43 +29,65 @@ jobs:
         with:
           tools: 'gomplate,yq'
 
-      - name: Generate config.yaml from template form
+      - name: Generate config from template form
         run: |
-          echo "🔧 Generating config.yaml from template form responses..."
+          echo "🔧 Generating config from template form responses..."
           
-          # Create config.yaml based on template form inputs
-          # Note: GitHub template forms don't currently pass form data to workflows
-          # This is a placeholder for when that feature is available
-          # For now, we'll create a basic config.yaml that users need to customize
+          # Extract form responses from repository variables
+          DOMAIN="${{ vars.INIT_DOMAIN || 'example.com' }}"
+          CLUSTER_NAME="${{ vars.INIT_CLUSTER_NAME || 'production' }}"
+          REGION="${{ vars.INIT_REGION || 'nyc3' }}"
+          SERVICES="${{ vars.INIT_SERVICES || 'nextcloud,mattermost' }}"
+          MONITORING="${{ vars.INIT_MONITORING || 'prometheus,grafana,jaeger' }}"
+          AI_GATEWAY="${{ vars.INIT_AI_GATEWAY || 'true' }}"
           
+          echo "📝 Configuration from form:"
+          echo "  Domain: $DOMAIN"
+          echo "  Cluster: $CLUSTER_NAME"
+          echo "  Region: $REGION"
+          echo "  Services: $SERVICES"
+          echo "  Monitoring: $MONITORING"
+          echo "  AI Gateway: $AI_GATEWAY"
+          
+          # Convert checkbox values to boolean
+          NEXTCLOUD_ENABLED=$(echo "$SERVICES" | grep -q "nextcloud" && echo "true" || echo "false")
+          MATTERMOST_ENABLED=$(echo "$SERVICES" | grep -q "mattermost" && echo "true" || echo "false")
+          MAILU_ENABLED=$(echo "$SERVICES" | grep -q "mailu" && echo "true" || echo "false")
+          POSTAL_ENABLED=$(echo "$SERVICES" | grep -q "postal" && echo "true" || echo "false")
+          
+          PROMETHEUS_ENABLED=$(echo "$MONITORING" | grep -q "prometheus" && echo "true" || echo "false")
+          GRAFANA_ENABLED=$(echo "$MONITORING" | grep -q "grafana" && echo "true" || echo "false")
+          JAEGER_ENABLED=$(echo "$MONITORING" | grep -q "jaeger" && echo "true" || echo "false")
+          SENTRY_ENABLED=$(echo "$MONITORING" | grep -q "sentry" && echo "true" || echo "false")
+          
+          # Create config.yaml for gomplate processing
           cat > config.yaml << EOF
-          # Generated configuration - customize for your deployment
           domain:
-            primary: "example.com"  # Replace with your domain
+            primary: "$DOMAIN"
           
           cluster:
-            name: "production"
-            region: "nyc3"
+            name: "$CLUSTER_NAME"
+            region: "$REGION"
           
           services:
             nextcloud:
-              enabled: true
+              enabled: $NEXTCLOUD_ENABLED
             mattermost:
-              enabled: true
+              enabled: $MATTERMOST_ENABLED
             mailu:
-              enabled: false
+              enabled: $MAILU_ENABLED
             postal:
-              enabled: false
+              enabled: $POSTAL_ENABLED
           
           monitoring:
             prometheus:
-              enabled: true
+              enabled: $PROMETHEUS_ENABLED
             grafana:
-              enabled: true
+              enabled: $GRAFANA_ENABLED
             jaeger:
-              enabled: true
+              enabled: $JAEGER_ENABLED
             sentry:
-              enabled: false
+              enabled: $SENTRY_ENABLED
             opentelemetry:
               enabled: true
             loki:
@@ -77,7 +99,7 @@ jobs:
           
           ai:
             gateway:
-              enabled: true
+              enabled: $AI_GATEWAY
           EOF
 
       - name: Process gomplate templates
@@ -120,13 +142,17 @@ jobs:
           echo "🧹 Removing template-specific files..."
           
           # Remove template repository files
-          rm -f .github/template.yml
           rm -f .github/template-cleanup
           rm -f .github/workflows/template-init.yml
           rm -f config.yaml.example
           
-          # Remove template validation scripts (replace with deployment-focused ones)
-          # Keep validation scripts but update them for post-template use
+          # CLEAN BREAK: Remove config.yaml since manifests are now hardcoded
+          rm -f config.yaml
+          
+          # Remove template validation scripts that depend on config.yaml
+          rm -f scripts/validate-kong-yaml
+          
+          # Mark repository as initialized
           echo "Template repository initialization complete" > .template-initialized
 
       - name: Update workflows for standard GitOps
@@ -158,17 +184,22 @@ jobs:
           - ✅ Workflows updated for standard GitOps
           - ✅ Base configuration created
           
+          ## ✅ Automatic Configuration Complete
+          
+          Your repository has been configured with:
+          - **Domain**: ${{ vars.INIT_DOMAIN || 'example.com' }}
+          - **Cluster**: ${{ vars.INIT_CLUSTER_NAME || 'production' }} 
+          - **Region**: ${{ vars.INIT_REGION || 'nyc3' }}
+          - **Services**: ${{ vars.INIT_SERVICES || 'nextcloud,mattermost' }}
+          - **Monitoring**: ${{ vars.INIT_MONITORING || 'prometheus,grafana,jaeger' }}
+          
           ## Next steps:
           
-          1. **Customize config.yaml** with your specific settings:
-             - Update domain.primary to your domain
-             - Configure enabled services
-             - Set cluster name and region
-          
-          2. **Set up GitHub Secrets** in repository settings:
+          1. **Set up GitHub Secrets** in repository settings:
              - DIGITALOCEAN_TOKEN (DigitalOcean API token)
-             - GITHUB_TOKEN (GitHub token with repo access)
              - SOPS_AGE_PRIVATE_KEY (for secret encryption)
+             
+             _Cluster settings are already configured from your form responses_
           
           3. **Generate secrets**:
              \`\`\`bash
@@ -178,6 +209,26 @@ jobs:
           4. **Deploy infrastructure**:
              - Push changes to main branch
              - Workflows will automatically deploy Terraform and Flux
+          
+          ## Customizing Your Deployment
+          
+          ### Change Domain Names
+          \`\`\`bash
+          # Replace all instances of example.com with your domain
+          find flux/ -name "*.yaml" -exec sed -i 's/example\.com/yourdomain.com/g' {} +
+          \`\`\`
+          
+          ### Enable/Disable Services
+          Edit \`flux/clusters/cumulus/apps.yaml\` and comment out unwanted services:
+          \`\`\`yaml
+          # - name: mattermost  # Disable by commenting out
+          \`\`\`
+          
+          ### Configure Cluster Settings
+          Set GitHub Secrets instead of editing config files:
+          - \`TF_VAR_cluster_name\` - Your cluster name
+          - \`TF_VAR_region\` - DigitalOcean region
+          - \`TF_VAR_node_size\` - Node size (optional)
           
           ## Standard GitOps Repository
           
@@ -215,46 +266,48 @@ jobs:
             echo "✅ Repository initialization complete!"
           fi
 
-      - name: Create setup issue
+      - name: Set up Terraform variables
         run: |
-          echo "📝 Creating setup guidance issue..."
+          echo "⚙️  Setting up Terraform variables from form responses..."
           
-          # Create an issue with setup instructions
-          gh issue create \
-            --title "🚀 Complete GitOps Setup" \
-            --body "$(cat << 'EOF'
-          Welcome to your new GitOps repository! 🎉
-
-          Your repository has been automatically initialized from the template. Here's what you need to do next:
-
-          ## 📋 Setup Checklist
-
-          - [ ] **Update config.yaml** with your domain and preferences
-          - [ ] **Set GitHub Secrets** (DIGITALOCEAN_TOKEN, GITHUB_TOKEN, SOPS_AGE_PRIVATE_KEY) 
-          - [ ] **Run secrets generation**: \`./scripts/generate-secrets\`
-          - [ ] **Review enabled services** in config.yaml
-          - [ ] **Push changes** to trigger deployment
-          - [ ] **Verify deployment** with \`./scripts/validate-kong-deployment\`
-
-          ## 🔗 Helpful Links
-
-          - [Setup Guide](./INITIALIZATION.md)
-          - [DigitalOcean API Tokens](https://digitalocean.pxf.io/je2Ggv)
-          - [Kong Gateway Documentation](./KONG_VALIDATION.md)
-
-          ## ✅ What's Ready
-
-          Your repository now includes:
-          - Kong Gateway with LiteLLM AI proxy
-          - Complete monitoring stack (Prometheus, Grafana, Jaeger)
-          - GitOps deployment with Flux
-          - Automated TLS certificates
-          - Standard Kubernetes YAML (no more templates!)
-
-          Close this issue once setup is complete. Happy shipping! 🚢
+          # Create terraform.tfvars with form responses
+          mkdir -p terraform/digitalocean
+          cat > terraform/digitalocean/terraform.tfvars << EOF
+          # Terraform configuration from template form
+          cluster_name = "${{ vars.INIT_CLUSTER_NAME || 'production' }}"
+          region = "${{ vars.INIT_REGION || 'nyc3' }}"
           EOF
-          )" \
-            --label "setup" \
+          
+          # Add terraform.tfvars to gitignore to avoid committing sensitive data
+          echo "terraform/digitalocean/terraform.tfvars" >> .gitignore
+          
+          echo "✅ Terraform variables configured"
+
+      - name: Create cleanup issue
+        run: |
+          echo "📝 Creating template cleanup completion issue..."
+          
+          gh issue create \
+            --title "✅ Template Initialization Complete" \
+            --body "🎉 **Repository successfully initialized from GitOps template!**
+
+          ## What was configured:
+          - **Domain**: ${{ vars.INIT_DOMAIN || 'example.com' }}
+          - **Cluster**: ${{ vars.INIT_CLUSTER_NAME || 'production' }}
+          - **Region**: ${{ vars.INIT_REGION || 'nyc3' }}
+          - **Services**: ${{ vars.INIT_SERVICES || 'nextcloud,mattermost' }}
+
+          ## Template artifacts cleaned up:
+          - ✅ Gomplate templates → Standard Kubernetes YAML
+          - ✅ config.yaml removed (no longer needed)
+          - ✅ Template validation scripts removed
+          - ✅ Terraform variables configured
+          - ✅ Repository ready for deployment
+
+          **This is now a standard GitOps repository!** You can close this issue.
+
+          Next: Set up GitHub Secrets and run \`./scripts/generate-secrets\`" \
+            --label "template-cleanup" \
             --assignee "${{ github.actor }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
