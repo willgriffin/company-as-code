@@ -1,0 +1,96 @@
+# GitHub Template Repository Configuration
+# This form sets repository variables that the initialization workflow uses
+
+name: GitOps Kubernetes Cluster Configuration
+description: Configure your new GitOps repository for Kubernetes deployment
+
+prompts:
+  - id: primary_domain
+    type: input
+    attributes:
+      label: Primary Domain
+      description: Your primary domain name (e.g., example.com)
+      placeholder: example.com
+    validations:
+      required: true
+    target: INIT_DOMAIN
+
+  - id: cluster_name
+    type: input
+    attributes:
+      label: Cluster Name
+      description: Name for your Kubernetes cluster
+      placeholder: production
+      default: production
+    validations:
+      required: true
+    target: INIT_CLUSTER_NAME
+
+  - id: region
+    type: dropdown
+    attributes:
+      label: DigitalOcean Region
+      description: Primary region for your infrastructure
+      options:
+        - nyc1
+        - nyc3
+        - ams3
+        - sfo3
+        - sgp1
+        - lon1
+        - fra1
+        - tor1
+        - blr1
+        - syd1
+      default: nyc3
+    validations:
+      required: true
+    target: INIT_REGION
+
+  - id: enable_services
+    type: checkboxes
+    attributes:
+      label: Enable Services
+      description: Select which services to deploy
+      options:
+        - label: Nextcloud (Cloud Storage)
+          value: nextcloud
+          default: true
+        - label: Mattermost (Team Chat)
+          value: mattermost
+          default: true
+        - label: Mailu (Email Server)
+          value: mailu
+          default: false
+        - label: Postal (Mail Processing)
+          value: postal
+          default: false
+    target: INIT_SERVICES
+
+  - id: enable_monitoring
+    type: checkboxes
+    attributes:
+      label: Enable Monitoring
+      description: Select monitoring tools to deploy
+      options:
+        - label: Prometheus (Metrics)
+          value: prometheus
+          default: true
+        - label: Grafana (Dashboards)
+          value: grafana
+          default: true
+        - label: Jaeger (Tracing)
+          value: jaeger
+          default: true
+        - label: Sentry (Error Tracking)
+          value: sentry
+          default: false
+    target: INIT_MONITORING
+
+  - id: ai_features
+    type: checkbox
+    attributes:
+      label: Enable AI Gateway
+      description: Deploy Kong Gateway with LiteLLM AI proxy and expense tracking
+      default: true
+    target: INIT_AI_GATEWAY
