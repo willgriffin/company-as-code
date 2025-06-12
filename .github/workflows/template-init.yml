@@ -287,9 +287,9 @@ jobs:
         run: |
           echo "📝 Creating template cleanup completion issue..."
           
-          gh issue create \
-            --title "✅ Template Initialization Complete" \
-            --body "🎉 **Repository successfully initialized from GitOps template!**
+          # Use heredoc for proper multi-line body formatting
+          ISSUE_BODY=$(cat <<'EOF'
+          🎉 **Repository successfully initialized from GitOps template!**
 
           ## What was configured:
           - **Domain**: ${{ vars.INIT_DOMAIN || 'example.com' }}
@@ -306,7 +306,13 @@ jobs:
 
           **This is now a standard GitOps repository!** You can close this issue.
 
-          Next: Set up GitHub Secrets and run \`./scripts/generate-secrets\`" \
+          Next: Set up GitHub Secrets and run `./scripts/generate-secrets`
+          EOF
+          )
+          
+          gh issue create \
+            --title "✅ Template Initialization Complete" \
+            --body "$ISSUE_BODY" \
             --label "template-cleanup" \
             --assignee "${{ github.actor }}"
         env:
