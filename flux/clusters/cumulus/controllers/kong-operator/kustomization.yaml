@@ -4,7 +4,6 @@ resources:
   - namespace.yaml
   - repository.yaml
   - release.yaml
-  - postgresql-cluster.yaml
   - secrets-template.yaml
   - redis-cluster.yaml
   - keycloak-client.yaml

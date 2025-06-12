@@ -4,8 +4,8 @@ metadata:
   name: grafana
   namespace: grafana
   annotations:
-    # Kong plugins to apply
-    konghq.com/plugins: grafana-oidc,grafana-rate-limit
+    # Kong plugins to apply (DB-less mode)
+    konghq.com/plugins: prometheus-metrics,basic-rate-limit
 spec:
   parentRefs:
   - name: kong-gateway
@@ -22,44 +22,3 @@ spec:
       port: 80
       weight: 100
 
----
-# OIDC plugin for Grafana
-apiVersion: configuration.konghq.com/v1
-kind: KongPlugin
-metadata:
-  name: grafana-oidc
-  namespace: grafana
-config:
-  issuer: https://auth.{{ (datasource "config").domain }}/realms/master
-  client_id: grafana
-  client_secret_vault: env/grafana-oidc-secret
-  discovery: https://auth.{{ (datasource "config").domain }}/realms/master/.well-known/openid-configuration
-  scope: openid profile email
-  redirect_uri: /auth/callback
-  logout_uri_suffix: /auth/logout
-  post_logout_redirect_uri: https://grafana.{{ (datasource "config").domain }}
-  session_secret: changeme-grafana-session-32-chars
-  bearer_only: false
-  realm: master
-  verify_nonce: false
-  verify_claims: false
-plugin: openid-connect
-
----
-# Rate limiting plugin for Grafana
-apiVersion: configuration.konghq.com/v1
-kind: KongPlugin
-metadata:
-  name: grafana-rate-limit
-  namespace: grafana
-config:
-  minute: 200
-  hour: 2000
-  day: 20000
-  limit_by: consumer
-  policy: redis
-  redis_host: rfs-kong-redis.kong-system.svc.cluster.local
-  redis_port: 6379
-  redis_timeout: 2000
-  hide_client_headers: false
-plugin: rate-limiting-advanced

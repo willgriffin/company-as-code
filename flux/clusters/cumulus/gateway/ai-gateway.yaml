@@ -8,7 +8,7 @@ metadata:
   name: ai-gateway
   namespace: kong-system
   annotations:
-    konghq.com/plugins: ai-proxy,ai-rate-limit,ai-cost-tracking
+    konghq.com/plugins: prometheus-metrics,basic-rate-limit
 spec:
   parentRefs:
   - name: kong-gateway
@@ -21,118 +21,16 @@ spec:
         type: PathPrefix
         value: /v1/
     backendRefs:
-    - name: ai-proxy-service
-      port: 80
+    - name: ai-budget-service  
+      port: 8080
 
 ---
-# AI Proxy plugin for multiple LLM providers
-apiVersion: configuration.konghq.com/v1
-kind: KongPlugin
-metadata:
-  name: ai-proxy
-  namespace: kong-system
-config:
-  providers:
-  - name: openai
-    endpoint: https://api.openai.com/v1
-    auth:
-      header_name: Authorization
-      header_value: "Bearer {{ .Values.openai_api_key }}"
-    models:
-    - name: gpt-4
-      max_tokens: 4096
-      cost_per_token:
-        input: 0.00003
-        output: 0.00006
-    - name: gpt-3.5-turbo
-      max_tokens: 4096
-      cost_per_token:
-        input: 0.0000015
-        output: 0.000002
-  - name: anthropic
-    endpoint: https://api.anthropic.com/v1
-    auth:
-      header_name: x-api-key
-      header_value: "{{ .Values.anthropic_api_key }}"
-    models:
-    - name: claude-3-opus-20240229
-      max_tokens: 4096
-      cost_per_token:
-        input: 0.000015
-        output: 0.000075
-    - name: claude-3-sonnet-20240229
-      max_tokens: 4096
-      cost_per_token:
-        input: 0.000003
-        output: 0.000015
-  route_type: preserve_path
-  auth:
-    allow_override: true
-  logging:
-    log_payloads: false
-    log_statistics: true
-plugin: ai-proxy
+# Note: Advanced AI proxy plugins commented out for DB-less mode
+# Can be re-enabled once Kong AI plugins support DB-less mode fully
 
----
-# AI-specific rate limiting based on token consumption
-apiVersion: configuration.konghq.com/v1
-kind: KongPlugin
-metadata:
-  name: ai-rate-limit
-  namespace: kong-system
-config:
-  # Token-based rate limiting
-  minute: 50000  # tokens per minute
-  hour: 500000   # tokens per hour
-  day: 5000000   # tokens per day
-  month: 100000000  # tokens per month
-  limit_by: consumer
-  policy: redis
-  redis_host: rfs-kong-redis.kong-system.svc.cluster.local
-  redis_port: 6379
-  redis_timeout: 2000
-  hide_client_headers: false
-  # Custom headers for token counting
-  sync_rate_limiting: true
-  strategy: sliding_window
-plugin: rate-limiting-advanced
-
----
-# Cost tracking and budget enforcement
-apiVersion: configuration.konghq.com/v1
-kind: KongPlugin
-metadata:
-  name: ai-cost-tracking
-  namespace: kong-system
-config:
-  # Budget limits per consumer
-  daily_budget: 10.00    # USD per day
-  monthly_budget: 300.00 # USD per month
-  currency: USD
-  
-  # Cost calculation
-  track_tokens: true
-  track_requests: true
-  
-  # Webhook for budget alerts
-  webhook_url: http://ai-budget-service.kong-system.svc.cluster.local:8080/webhook
-  
-  # Headers to add for downstream services
-  headers:
-    x-token-count: true
-    x-cost-estimate: true
-    x-remaining-budget: true
-    
-  # Metrics export
-  metrics:
-    prometheus:
-      enabled: true
-      path: /metrics
-      labels:
-        - consumer_id
-        - model_name
-        - provider
-plugin: ai-cost-tracker
+# TODO: AI Proxy plugins for DB-less mode
+# Advanced AI proxy features will be added in Phase 3
+# Current focus: Core Kong Gateway functionality
 
 ---
 # AI Budget Service deployment

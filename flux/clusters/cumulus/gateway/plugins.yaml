@@ -1,39 +1,14 @@
-# Global Kong plugins for authentication and monitoring
+# Kong plugins for DB-less mode (per-service configuration)
+# Note: In DB-less mode, global plugins are defined per-service via annotations
 
 ---
-# Global OIDC plugin for Keycloak authentication
+# Prometheus metrics plugin (per-service)
 apiVersion: configuration.konghq.com/v1
 kind: KongClusterPlugin
 metadata:
-  name: global-oidc
-  labels:
-    global: "true"
+  name: prometheus-metrics
 config:
-  issuer: https://auth.{{ (datasource "config").domain }}/realms/master
-  client_id: kong-gateway
-  client_secret_vault: env/kong-oidc-secret
-  discovery: https://auth.{{ (datasource "config").domain }}/realms/master/.well-known/openid-configuration
-  scope: openid profile email
-  redirect_uri: /auth/callback
-  logout_uri_suffix: /auth/logout
-  post_logout_redirect_uri: https://auth.{{ (datasource "config").domain }}
-  session_secret: changeme-session-secret-32-chars
-  bearer_only: false
-  realm: master
-  verify_nonce: false
-  verify_claims: false
-plugin: openid-connect
-
----
-# Global Prometheus metrics plugin
-apiVersion: configuration.konghq.com/v1
-kind: KongClusterPlugin
-metadata:
-  name: global-prometheus
-  labels:
-    global: "true"
-config:
-  per_consumer: true
+  per_consumer: false
   status_code_metrics: true
   latency_metrics: true
   bandwidth_metrics: true
@@ -41,13 +16,11 @@ config:
 plugin: prometheus
 
 ---
-# Global OpenTelemetry tracing plugin
+# OpenTelemetry tracing plugin (per-service)
 apiVersion: configuration.konghq.com/v1
 kind: KongClusterPlugin
 metadata:
-  name: global-opentelemetry
-  labels:
-    global: "true"
+  name: opentelemetry-tracing
 config:
   endpoint: http://opentelemetry-collector.opentelemetry-operator-system.svc.cluster.local:4318/v1/traces
   headers:
@@ -62,33 +35,26 @@ config:
 plugin: opentelemetry
 
 ---
-# Global rate limiting plugin
+# Basic rate limiting plugin (local, no Redis dependency)
 apiVersion: configuration.konghq.com/v1
 kind: KongClusterPlugin
 metadata:
-  name: global-rate-limit
-  labels:
-    global: "true"
+  name: basic-rate-limit
 config:
   minute: 1000
   hour: 10000
   day: 100000
-  limit_by: consumer
-  policy: redis
-  redis_host: rfs-kong-redis.kong-system.svc.cluster.local
-  redis_port: 6379
-  redis_timeout: 2000
+  limit_by: ip
+  policy: local
   hide_client_headers: false
-plugin: rate-limiting-advanced
+plugin: rate-limiting
 
 ---
-# Global request size limiting plugin
+# Request size limiting plugin
 apiVersion: configuration.konghq.com/v1
 kind: KongClusterPlugin
 metadata:
-  name: global-request-size-limit
-  labels:
-    global: "true"
+  name: request-size-limit
 config:
   allowed_payload_size: 128
   size_unit: megabytes

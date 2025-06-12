@@ -61,22 +61,17 @@ spec:
       gatewayDiscovery:
         enabled: true
         
-      # Environment variables
+      # Environment variables for DB-less mode
       env:
         kong_admin_listen: "0.0.0.0:8001"
         kong_admin_gui_listen: "0.0.0.0:8002"
-        kong_database: "postgres"
-        kong_pg_host: "kong-postgres-rw.kong-system.svc.cluster.local"
-        kong_pg_port: "5432"
-        kong_pg_database: "kong"
-        kong_pg_user: "kong"
+        kong_database: "off"
+        kong_declarative_config: "/kong/declarative/kong.yml"
         kong_plugins: "bundled,oidc,prometheus,opentelemetry,ai-proxy,rate-limiting-advanced"
         
-      # Use external PostgreSQL
-      secretVolumes:
-      - kong-postgres-credentials
+      # DB-less mode - no database secrets needed
       
-    # PostgreSQL configuration (use external)
+    # PostgreSQL configuration (disabled for DB-less mode)
     postgresql:
       enabled: false
       
