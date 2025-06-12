@@ -1,0 +1,72 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: kong-postgres
+  namespace: kong-system
+spec:
+  instances: 3
+  
+  # PostgreSQL configuration
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      effective_cache_size: "1GB"
+      maintenance_work_mem: "64MB"
+      checkpoint_completion_target: "0.9"
+      wal_buffers: "16MB"
+      default_statistics_target: "100"
+      random_page_cost: "1.1"
+      effective_io_concurrency: "200"
+      work_mem: "4MB"
+      min_wal_size: "1GB"
+      max_wal_size: "4GB"
+      
+  # Bootstrap configuration
+  bootstrap:
+    initdb:
+      database: kong
+      owner: kong
+      secret:
+        name: kong-postgres-credentials
+        
+  # Storage configuration
+  storage:
+    size: 20Gi
+    storageClass: do-block-storage
+    
+  # Monitoring
+  monitoring:
+    enabled: true
+    
+  # Backup configuration
+  backup:
+    retentionPolicy: "30d"
+    barmanObjectStore:
+      destinationPath: "s3://{{ (datasource \"config\").backup.bucket }}/kong-postgres"
+      endpointURL: "https://{{ (datasource \"config\").backup.region }}.digitaloceanspaces.com"
+      s3Credentials:
+        accessKeyId:
+          name: kong-postgres-backup-credentials
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: kong-postgres-backup-credentials
+          key: SECRET_ACCESS_KEY
+      wal:
+        retention: "5d"
+      data:
+        retention: "30d"
+        
+  # Resource configuration
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+      
+  # Affinity rules for high availability
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname

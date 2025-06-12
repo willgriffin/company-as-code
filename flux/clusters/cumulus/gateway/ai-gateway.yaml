@@ -1,0 +1,271 @@
+# AI Gateway configuration for LLM proxy and token tracking
+
+---
+# AI Gateway route for multiple LLM providers
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: ai-gateway
+  namespace: kong-system
+  annotations:
+    konghq.com/plugins: ai-proxy,ai-rate-limit,ai-cost-tracking
+spec:
+  parentRefs:
+  - name: kong-gateway
+    namespace: kong-system
+  hostnames:
+  - ai.{{ (datasource "config").domain }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /v1/
+    backendRefs:
+    - name: ai-proxy-service
+      port: 80
+
+---
+# AI Proxy plugin for multiple LLM providers
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: ai-proxy
+  namespace: kong-system
+config:
+  providers:
+  - name: openai
+    endpoint: https://api.openai.com/v1
+    auth:
+      header_name: Authorization
+      header_value: "Bearer {{ .Values.openai_api_key }}"
+    models:
+    - name: gpt-4
+      max_tokens: 4096
+      cost_per_token:
+        input: 0.00003
+        output: 0.00006
+    - name: gpt-3.5-turbo
+      max_tokens: 4096
+      cost_per_token:
+        input: 0.0000015
+        output: 0.000002
+  - name: anthropic
+    endpoint: https://api.anthropic.com/v1
+    auth:
+      header_name: x-api-key
+      header_value: "{{ .Values.anthropic_api_key }}"
+    models:
+    - name: claude-3-opus-20240229
+      max_tokens: 4096
+      cost_per_token:
+        input: 0.000015
+        output: 0.000075
+    - name: claude-3-sonnet-20240229
+      max_tokens: 4096
+      cost_per_token:
+        input: 0.000003
+        output: 0.000015
+  route_type: preserve_path
+  auth:
+    allow_override: true
+  logging:
+    log_payloads: false
+    log_statistics: true
+plugin: ai-proxy
+
+---
+# AI-specific rate limiting based on token consumption
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: ai-rate-limit
+  namespace: kong-system
+config:
+  # Token-based rate limiting
+  minute: 50000  # tokens per minute
+  hour: 500000   # tokens per hour
+  day: 5000000   # tokens per day
+  month: 100000000  # tokens per month
+  limit_by: consumer
+  policy: redis
+  redis_host: rfs-kong-redis.kong-system.svc.cluster.local
+  redis_port: 6379
+  redis_timeout: 2000
+  hide_client_headers: false
+  # Custom headers for token counting
+  sync_rate_limiting: true
+  strategy: sliding_window
+plugin: rate-limiting-advanced
+
+---
+# Cost tracking and budget enforcement
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: ai-cost-tracking
+  namespace: kong-system
+config:
+  # Budget limits per consumer
+  daily_budget: 10.00    # USD per day
+  monthly_budget: 300.00 # USD per month
+  currency: USD
+  
+  # Cost calculation
+  track_tokens: true
+  track_requests: true
+  
+  # Webhook for budget alerts
+  webhook_url: http://ai-budget-service.kong-system.svc.cluster.local:8080/webhook
+  
+  # Headers to add for downstream services
+  headers:
+    x-token-count: true
+    x-cost-estimate: true
+    x-remaining-budget: true
+    
+  # Metrics export
+  metrics:
+    prometheus:
+      enabled: true
+      path: /metrics
+      labels:
+        - consumer_id
+        - model_name
+        - provider
+plugin: ai-cost-tracker
+
+---
+# AI Budget Service deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-budget-service
+  namespace: kong-system
+  labels:
+    app: ai-budget-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-budget-service
+  template:
+    metadata:
+      labels:
+        app: ai-budget-service
+    spec:
+      containers:
+      - name: budget-service
+        image: node:18-alpine
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          cat > /app/package.json << 'EOF'
+          {
+            "name": "ai-budget-service",
+            "version": "1.0.0",
+            "dependencies": {
+              "express": "^4.18.2",
+              "prometheus-client": "^14.2.0"
+            }
+          }
+          EOF
+          
+          cat > /app/server.js << 'EOF'
+          const express = require('express');
+          const client = require('prom-client');
+          
+          const app = express();
+          app.use(express.json());
+          
+          // Metrics
+          const register = new client.Registry();
+          const budgetUsage = new client.Gauge({
+            name: 'ai_budget_usage_usd',
+            help: 'AI budget usage in USD',
+            labelNames: ['consumer_id', 'period'],
+            registers: [register]
+          });
+          
+          const tokenCount = new client.Counter({
+            name: 'ai_tokens_total',
+            help: 'Total AI tokens consumed',
+            labelNames: ['consumer_id', 'model', 'provider', 'type'],
+            registers: [register]
+          });
+          
+          // Budget tracking storage (in production, use Redis/DB)
+          const budgets = new Map();
+          
+          // Webhook endpoint for budget alerts
+          app.post('/webhook', (req, res) => {
+            const { consumer_id, cost, tokens, model, provider } = req.body;
+            
+            console.log(`Budget alert: Consumer ${consumer_id}, Cost: $${cost}, Tokens: ${tokens}, Model: ${model}`);
+            
+            // Update metrics
+            budgetUsage.set({ consumer_id, period: 'daily' }, cost);
+            tokenCount.inc({ consumer_id, model, provider, type: 'input' }, tokens.input || 0);
+            tokenCount.inc({ consumer_id, model, provider, type: 'output' }, tokens.output || 0);
+            
+            res.json({ status: 'ok' });
+          });
+          
+          // Metrics endpoint
+          app.get('/metrics', async (req, res) => {
+            res.set('Content-Type', register.contentType);
+            res.end(await register.metrics());
+          });
+          
+          // Health check
+          app.get('/health', (req, res) => {
+            res.json({ status: 'healthy' });
+          });
+          
+          app.listen(8080, () => {
+            console.log('AI Budget Service listening on port 8080');
+          });
+          EOF
+          
+          cd /app && npm install && node server.js
+        ports:
+        - containerPort: 8080
+          name: http
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+
+---
+# Service for AI Budget Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-budget-service
+  namespace: kong-system
+  labels:
+    app: ai-budget-service
+spec:
+  selector:
+    app: ai-budget-service
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
