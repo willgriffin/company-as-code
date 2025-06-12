@@ -25,12 +25,17 @@ gh label create "type:enhancement" --color "#a2eeef" --description "An improveme
 gh label create "type:tech-debt" --color "#7057ff" --description "Necessary refactoring or infrastructure work." --force
 gh label create "type:epic" --color "#d876e3" --description "A large body of work." --force
 
-# Get repository owner
-REPO_OWNER=$(gh repo view --json owner --jq '.owner.login')
+# Get repository information
+REPO_INFO=$(gh repo view --json owner,name)
+REPO_OWNER=$(echo "$REPO_INFO" | jq -r '.owner.login')
+REPO_NAME=$(echo "$REPO_INFO" | jq -r '.name')
+
+# Create project title from repository name
+PROJECT_TITLE="$REPO_NAME Kanban Board"
 
 # Create the project
-echo "Creating project board..."
-PROJECT_URL=$(gh project create --owner "$REPO_OWNER" --title "Kanban Board" --format json | jq -r '.url')
+echo "Creating project board: $PROJECT_TITLE"
+PROJECT_URL=$(gh project create --owner "$REPO_OWNER" --title "$PROJECT_TITLE" --format json | jq -r '.url')
 PROJECT_NUMBER=$(echo "$PROJECT_URL" | grep -o '[0-9]*$')
 
 echo "Project created: $PROJECT_URL"
