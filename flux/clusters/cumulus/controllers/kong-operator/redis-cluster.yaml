@@ -22,7 +22,7 @@ spec:
       limits:
         cpu: 1000m
         memory: 1Gi
-    storage:
+    persistence:
       persistentVolumeClaim:
         metadata:
           name: kong-redis-data

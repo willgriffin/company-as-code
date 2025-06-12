@@ -130,7 +130,7 @@ spec:
         service.beta.kubernetes.io/do-loadbalancer-protocol: "http"
         service.beta.kubernetes.io/do-loadbalancer-algorithm: "round_robin"
         service.beta.kubernetes.io/do-loadbalancer-size-slug: "lb-small"
-        external-dns.alpha.kubernetes.io/hostname: "api.{{ (datasource \"config\").domain }}"
+        external-dns.alpha.kubernetes.io/hostname: "api.{{ (datasource \"config\").domain.primary }}"
       http:
         enabled: true
         servicePort: 80
