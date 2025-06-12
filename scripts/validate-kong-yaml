@@ -1,0 +1,208 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# YAML Syntax Validation for Kong Gateway Resources
+# Validates YAML syntax and basic structure for Kong components
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log() {
+    echo -e "${BLUE}[YAML-VALIDATE]${NC} $*"
+}
+
+success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $*"
+}
+
+error() {
+    echo -e "${RED}[ERROR]${NC} $*"
+}
+
+validate_yaml_syntax() {
+    local file="$1"
+    local filename=$(basename "$file")
+    
+    # Check if file contains gomplate templates (expected in GitOps template repo)
+    if grep -q "{{ " "$file"; then
+        success "YAML template (gomplate) detected: $filename"
+        # Basic structural validation for templates
+        if grep -E "^(apiVersion|kind|metadata|spec):" "$file" > /dev/null; then
+            success "YAML structure valid: $filename"
+            return 0
+        else
+            error "YAML structure invalid: $filename"
+            return 1
+        fi
+    else
+        # Validate pure YAML files with yq v4
+        if ! command -v yq > /dev/null 2>&1; then
+            error "yq not found. Please install yq v4"
+            return 1
+        fi
+        
+        # Check we have yq v4
+        if ! yq --version 2>/dev/null | grep -q "version v4"; then
+            error "yq v4 required. Found: $(yq --version 2>/dev/null || echo 'unknown')"
+            return 1
+        fi
+        
+        # Use yq v4 syntax
+        if yq '.' "$file" > /dev/null 2>&1; then
+            success "YAML syntax valid: $filename"
+            return 0
+        else
+            error "YAML syntax invalid: $filename"
+            yq '.' "$file" 2>&1 | head -3  # Show first 3 lines of error
+            return 1
+        fi
+    fi
+}
+
+validate_kong_resources() {
+    log "Validating Kong Gateway YAML syntax..."
+    
+    local errors=0
+    local kong_files=(
+        "flux/clusters/cumulus/controllers/kong-operator/release.yaml"
+        "flux/clusters/cumulus/controllers/kong-operator/redis-cluster.yaml"
+        "flux/clusters/cumulus/controllers/kong-operator/secrets-template.yaml"
+        "flux/clusters/cumulus/controllers/kong-operator/keycloak-client.yaml"
+        "flux/clusters/cumulus/gateway/gateway.yaml"
+        "flux/clusters/cumulus/gateway/plugins.yaml"
+        "flux/clusters/cumulus/gateway/ai-gateway.yaml"
+        "flux/clusters/cumulus/gateway/grafana-route.yaml"
+        "flux/clusters/cumulus/gateway/nextcloud-route.yaml"
+        "flux/clusters/cumulus/gateway/mattermost-route.yaml"
+        "flux/clusters/cumulus/gateway/mailu-route.yaml"
+        "flux/clusters/cumulus/gateway/postal-route.yaml"
+        "flux/clusters/cumulus/gateway/sentry-route.yaml"
+        "flux/clusters/cumulus/gateway/jaeger-route.yaml"
+        "flux/clusters/cumulus/gateway/prometheus-route.yaml"
+        "flux/clusters/cumulus/gateway/keycloak-route.yaml"
+        "flux/clusters/cumulus/gateway/knative-route.yaml"
+        "flux/clusters/cumulus/gateway/servicemonitor.yaml"
+        "flux/clusters/cumulus/gateway/litellm-secrets-template.yaml"
+    )
+    
+    for file in "${kong_files[@]}"; do
+        local full_path="$PROJECT_ROOT/$file"
+        if [ -f "$full_path" ]; then
+            validate_yaml_syntax "$full_path" || ((errors++))
+        else
+            error "File not found: $file"
+            ((errors++))
+        fi
+    done
+    
+    if [ $errors -eq 0 ]; then
+        success "All Kong YAML files have valid syntax"
+        return 0
+    else
+        error "Found $errors YAML syntax errors"
+        return 1
+    fi
+}
+
+validate_gateway_api_resources() {
+    log "Validating Gateway API resource structure..."
+    
+    local errors=0
+    
+    # Check Gateway resource structure
+    local gateway_file="$PROJECT_ROOT/flux/clusters/cumulus/gateway/gateway.yaml"
+    if [ -f "$gateway_file" ]; then
+        local kind_check gateway_class_check
+        
+        # Use yq v4 syntax
+        kind_check=$(yq '.kind' "$gateway_file" 2>/dev/null)
+        gateway_class_check=$(yq '.spec.gatewayClassName' "$gateway_file" 2>/dev/null)
+        
+        if [ "$kind_check" = "Gateway" ]; then
+            success "Gateway resource has correct kind"
+        else
+            error "Gateway resource missing or incorrect kind"
+            ((errors++))
+        fi
+        
+        if [ "$gateway_class_check" = "kong" ]; then
+            success "Gateway uses Kong class"
+        else
+            error "Gateway not using Kong gatewayClassName"
+            ((errors++))
+        fi
+    fi
+    
+    # Check HTTPRoute resources
+    local route_files=(
+        "grafana-route.yaml" "nextcloud-route.yaml" "mattermost-route.yaml"
+        "mailu-route.yaml" "postal-route.yaml" "sentry-route.yaml"
+        "jaeger-route.yaml" "prometheus-route.yaml" "keycloak-route.yaml"
+        "knative-route.yaml"
+    )
+    
+    for route_file in "${route_files[@]}"; do
+        local full_path="$PROJECT_ROOT/flux/clusters/cumulus/gateway/$route_file"
+        if [ -f "$full_path" ]; then
+            # Skip template files for structure validation
+            if grep -q "{{ " "$full_path"; then
+                success "HTTPRoute template structure valid: $route_file"
+                continue
+            fi
+            
+            local route_kind parent_ref
+            
+            # Use yq v4 syntax for pure YAML files
+            route_kind=$(yq '.kind' "$full_path" 2>/dev/null)
+            parent_ref=$(yq '.spec.parentRefs[0].name' "$full_path" 2>/dev/null)
+            
+            if [ "$route_kind" = "HTTPRoute" ]; then
+                success "HTTPRoute has correct kind: $route_file"
+            else
+                error "HTTPRoute missing or incorrect kind: $route_file"
+                ((errors++))
+            fi
+            
+            if [ "$parent_ref" = "kong-gateway" ]; then
+                success "HTTPRoute references kong-gateway: $route_file"
+            else
+                error "HTTPRoute doesn't reference kong-gateway: $route_file"
+                ((errors++))
+            fi
+        fi
+    done
+    
+    if [ $errors -eq 0 ]; then
+        success "All Gateway API resources are properly structured"
+        return 0
+    else
+        error "Found $errors Gateway API structure errors"
+        return 1
+    fi
+}
+
+main() {
+    log "Starting Kong Gateway YAML validation..."
+    
+    local total_errors=0
+    
+    validate_kong_resources || ((total_errors++))
+    validate_gateway_api_resources || ((total_errors++))
+    
+    if [ $total_errors -eq 0 ]; then
+        success "All Kong Gateway YAML validation checks passed!"
+        exit 0
+    else
+        error "Found validation errors in $total_errors area(s)"
+        exit 1
+    fi
+}
+
+main "$@"

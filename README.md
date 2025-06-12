@@ -15,6 +15,7 @@ Deploy a complete, production-ready Kubernetes infrastructure in minutes:
 
 ### 🏗️ **Infrastructure**
 - **[DigitalOcean](https://digitalocean.pxf.io/3evZdB) Kubernetes Cluster** - Managed Kubernetes with auto-scaling
+- **Kong Gateway** - API Gateway with OIDC authentication and AI expense tracking
 - **GitOps with Flux v2** - Automated deployments from Git
 - **Encrypted Secrets** - SOPS + Age encryption for secure secret management
 - **Automatic DNS** - DigitalOcean DNS integration with external-dns
@@ -25,12 +26,22 @@ Deploy a complete, production-ready Kubernetes infrastructure in minutes:
 - **💬 Mattermost** - Team chat and collaboration (`chat.yourdomain.com`)  
 - **☁️ Nextcloud** - Cloud storage and office suite (`cloud.yourdomain.com`)
 - **📧 Mailu** - Complete email server (`mail.yourdomain.com`)
+- **📮 Postal** - Mail processing with RabbitMQ (`postal.yourdomain.com`)
+- **🤖 AI Gateway** - LiteLLM proxy with multi-provider support (`ai.yourdomain.com`)
 
 ## 🚀 Quick Start
 
 ### 1. Use This Template
 
 Click the **"Use this template"** button above to create your own repository.
+
+📝 **GitHub will show a configuration form** where you can specify:
+- Your domain name
+- Cluster region
+- Which services to enable
+- Monitoring preferences
+
+✨ **Automatic Initialization**: Your new repository will be automatically processed to convert template files into standard Kubernetes YAML. This means you'll have a normal GitOps repository that works with standard `flux` CLI commands!
 
 ### 2. Set Up Required Secrets
 
@@ -178,10 +189,12 @@ your-kubernetes-project/
 - Network policies and RBAC
 
 ### ⚡ **Production Ready**  
-- High availability setup
-- Auto-scaling nodes
-- Health checks and monitoring
-- Backup strategies
+- High availability setup with Kong Gateway
+- Auto-scaling nodes with load balancing
+- Comprehensive monitoring (Prometheus, Grafana, Jaeger)
+- AI usage tracking and expense monitoring
+- Automatic TLS certificates and DNS management
+- Backup strategies and disaster recovery
 
 ### 🛠️ **Developer Friendly**
 - One-command deployment

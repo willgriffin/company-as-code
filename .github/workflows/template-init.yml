@@ -1,0 +1,260 @@
+name: Initialize Repository from Template
+
+on:
+  create:
+  push:
+    branches: [main]
+    paths: ['.github/template.yml']
+
+# Only run on repositories created from this template, not the template itself
+# GitHub automatically sets the 'template_repository' context
+
+jobs:
+  initialize:
+    name: Initialize Repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Only run if this is NOT the template repository itself
+    if: github.repository != 'willgriffin/startup-gitops-template' && github.repository != github.event.repository.template_repository.full_name
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+        with:
+          tools: 'gomplate,yq'
+
+      - name: Generate config.yaml from template form
+        run: |
+          echo "🔧 Generating config.yaml from template form responses..."
+          
+          # Create config.yaml based on template form inputs
+          # Note: GitHub template forms don't currently pass form data to workflows
+          # This is a placeholder for when that feature is available
+          # For now, we'll create a basic config.yaml that users need to customize
+          
+          cat > config.yaml << EOF
+          # Generated configuration - customize for your deployment
+          domain:
+            primary: "example.com"  # Replace with your domain
+          
+          cluster:
+            name: "production"
+            region: "nyc3"
+          
+          services:
+            nextcloud:
+              enabled: true
+            mattermost:
+              enabled: true
+            mailu:
+              enabled: false
+            postal:
+              enabled: false
+          
+          monitoring:
+            prometheus:
+              enabled: true
+            grafana:
+              enabled: true
+            jaeger:
+              enabled: true
+            sentry:
+              enabled: false
+            opentelemetry:
+              enabled: true
+            loki:
+              enabled: false
+          
+          platform:
+            knative:
+              enabled: true
+          
+          ai:
+            gateway:
+              enabled: true
+          EOF
+
+      - name: Process gomplate templates
+        run: |
+          echo "🏗️  Processing gomplate templates..."
+          
+          # Process all YAML files that contain gomplate template syntax
+          find flux/clusters/cumulus -name "*.yaml" -type f | while read -r file; do
+            if grep -q "(datasource \"config\")" "$file" 2>/dev/null; then
+              echo "  Processing: $file"
+              # Create temporary file for gomplate output
+              temp_file=$(mktemp)
+              
+              # Process template with config.yaml as datasource
+              gomplate --datasource config=config.yaml --file "$file" --out "$temp_file"
+              
+              # Replace original file with processed version
+              mv "$temp_file" "$file"
+              
+              echo "  ✅ Processed: $file"
+            fi
+          done
+
+      - name: Process environment variable templates
+        run: |
+          echo "🔧 Processing environment variable templates..."
+          
+          # Process files that use {{ .Env.* }} syntax
+          find flux/clusters/cumulus -name "*template*.yaml" -type f | while read -r file; do
+            if grep -q "{{ \.Env\." "$file" 2>/dev/null; then
+              echo "  Processing env template: $file"
+              # These files need environment variables at deployment time
+              # Add a comment to indicate they need runtime processing
+              sed -i '1i# This file contains environment variable templates that will be processed during deployment' "$file"
+            fi
+          done
+
+      - name: Remove template-specific files
+        run: |
+          echo "🧹 Removing template-specific files..."
+          
+          # Remove template repository files
+          rm -f .github/template.yml
+          rm -f .github/template-cleanup
+          rm -f .github/workflows/template-init.yml
+          rm -f config.yaml.example
+          
+          # Remove template validation scripts (replace with deployment-focused ones)
+          # Keep validation scripts but update them for post-template use
+          echo "Template repository initialization complete" > .template-initialized
+
+      - name: Update workflows for standard GitOps
+        run: |
+          echo "⚙️  Updating workflows for standard GitOps repository..."
+          
+          # Remove gomplate processing from cluster-deploy.yml since templates are now processed
+          if [ -f .github/workflows/cluster-deploy.yml ]; then
+            # Remove the gomplate processing section
+            yq eval 'del(.jobs.*.steps[] | select(.name == "Process Domain Templates"))' -i .github/workflows/cluster-deploy.yml
+            
+            # Remove gomplate from tool requirements
+            sed -i "s/,gomplate//g" .github/workflows/cluster-deploy.yml
+            sed -i "s/gomplate,//g" .github/workflows/cluster-deploy.yml
+          fi
+
+      - name: Create initialization summary
+        run: |
+          echo "📋 Creating initialization summary..."
+          
+          cat > INITIALIZATION.md << EOF
+          # Repository Initialization Complete
+          
+          This repository has been automatically initialized from the GitOps template.
+          
+          ## What was processed:
+          - ✅ Gomplate templates converted to standard YAML
+          - ✅ Template-specific files removed
+          - ✅ Workflows updated for standard GitOps
+          - ✅ Base configuration created
+          
+          ## Next steps:
+          
+          1. **Customize config.yaml** with your specific settings:
+             - Update domain.primary to your domain
+             - Configure enabled services
+             - Set cluster name and region
+          
+          2. **Set up GitHub Secrets** in repository settings:
+             - DIGITALOCEAN_TOKEN (DigitalOcean API token)
+             - GITHUB_TOKEN (GitHub token with repo access)
+             - SOPS_AGE_PRIVATE_KEY (for secret encryption)
+          
+          3. **Generate secrets**:
+             \`\`\`bash
+             ./scripts/generate-secrets
+             \`\`\`
+          
+          4. **Deploy infrastructure**:
+             - Push changes to main branch
+             - Workflows will automatically deploy Terraform and Flux
+          
+          ## Standard GitOps Repository
+          
+          This is now a standard GitOps repository! You can use:
+          - \`flux check --path flux/clusters/cumulus\`
+          - \`kubectl apply -k flux/clusters/cumulus\`
+          - Standard Kubernetes tooling
+          
+          The gomplate template processing has been completed and removed.
+          EOF
+
+      - name: Commit processed files
+        run: |
+          echo "💾 Committing processed repository..."
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add .
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "🚀 Initialize repository from GitOps template
+
+          - Process gomplate templates to standard YAML
+          - Remove template-specific files  
+          - Update workflows for standard GitOps
+          - Create base configuration
+          
+          Repository is now ready for customization and deployment."
+            
+            git push origin main
+            
+            echo "✅ Repository initialization complete!"
+          fi
+
+      - name: Create setup issue
+        run: |
+          echo "📝 Creating setup guidance issue..."
+          
+          # Create an issue with setup instructions
+          gh issue create \
+            --title "🚀 Complete GitOps Setup" \
+            --body "$(cat << 'EOF'
+          Welcome to your new GitOps repository! 🎉
+
+          Your repository has been automatically initialized from the template. Here's what you need to do next:
+
+          ## 📋 Setup Checklist
+
+          - [ ] **Update config.yaml** with your domain and preferences
+          - [ ] **Set GitHub Secrets** (DIGITALOCEAN_TOKEN, GITHUB_TOKEN, SOPS_AGE_PRIVATE_KEY) 
+          - [ ] **Run secrets generation**: \`./scripts/generate-secrets\`
+          - [ ] **Review enabled services** in config.yaml
+          - [ ] **Push changes** to trigger deployment
+          - [ ] **Verify deployment** with \`./scripts/validate-kong-deployment\`
+
+          ## 🔗 Helpful Links
+
+          - [Setup Guide](./INITIALIZATION.md)
+          - [DigitalOcean API Tokens](https://digitalocean.pxf.io/je2Ggv)
+          - [Kong Gateway Documentation](./KONG_VALIDATION.md)
+
+          ## ✅ What's Ready
+
+          Your repository now includes:
+          - Kong Gateway with LiteLLM AI proxy
+          - Complete monitoring stack (Prometheus, Grafana, Jaeger)
+          - GitOps deployment with Flux
+          - Automated TLS certificates
+          - Standard Kubernetes YAML (no more templates!)
+
+          Close this issue once setup is complete. Happy shipping! 🚢
+          EOF
+          )" \
+            --label "setup" \
+            --assignee "${{ github.actor }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
