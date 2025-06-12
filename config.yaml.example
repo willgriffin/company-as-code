@@ -53,6 +53,49 @@ services:
     enabled: true
     admin_user: "admin"
 
+# Monitoring and Observability Stack
+monitoring:
+  # Prometheus metrics collection
+  prometheus:
+    enabled: true
+    retention: "30d"
+  
+  # Grafana dashboards and visualization
+  grafana:
+    enabled: true
+    admin_user: "admin"
+  
+  # Jaeger distributed tracing
+  jaeger:
+    enabled: true
+    storage: "memory"  # memory or elasticsearch
+  
+  # Loki centralized logging
+  loki:
+    enabled: true
+    retention: "168h"  # 7 days
+  
+  # Sentry error tracking
+  sentry:
+    enabled: true
+    organization: "default"
+  
+  # OpenTelemetry auto-instrumentation
+  opentelemetry:
+    enabled: true
+    sampling_rate: "0.25"  # 25% sampling
+
+# Platform Capabilities
+platform:
+  # Knative serverless applications
+  knative:
+    enabled: true
+    kourier_ingress: true
+  
+  # Velero backup and disaster recovery
+  velero:
+    enabled: true
+
 # Advanced Configuration (usually don't need to change)
 advanced:
   flux:

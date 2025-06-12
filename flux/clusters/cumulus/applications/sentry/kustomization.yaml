@@ -10,4 +10,4 @@ resources:
   - ingress.yaml
   - secrets-template.yaml
   - resource-quota.yaml
-  - keycloak-setup.yaml
+  - keycloak-client.yaml

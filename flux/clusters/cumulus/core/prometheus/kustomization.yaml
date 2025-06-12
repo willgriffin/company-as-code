@@ -7,7 +7,7 @@ resources:
   - oauth2-proxy.yaml
   - ingress.yaml
   - secrets-template.yaml
-  - keycloak-setup.yaml
+  - keycloak-client.yaml
   - servicemonitor-examples.yaml
   - prometheus-rules.yaml
   - monitoring-integration.yaml

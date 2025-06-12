@@ -39,6 +39,26 @@ on:
         required: false
         default: false
         type: boolean
+      enable_monitoring:
+        description: 'Enable monitoring stack (Prometheus, Grafana, Jaeger, Loki)'
+        required: false
+        default: true
+        type: boolean
+      enable_sentry:
+        description: 'Enable Sentry error tracking'
+        required: false
+        default: true
+        type: boolean
+      enable_knative:
+        description: 'Enable Knative serverless platform'
+        required: false
+        default: true
+        type: boolean
+      enable_opentelemetry:
+        description: 'Enable OpenTelemetry auto-instrumentation'
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   setup:
@@ -122,10 +142,22 @@ jobs:
         sed -i "s/^email: .*/email: \"${{ inputs.email }}\"/" config.yaml
         
         # Update application enablement
-        sed -i "s/^keycloak_enabled: .*/keycloak_enabled: ${{ inputs.enable_keycloak }}/" config.yaml
-        sed -i "s/^mattermost_enabled: .*/mattermost_enabled: ${{ inputs.enable_mattermost }}/" config.yaml
-        sed -i "s/^nextcloud_enabled: .*/nextcloud_enabled: ${{ inputs.enable_nextcloud }}/" config.yaml
-        sed -i "s/^mailu_enabled: .*/mailu_enabled: ${{ inputs.enable_mailu }}/" config.yaml
+        sed -i "s/keycloak:$/keycloak:/" config.yaml
+        sed -i "/keycloak:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_keycloak }}/" config.yaml
+        sed -i "/mattermost:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_mattermost }}/" config.yaml
+        sed -i "/nextcloud:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_nextcloud }}/" config.yaml
+        sed -i "/mailu:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_mailu }}/" config.yaml
+        
+        # Update monitoring stack enablement
+        sed -i "/prometheus:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_monitoring }}/" config.yaml
+        sed -i "/grafana:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_monitoring }}/" config.yaml
+        sed -i "/jaeger:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_monitoring }}/" config.yaml
+        sed -i "/loki:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_monitoring }}/" config.yaml
+        sed -i "/sentry:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_sentry }}/" config.yaml
+        sed -i "/opentelemetry:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_opentelemetry }}/" config.yaml
+        
+        # Update platform capabilities
+        sed -i "/knative:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_knative }}/" config.yaml
         
         echo "✓ Updated config.yaml with user inputs"
 
@@ -182,6 +214,8 @@ jobs:
         - Set cluster name to ${{ inputs.cluster_name }}
         - Set email to ${{ inputs.email }}
         - Applications enabled: Keycloak=${{ inputs.enable_keycloak }}, Mattermost=${{ inputs.enable_mattermost }}, Nextcloud=${{ inputs.enable_nextcloud }}, Mailu=${{ inputs.enable_mailu }}
+        - Monitoring enabled: Stack=${{ inputs.enable_monitoring }}, Sentry=${{ inputs.enable_sentry }}, OpenTelemetry=${{ inputs.enable_opentelemetry }}
+        - Platform enabled: Knative=${{ inputs.enable_knative }}
         - Generated SOPS age keys and configuration
         - Updated domain references throughout codebase"
           
@@ -204,6 +238,10 @@ jobs:
         echo "| Mattermost | ${{ inputs.enable_mattermost }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Nextcloud | ${{ inputs.enable_nextcloud }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Mailu | ${{ inputs.enable_mailu }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Monitoring Stack | ${{ inputs.enable_monitoring }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Sentry | ${{ inputs.enable_sentry }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Knative | ${{ inputs.enable_knative }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| OpenTelemetry | ${{ inputs.enable_opentelemetry }} |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
