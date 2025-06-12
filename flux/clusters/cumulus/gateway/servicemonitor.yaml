@@ -1,0 +1,62 @@
+# ServiceMonitor for Kong Gateway metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kong-gateway
+  namespace: kong-system
+  labels:
+    app: kong-gateway
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kong
+  endpoints:
+  - port: admin
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+  - port: admin-tls
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
+
+---
+# ServiceMonitor for Expense Tracker metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: expense-tracker
+  namespace: kong-system
+  labels:
+    app: expense-tracker
+spec:
+  selector:
+    matchLabels:
+      app: expense-tracker
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+
+---
+# ServiceMonitor for LiteLLM metrics (if available)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: litellm-proxy
+  namespace: kong-system
+  labels:
+    app: litellm-proxy
+spec:
+  selector:
+    matchLabels:
+      app: litellm-proxy
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s

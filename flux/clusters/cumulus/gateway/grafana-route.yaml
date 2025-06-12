@@ -4,8 +4,8 @@ metadata:
   name: grafana
   namespace: grafana
   annotations:
-    # Kong plugins to apply (DB-less mode)
-    konghq.com/plugins: prometheus-metrics,basic-rate-limit
+    # Kong plugins for Keycloak auth and monitoring
+    konghq.com/plugins: keycloak-oidc,prometheus-metrics,basic-rate-limit
 spec:
   parentRefs:
   - name: kong-gateway
