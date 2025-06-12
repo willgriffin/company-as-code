@@ -15,3 +15,4 @@ resources:
   - keycloak-route.yaml
   - litellm-secrets-template.yaml
   - servicemonitor.yaml
+  - knative-route.yaml

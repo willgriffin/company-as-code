@@ -30,14 +30,14 @@ spec:
       - "example.com"  # This will be replaced by GitHub Actions during deployment
     
     sources:
-      - ingress
+      - gateway-httproute
       - service
     
-    # Traefik IngressRoute support
+    # Gateway API HTTPRoute support
     crd:
       create: false
-      apiversion: traefik.containo.us/v1alpha1
-      kind: IngressRoute
+      apiversion: gateway.networking.k8s.io/v1beta1
+      kind: HTTPRoute
     
     extraArgs: []
     

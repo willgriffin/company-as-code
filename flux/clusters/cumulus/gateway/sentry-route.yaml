@@ -1,0 +1,23 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: sentry
+  namespace: sentry
+  annotations:
+    # Kong plugins for Keycloak auth and monitoring
+    konghq.com/plugins: keycloak-oidc,prometheus-metrics,basic-rate-limit
+spec:
+  parentRefs:
+  - name: kong-gateway
+    namespace: kong-system
+  hostnames:
+  - sentry.{{ (datasource "config").domain }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: sentry-web
+      port: 9000
+      weight: 100

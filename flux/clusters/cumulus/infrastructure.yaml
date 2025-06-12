@@ -1,22 +1,6 @@
 # Individual Flux Kustomizations for granular dependency management
 # Each component can be referenced independently by applications
 
----
-# Traefik - Ingress Controller
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
-  name: traefik
-  namespace: flux-system
-spec:
-  interval: 10m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  path: ./flux/clusters/cumulus/core/traefik
-  prune: true
-  wait: true
-  timeout: 5m
 
 ---
 # External DNS - Automatic DNS management
@@ -125,6 +109,27 @@ spec:
   timeout: 5m
 
 ---
+# Kong Gateway Routes
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: gateway
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: kong-operator
+    - name: cert-manager-post-deploy
+    - name: keycloak
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/gateway
+  prune: true
+  wait: true
+  timeout: 5m
+
+---
 # Sentry Operator
 {{ if (datasource "config").monitoring.sentry.enabled }}
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -191,7 +196,7 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn:
-    - name: traefik
+    - name: kong-operator
     - name: cert-manager-post-deploy
     - name: keycloak
   interval: 10m
@@ -218,7 +223,7 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn:
-    - name: traefik
+    - name: kong-operator
     - name: cert-manager-post-deploy
     - name: keycloak
     - name: prometheus
@@ -246,7 +251,7 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn:
-    - name: traefik
+    - name: kong-operator
     - name: cert-manager-post-deploy
     - name: keycloak
   interval: 10m
@@ -273,7 +278,7 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn:
-    - name: traefik
+    - name: kong-operator
     - name: cert-manager-post-deploy
   interval: 10m
   sourceRef:
@@ -294,7 +299,7 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn:
-    - name: traefik
+    - name: kong-operator
     - name: cert-manager-post-deploy
     - name: keycloak-operator
     - name: cloudnativepg

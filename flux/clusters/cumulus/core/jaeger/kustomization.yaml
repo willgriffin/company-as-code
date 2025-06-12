@@ -5,6 +5,5 @@ resources:
   - repository.yaml
   - release.yaml
   - oauth2-proxy.yaml
-  - ingress.yaml
   - secrets-template.yaml
   - keycloak-client.yaml

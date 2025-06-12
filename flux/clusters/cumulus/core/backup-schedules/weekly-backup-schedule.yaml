@@ -15,7 +15,7 @@ spec:
     - mailu
     - velero
     - cert-manager
-    - traefik
+    - kong-system
     - external-dns
     
     # Exclude system and temporary resources
