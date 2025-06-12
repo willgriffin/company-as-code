@@ -64,6 +64,15 @@ spec:
           value: "mailu-front.mailu.svc.cluster.local"
         - name: POSTAL_FORWARD_TO_PORT
           value: "25"
+        - name: POSTAL_RABBITMQ_URL
+          valueFrom:
+            secretKeyRef:
+              name: postal-rabbitmq-secret
+              key: connection-string
+        - name: POSTAL_QUEUE_BACKEND
+          value: "rabbitmq"
+        - name: POSTAL_QUEUE_ENABLED
+          value: "true"
         volumeMounts:
         - name: config
           mountPath: /opt/postal/config

@@ -79,25 +79,41 @@ spec:
           
           async function forwardMessage(message) {
             try {
-              const mailOptions = {
+              // Queue message in RabbitMQ for asynchronous processing
+              const queueData = {
+                id: message.id,
                 from: message.from,
                 to: message.to,
                 subject: message.subject,
-                text: message.plain_body,
-                html: message.html_body,
-                headers: {
-                  'X-Original-To': message.to,
-                  'X-Forwarded-From': 'postal-server',
-                  'X-Postal-Message-ID': message.id
-                }
+                plain_body: message.plain_body,
+                html_body: message.html_body,
+                received_at: new Date().toISOString()
               };
               
-              console.log(`Forwarding message from ${message.from} to ${message.to}`);
-              await transport.sendMail(mailOptions);
-              console.log('Message forwarded successfully');
+              console.log(`Queuing message from ${message.from} to ${message.to} for processing`);
+              
+              // Send to RabbitMQ queue
+              await publishToQueue(queueData);
+              console.log('Message queued successfully');
             } catch (error) {
-              console.error('Error forwarding message:', error);
+              console.error('Error queuing message:', error);
               throw error;
+            }
+          }
+          
+          async function publishToQueue(messageData) {
+            // This would normally use a RabbitMQ client
+            // For now, we'll call the worker service directly
+            const response = await fetch('http://postal-queue-worker.postal.svc.cluster.local:8080/queue', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(messageData)
+            });
+            
+            if (!response.ok) {
+              throw new Error(`Queue service error: ${response.status}`);
             }
           }
           

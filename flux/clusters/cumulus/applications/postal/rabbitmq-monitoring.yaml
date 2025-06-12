@@ -1,0 +1,83 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postal-rabbitmq-metrics
+  namespace: postal
+  labels:
+    app: postal-rabbitmq
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postal-rabbitmq
+  endpoints:
+  - port: prometheus
+    path: /metrics
+    interval: 30s
+  namespaceSelector:
+    matchNames:
+    - postal
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: postal-rabbitmq-alerts
+  namespace: postal
+  labels:
+    app: postal-rabbitmq
+spec:
+  groups:
+  - name: postal-rabbitmq
+    rules:
+    - alert: RabbitMQNodeDown
+      expr: up{job="postal-rabbitmq-metrics"} == 0
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "RabbitMQ node is down"
+        description: "RabbitMQ node {{ $labels.instance }} has been down for more than 5 minutes."
+    
+    - alert: RabbitMQHighMemoryUsage
+      expr: rabbitmq_resident_memory_limit_bytes / rabbitmq_resident_memory_limit_bytes * 100 > 80
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "RabbitMQ high memory usage"
+        description: "RabbitMQ node {{ $labels.instance }} memory usage is above 80%."
+    
+    - alert: RabbitMQQueueGrowth
+      expr: increase(rabbitmq_queue_messages_total[5m]) > 1000
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "RabbitMQ queue growing rapidly"
+        description: "Queue {{ $labels.queue }} on {{ $labels.instance }} is growing rapidly (>1000 messages in 5 minutes)."
+    
+    - alert: RabbitMQQueueSize
+      expr: rabbitmq_queue_messages_total > 10000
+      for: 10m
+      labels:
+        severity: critical
+      annotations:
+        summary: "RabbitMQ queue size too large"
+        description: "Queue {{ $labels.queue }} on {{ $labels.instance }} has more than 10,000 messages."
+    
+    - alert: RabbitMQConsumerDown
+      expr: rabbitmq_queue_consumers == 0 and rabbitmq_queue_messages_total > 0
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "RabbitMQ queue has no consumers"
+        description: "Queue {{ $labels.queue }} on {{ $labels.instance }} has messages but no consumers."
+    
+    - alert: RabbitMQPartition
+      expr: rabbitmq_partitions > 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "RabbitMQ cluster partition detected"
+        description: "RabbitMQ cluster partition detected on {{ $labels.instance }}."

@@ -54,6 +54,26 @@ data:
         - "X-Forwarded-From"
         - "X-Postal-Server"
     
+    # RabbitMQ configuration for message queuing
+    rabbitmq:
+      enabled: true
+      host: "postal-rabbitmq.postal.svc.cluster.local"
+      port: 5672
+      vhost: "postal"
+      username: "postal-admin"
+      password: "{{ .Values.rabbitmq.password }}"
+      exchange: "mail.exchange"
+      queue: "mail.processing"
+      routing_key: "mail.inbound"
+      
+    # Queue configuration
+    queues:
+      enabled: true
+      backend: "rabbitmq"
+      workers: 4
+      retry_attempts: 3
+      retry_delay: 300
+    
     # Webhook configuration for processing
     webhooks:
       enabled: true

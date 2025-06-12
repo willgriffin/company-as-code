@@ -8,3 +8,4 @@ resources:
   - sentry-operator
   - knative-operator
   - opentelemetry-operator
+  - rabbitmq-operator

@@ -13,3 +13,7 @@ resources:
   - servicemonitor.yaml
   - configmap.yaml
   - forwarder.yaml
+  - rabbitmq-cluster.yaml
+  - rabbitmq-credentials.yaml
+  - queue-worker.yaml
+  - rabbitmq-monitoring.yaml
