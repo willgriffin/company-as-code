@@ -3,6 +3,7 @@
 
 ---
 # Mattermost - Team Chat
+{{ if (datasource "config").services.mattermost.enabled }}
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -28,7 +29,9 @@ spec:
       name: sops-age
 
 ---
+{{ end }}
 # Nextcloud - Cloud Storage
+{{ if (datasource "config").services.nextcloud.enabled }}
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -55,7 +58,11 @@ spec:
       name: sops-age
 
 ---
+{{ end }}
+
+---
 # Mailu - Email Server
+{{ if (datasource "config").services.mailu.enabled }}
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -80,3 +87,64 @@ spec:
     provider: sops
     secretRef:
       name: sops-age
+
+---
+{{ end }}
+
+# Postal - Mail Server
+{{ if (datasource "config").services.postal.enabled }}
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: postal
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: traefik              # Needs ingress
+    - name: cert-manager-post-deploy  # Needs TLS certificates
+    - name: cloudnativepg        # Needs PostgreSQL operator
+    - name: redis-operator       # Needs Redis operator
+    - name: keycloak            # Needs identity provider for OAuth
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/applications/postal
+  prune: true
+  wait: true
+  timeout: 10m
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+
+---
+{{ end }}
+# Sentry - Error Tracking
+{{ if (datasource "config").monitoring.sentry.enabled }}
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: sentry
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: traefik              # Needs ingress
+    - name: cert-manager-post-deploy  # Needs TLS certificates
+    - name: cloudnativepg        # Needs PostgreSQL operator
+    - name: redis-operator       # Needs Redis operator
+    - name: keycloak            # Needs identity provider for OAuth
+    - name: sentry-operator      # Needs Sentry operator
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/applications/sentry
+  prune: true
+  wait: true
+  timeout: 10m
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+{{ end }}

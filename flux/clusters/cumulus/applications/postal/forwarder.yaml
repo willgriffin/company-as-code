@@ -1,0 +1,172 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postal-forwarder
+  namespace: postal
+  labels:
+    app: postal-forwarder
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postal-forwarder
+  template:
+    metadata:
+      labels:
+        app: postal-forwarder
+      annotations:
+        instrumentation.opentelemetry.io/inject-nodejs: "opentelemetry-operator-system/default-instrumentation"
+    spec:
+      containers:
+      - name: forwarder
+        image: node:18-alpine
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          cat > /app/forwarder.js << 'EOF'
+          const http = require('http');
+          const net = require('net');
+          const { createTransport } = require('nodemailer');
+          
+          const MAILU_HOST = process.env.MAILU_HOST || 'mailu-front.mailu.svc.cluster.local';
+          const MAILU_PORT = process.env.MAILU_PORT || '25';
+          const PORT = process.env.PORT || 8080;
+          
+          // Create SMTP transport for forwarding to Mailu
+          const transport = createTransport({
+            host: MAILU_HOST,
+            port: parseInt(MAILU_PORT),
+            secure: false,
+            ignoreTLS: true,
+            connectionTimeout: 60000,
+            greetingTimeout: 30000,
+            socketTimeout: 60000
+          });
+          
+          const server = http.createServer((req, res) => {
+            if (req.method === 'POST' && req.url === '/webhook') {
+              let body = '';
+              req.on('data', chunk => {
+                body += chunk.toString();
+              });
+              
+              req.on('end', async () => {
+                try {
+                  const data = JSON.parse(body);
+                  console.log('Received webhook:', data.event);
+                  
+                  if (data.event === 'MessageReceived') {
+                    await forwardMessage(data.message);
+                  }
+                  
+                  res.writeHead(200, { 'Content-Type': 'application/json' });
+                  res.end(JSON.stringify({ status: 'ok' }));
+                } catch (error) {
+                  console.error('Webhook processing error:', error);
+                  res.writeHead(500, { 'Content-Type': 'application/json' });
+                  res.end(JSON.stringify({ error: error.message }));
+                }
+              });
+            } else if (req.method === 'GET' && req.url === '/health') {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ status: 'healthy' }));
+            } else {
+              res.writeHead(404, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Not found' }));
+            }
+          });
+          
+          async function forwardMessage(message) {
+            try {
+              // Queue message in RabbitMQ for asynchronous processing
+              const queueData = {
+                id: message.id,
+                from: message.from,
+                to: message.to,
+                subject: message.subject,
+                plain_body: message.plain_body,
+                html_body: message.html_body,
+                received_at: new Date().toISOString()
+              };
+              
+              console.log(`Queuing message from ${message.from} to ${message.to} for processing`);
+              
+              // Send to RabbitMQ queue
+              await publishToQueue(queueData);
+              console.log('Message queued successfully');
+            } catch (error) {
+              console.error('Error queuing message:', error);
+              throw error;
+            }
+          }
+          
+          async function publishToQueue(messageData) {
+            // This would normally use a RabbitMQ client
+            // For now, we'll call the worker service directly
+            const response = await fetch('http://postal-queue-worker.postal.svc.cluster.local:8080/queue', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(messageData)
+            });
+            
+            if (!response.ok) {
+              throw new Error(`Queue service error: ${response.status}`);
+            }
+          }
+          
+          server.listen(PORT, () => {
+            console.log(`Postal forwarder listening on port ${PORT}`);
+            console.log(`Forwarding to Mailu at ${MAILU_HOST}:${MAILU_PORT}`);
+          });
+          EOF
+          
+          cd /app && npm init -y && npm install nodemailer && node forwarder.js
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: MAILU_HOST
+          value: "mailu-front.mailu.svc.cluster.local"
+        - name: MAILU_PORT
+          value: "25"
+        - name: PORT
+          value: "8080"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postal-forwarder
+  namespace: postal
+  labels:
+    app: postal-forwarder
+spec:
+  selector:
+    app: postal-forwarder
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP

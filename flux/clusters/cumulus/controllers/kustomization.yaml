@@ -5,3 +5,7 @@ resources:
   - redis-operator
   - keycloak-operator
   - velero
+  - sentry-operator
+  - knative-operator
+  - opentelemetry-operator
+  - rabbitmq-operator

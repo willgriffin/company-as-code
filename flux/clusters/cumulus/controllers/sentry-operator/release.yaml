@@ -1,0 +1,45 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: sentry-operator
+  namespace: sentry-operator
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: sentry-operator
+      version: "0.1.0"
+      sourceRef:
+        kind: HelmRepository
+        name: sentry-operator
+        namespace: sentry-operator
+  values:
+    replicaCount: 1
+    
+    image:
+      repository: ghcr.io/jace-ys/sentry-operator
+      tag: "v0.3.0"
+      pullPolicy: IfNotPresent
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ""
+
+    rbac:
+      create: true
+
+    config:
+      sentryURL: "https://sentry.{{ (datasource "config").domain.primary }}"
+      sentryOrganization: "{{ (datasource "config").sentry.organization | default "default" }}"
+      sentryAuthToken:
+        secretName: sentry-operator-token
+        secretKey: token

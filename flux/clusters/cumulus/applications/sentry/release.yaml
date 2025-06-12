@@ -1,0 +1,98 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: sentry
+  namespace: sentry
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: sentry
+      version: "23.1.1"
+      sourceRef:
+        kind: HelmRepository
+        name: sentry
+        namespace: sentry
+  values:
+    system:
+      secretKey: '{{ (datasource "config").sentry.secret_key | default "change-me-sentry-secret-key-32-chars" }}'
+    
+    mail:
+      backend: smtp
+      useTls: true
+      host: "{{ (datasource "config").sentry.smtp.host | default "smtp.example.com" }}"
+      port: 587
+      username: "{{ (datasource "config").sentry.smtp.username | default "sentry@example.com" }}"
+      password: "{{ (datasource "config").sentry.smtp.password | default "change-me" }}"
+      from: "{{ (datasource "config").sentry.smtp.from | default "sentry@example.com" }}"
+
+    ingress:
+      enabled: false  # Using oauth2-proxy for authentication
+
+    postgresql:
+      enabled: false
+    
+    redis:
+      enabled: false
+
+    externalPostgresql:
+      host: sentry-postgres-rw.sentry.svc.cluster.local
+      port: 5432
+      username: sentry
+      database: sentry
+      existingSecret: sentry-postgres-credentials
+      existingSecretPasswordKey: password
+
+    externalRedis:
+      host: sentry-redis.sentry.svc.cluster.local
+      port: 6379
+      existingSecret: sentry-redis-secret
+      existingSecretPasswordKey: password
+
+    sentry:
+      web:
+        replicas: 2
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+      
+      worker:
+        replicas: 2
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      
+      cron:
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+
+    nginx:
+      enabled: true
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
+
+    filestore:
+      backend: filesystem
+      filesystem:
+        persistence:
+          enabled: true
+          storageClass: do-block-storage
+          size: 10Gi

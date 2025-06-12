@@ -74,6 +74,23 @@ spec:
   timeout: 5m
 
 ---
+# RabbitMQ Operator
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: rabbitmq-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/controllers/rabbitmq-operator
+  prune: true
+  wait: true
+  timeout: 5m
+
+---
 # Keycloak Operator
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -91,6 +108,167 @@ spec:
   timeout: 5m
 
 ---
+# Sentry Operator
+{{ if (datasource "config").monitoring.sentry.enabled }}
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: sentry-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/controllers/sentry-operator
+  prune: true
+  wait: true
+  timeout: 5m
+
+---
+{{ end }}
+# Knative Operator
+{{ if (datasource "config").platform.knative.enabled }}
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: knative-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/controllers/knative-operator
+  prune: true
+  wait: true
+  timeout: 5m
+
+---
+{{ end }}
+# OpenTelemetry Operator
+{{ if (datasource "config").monitoring.opentelemetry.enabled }}
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: opentelemetry-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/controllers/opentelemetry-operator
+  prune: true
+  wait: true
+  timeout: 5m
+
+---
+{{ end }}
+# Prometheus Monitoring
+{{ if (datasource "config").monitoring.prometheus.enabled }}
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: prometheus
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: traefik
+    - name: cert-manager-post-deploy
+    - name: keycloak
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/core/prometheus
+  prune: true
+  wait: true
+  timeout: 10m
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+
+---
+{{ end }}
+# Grafana Dashboards
+{{ if (datasource "config").monitoring.grafana.enabled }}
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: grafana
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: traefik
+    - name: cert-manager-post-deploy
+    - name: keycloak
+    - name: prometheus
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/core/grafana
+  prune: true
+  wait: true
+  timeout: 10m
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+
+---
+{{ end }}
+# Jaeger Tracing
+{{ if (datasource "config").monitoring.jaeger.enabled }}
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: jaeger
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: traefik
+    - name: cert-manager-post-deploy
+    - name: keycloak
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/core/jaeger
+  prune: true
+  wait: true
+  timeout: 10m
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+
+---
+{{ end }}
+# Loki Logging
+{{ if (datasource "config").monitoring.loki.enabled }}
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: loki
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: traefik
+    - name: cert-manager-post-deploy
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/core/loki
+  prune: true
+  wait: true
+  timeout: 10m
+
+---
+{{ end }}
 # Keycloak Instance - Identity Provider
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization

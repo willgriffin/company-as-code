@@ -97,6 +97,15 @@ spec:
         limits:
           memory: 512Mi
           cpu: 500m
+      # AWS SES SMTP relay configuration
+      {{ if (datasource "config").services.mailu.ses.enabled }}
+      relayhost: "email-smtp.{{ (datasource "config").services.mailu.ses.region }}.amazonaws.com:587"
+      relayuser: ""  # Will be set via secret
+      relaypassword: ""  # Will be set via secret
+      extraEnvFrom:
+        - secretRef:
+            name: mailu-ses-credentials
+      {{ end }}
     
     # Antispam (Rspamd)
     rspamd:

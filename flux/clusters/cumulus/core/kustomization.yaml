@@ -5,3 +5,7 @@ resources:
   - traefik
   - external-dns
   - backup-schedules
+  - prometheus
+  - grafana
+  - jaeger
+  - loki

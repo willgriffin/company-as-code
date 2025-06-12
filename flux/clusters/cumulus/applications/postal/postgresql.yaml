@@ -1,0 +1,22 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postal-db
+  namespace: postal
+spec:
+  instances: 1
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "256MB"
+      effective_cache_size: "1GB"
+      work_mem: "4MB"
+  bootstrap:
+    initdb:
+      database: postal
+      owner: postal
+      secret:
+        name: postal-db-secret
+  storage:
+    size: 5Gi
+    storageClass: do-block-storage

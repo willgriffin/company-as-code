@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postal
+  namespace: postal
+  labels:
+    app: postal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postal
+  template:
+    metadata:
+      labels:
+        app: postal
+      annotations:
+        instrumentation.opentelemetry.io/inject-ruby: "opentelemetry-operator-system/default-instrumentation"
+    spec:
+      containers:
+      - name: postal
+        image: postalserver/postal:3.0.2
+        ports:
+        - containerPort: 5000
+          name: web
+        - containerPort: 25
+          name: smtp
+        env:
+        - name: POSTAL_DATABASE_HOST
+          value: "postal-db-rw.postal.svc.cluster.local"
+        - name: POSTAL_DATABASE_NAME
+          value: "postal"
+        - name: POSTAL_DATABASE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: postal-db-secret
+              key: username
+        - name: POSTAL_DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postal-db-secret
+              key: password
+        - name: POSTAL_REDIS_HOST
+          value: "rfs-postal-redis.postal.svc.cluster.local"
+        - name: POSTAL_REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postal-redis-secret
+              key: password
+        - name: POSTAL_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: postal-secret
+              key: secret-key
+        - name: POSTAL_WEB_HOSTNAME
+          value: "postal.{{ (datasource "config").domain }}"
+        - name: POSTAL_WEB_PROTOCOL
+          value: "https"
+        - name: POSTAL_SMTP_HOSTNAME
+          value: "mail.{{ (datasource "config").domain }}"
+        - name: POSTAL_MAIL_FORWARDING_ENABLED
+          value: "true"
+        - name: POSTAL_FORWARD_TO_HOST
+          value: "mailu-front.mailu.svc.cluster.local"
+        - name: POSTAL_FORWARD_TO_PORT
+          value: "25"
+        - name: POSTAL_RABBITMQ_URL
+          valueFrom:
+            secretKeyRef:
+              name: postal-rabbitmq-secret
+              key: connection-string
+        - name: POSTAL_QUEUE_BACKEND
+          value: "rabbitmq"
+        - name: POSTAL_QUEUE_ENABLED
+          value: "true"
+        volumeMounts:
+        - name: config
+          mountPath: /opt/postal/config
+          readOnly: true
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: postal-config

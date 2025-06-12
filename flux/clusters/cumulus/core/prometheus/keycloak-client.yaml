@@ -1,0 +1,32 @@
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: KeycloakClient
+metadata:
+  name: prometheus-client
+  namespace: prometheus
+spec:
+  realmSelector:
+    matchLabels:
+      realm: happyvertical
+  client:
+    clientId: prometheus
+    name: Prometheus
+    description: Prometheus monitoring
+    protocol: openid-connect
+    clientAuthenticatorType: client-secret
+    publicClient: false
+    standardFlowEnabled: true
+    directAccessGrantsEnabled: false
+    implicitFlowEnabled: false
+    serviceAccountsEnabled: false
+    redirectUris:
+      - https://prometheus.{{ (datasource "config").domain.primary }}/oauth2/callback
+    webOrigins:
+      - https://prometheus.{{ (datasource "config").domain.primary }}
+    defaultClientScopes:
+      - openid
+      - email
+      - profile
+    attributes:
+      backchannel.logout.session.required: "true"
+      backchannel.logout.revoke.offline.tokens: "false"
+  secretName: prometheus-keycloak-client-secret
