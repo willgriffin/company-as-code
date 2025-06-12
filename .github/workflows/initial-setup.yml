@@ -147,7 +147,6 @@ jobs:
         sed -i "s/^email: .*/email: \"${{ inputs.email }}\"/" config.yaml
         
         # Update application enablement
-        sed -i "s/keycloak:$/keycloak:/" config.yaml
         sed -i "/keycloak:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_keycloak }}/" config.yaml
         sed -i "/mattermost:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_mattermost }}/" config.yaml
         sed -i "/nextcloud:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_nextcloud }}/" config.yaml
