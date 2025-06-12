@@ -4,4 +4,4 @@ resources:
   - namespace.yaml
   - repository.yaml
   - release.yaml
-  - external-secret.yaml
+  - rbac.yaml

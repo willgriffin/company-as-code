@@ -19,6 +19,29 @@ spec:
   timeout: 5m
 
 ---
+# External Secrets Core Configuration
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: external-secrets-core
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: external-secrets-operator
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/core/external-secrets
+  prune: true
+  wait: true
+  timeout: 5m
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+
+---
 # External DNS - Automatic DNS management
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -26,6 +49,8 @@ metadata:
   name: external-dns
   namespace: flux-system
 spec:
+  dependsOn:
+    - name: external-secrets-core
   interval: 10m
   sourceRef:
     kind: GitRepository
@@ -34,10 +59,6 @@ spec:
   prune: true
   wait: true
   timeout: 5m
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
 
 ---
 # CloudNativePG - PostgreSQL Operator
@@ -86,6 +107,23 @@ spec:
     kind: GitRepository
     name: flux-system
   path: ./flux/clusters/cumulus/controllers/rabbitmq-operator
+  prune: true
+  wait: true
+  timeout: 5m
+
+---
+# External Secrets Operator
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: external-secrets-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./flux/clusters/cumulus/controllers/external-secrets-operator
   prune: true
   wait: true
   timeout: 5m
