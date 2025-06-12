@@ -39,6 +39,11 @@ on:
         required: false
         default: false
         type: boolean
+      enable_postal:
+        description: 'Enable Postal mail server'
+        required: false
+        default: false
+        type: boolean
       enable_monitoring:
         description: 'Enable monitoring stack (Prometheus, Grafana, Jaeger, Loki)'
         required: false
@@ -147,6 +152,7 @@ jobs:
         sed -i "/mattermost:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_mattermost }}/" config.yaml
         sed -i "/nextcloud:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_nextcloud }}/" config.yaml
         sed -i "/mailu:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_mailu }}/" config.yaml
+        sed -i "/postal:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_postal }}/" config.yaml
         
         # Update monitoring stack enablement
         sed -i "/prometheus:$/,/enabled:/ s/enabled: .*/enabled: ${{ inputs.enable_monitoring }}/" config.yaml
@@ -213,7 +219,7 @@ jobs:
         - Set domain to ${{ inputs.domain_name }}
         - Set cluster name to ${{ inputs.cluster_name }}
         - Set email to ${{ inputs.email }}
-        - Applications enabled: Keycloak=${{ inputs.enable_keycloak }}, Mattermost=${{ inputs.enable_mattermost }}, Nextcloud=${{ inputs.enable_nextcloud }}, Mailu=${{ inputs.enable_mailu }}
+        - Applications enabled: Keycloak=${{ inputs.enable_keycloak }}, Mattermost=${{ inputs.enable_mattermost }}, Nextcloud=${{ inputs.enable_nextcloud }}, Mailu=${{ inputs.enable_mailu }}, Postal=${{ inputs.enable_postal }}
         - Monitoring enabled: Stack=${{ inputs.enable_monitoring }}, Sentry=${{ inputs.enable_sentry }}, OpenTelemetry=${{ inputs.enable_opentelemetry }}
         - Platform enabled: Knative=${{ inputs.enable_knative }}
         - Generated SOPS age keys and configuration
@@ -238,6 +244,7 @@ jobs:
         echo "| Mattermost | ${{ inputs.enable_mattermost }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Nextcloud | ${{ inputs.enable_nextcloud }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Mailu | ${{ inputs.enable_mailu }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Postal | ${{ inputs.enable_postal }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Monitoring Stack | ${{ inputs.enable_monitoring }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Sentry | ${{ inputs.enable_sentry }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Knative | ${{ inputs.enable_knative }} |" >> $GITHUB_STEP_SUMMARY

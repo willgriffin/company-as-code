@@ -15,6 +15,7 @@ domain:
   # - chat.{primary} (Mattermost)
   # - cloud.{primary} (Nextcloud)
   # - mail.{primary} (Mailu)
+  # - postal.{primary} (Postal)
 
 # Cluster Configuration
 cluster:
@@ -50,6 +51,11 @@ services:
   
   # Email service (Mailu)
   mailu:
+    enabled: true
+    admin_user: "admin"
+  
+  # Mail server (Postal)
+  postal:
     enabled: true
     admin_user: "admin"
 

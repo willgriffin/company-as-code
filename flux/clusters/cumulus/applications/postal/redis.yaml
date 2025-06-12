@@ -1,0 +1,37 @@
+apiVersion: databases.spotahome.com/v1
+kind: RedisFailover
+metadata:
+  name: postal-redis
+  namespace: postal
+spec:
+  sentinel:
+    replicas: 3
+    resources:
+      requests:
+        cpu: 100m
+        memory: 100Mi
+      limits:
+        cpu: 500m
+        memory: 200Mi
+  redis:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 100Mi
+      limits:
+        cpu: 500m
+        memory: 500Mi
+    storage:
+      persistentVolumeClaim:
+        metadata:
+          name: postal-redis-data
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          storageClassName: do-block-storage
+          resources:
+            requests:
+              storage: 1Gi
+  auth:
+    secretPath: postal-redis-secret
