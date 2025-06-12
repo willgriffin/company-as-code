@@ -32,6 +32,13 @@ Deploy a complete, production-ready Kubernetes infrastructure in minutes:
 
 Click the **"Use this template"** button above to create your own repository.
 
+📝 **Configuration Form**: GitHub will show a form where you can specify:
+- Your domain name
+- Cluster name and region  
+- Which services to enable (Nextcloud, Mattermost, etc.)
+- Monitoring preferences
+
+✨ **Automatic Initialization**: Your new repository will be automatically configured with your form responses and converted to standard Kubernetes YAML. No manual setup needed!
 ### 2. Set Up Required Secrets
 
 In your new repository, go to **Settings → Secrets and variables → Actions** and add:
