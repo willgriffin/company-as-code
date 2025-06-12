@@ -15,7 +15,7 @@ spec:
         namespace: sentry
   values:
     system:
-      secretKey: "{{ (datasource "config").sentry.secret_key | default "change-me-sentry-secret-key-32-chars" }}"
+      secretKey: '{{ (datasource "config").sentry.secret_key | default "change-me-sentry-secret-key-32-chars" }}'
     
     mail:
       backend: smtp

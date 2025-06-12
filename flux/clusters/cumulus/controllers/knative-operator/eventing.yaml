@@ -38,7 +38,7 @@ spec:
     - name: sugar-controller
       replicas: 1
       resources:
-        - container: controller
+        - container: sugar-controller
           requests:
             cpu: 20m
             memory: 40Mi
