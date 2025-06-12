@@ -58,6 +58,16 @@ spec:
           value: "https"
         - name: POSTAL_SMTP_HOSTNAME
           value: "mail.{{ (datasource "config").domain }}"
+        - name: POSTAL_MAIL_FORWARDING_ENABLED
+          value: "true"
+        - name: POSTAL_FORWARD_TO_HOST
+          value: "mailu-front.mailu.svc.cluster.local"
+        - name: POSTAL_FORWARD_TO_PORT
+          value: "25"
+        volumeMounts:
+        - name: config
+          mountPath: /opt/postal/config
+          readOnly: true
         resources:
           requests:
             cpu: 200m
@@ -77,3 +87,7 @@ spec:
             port: 5000
           initialDelaySeconds: 30
           periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: postal-config

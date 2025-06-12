@@ -11,3 +11,5 @@ resources:
   - ingress.yaml
   - keycloak-client.yaml
   - servicemonitor.yaml
+  - configmap.yaml
+  - forwarder.yaml

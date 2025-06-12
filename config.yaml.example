@@ -53,6 +53,10 @@ services:
   mailu:
     enabled: true
     admin_user: "admin"
+    # AWS SES configuration for outgoing mail relay
+    ses:
+      enabled: true
+      region: "us-east-1"  # AWS region for SES service
   
   # Mail server (Postal)
   postal:

@@ -1,0 +1,22 @@
+# Terraform Backend Configuration for AWS SES
+# Copy this file to backend-config.hcl and customize the values
+
+# S3 Backend Configuration
+# You can use the same DigitalOcean Spaces backend as the main infrastructure
+# or configure a separate S3 bucket for AWS resources
+
+# Option 1: Use existing DigitalOcean Spaces (recommended for consistency)
+endpoint                    = "https://nyc3.digitaloceanspaces.com"
+region                     = "us-east-1"  # Keep as us-east-1 for S3 compatibility
+bucket                     = "your-terraform-state-bucket"
+key                        = "terraform/aws/terraform.tfstate"
+skip_credentials_validation = true
+skip_metadata_api_check    = true
+
+# Option 2: Use AWS S3 bucket (alternative)
+# region = "us-east-1"
+# bucket = "your-aws-terraform-state-bucket"
+# key    = "terraform/aws/terraform.tfstate"
+# 
+# # Optional: Enable state locking with DynamoDB
+# dynamodb_table = "terraform-state-locks"
