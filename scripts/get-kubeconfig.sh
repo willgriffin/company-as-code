@@ -13,6 +13,13 @@ DEFAULT_CLUSTER_NAME="{{SETUP_REPO_CLUSTER_NAME}}"
 KUBE_DIR="$HOME/.kube"
 BACKUP_SUFFIX=".backup-$(date +%Y%m%d-%H%M%S)"
 
+# Check if template variables have been replaced
+if [[ "$DEFAULT_CLUSTER_NAME" == *"{{"* ]]; then
+    echo -e "${RED}Error: Template variables not replaced. Please run the setup script first.${NC}"
+    echo -e "${RED}This script contains unprocessed template variables.${NC}"
+    exit 1
+fi
+
 echo -e "${BLUE}=== DigitalOcean Kubernetes Config Setup ===${NC}"
 echo
 

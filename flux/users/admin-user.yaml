@@ -4,6 +4,9 @@ kind: KeycloakUser
 metadata:
   name: admin-user
   namespace: keycloak
+  annotations:
+    # This ensures the user is only created after the realm is ready
+    kustomize.toolkit.fluxcd.io/depends-on: batch/v1/Job/keycloak/wait-for-realm
 spec:
   realmRef:
     name: {{SETUP_REPO_KEYCLOAK_REALM}}-realm

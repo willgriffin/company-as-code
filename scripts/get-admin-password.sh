@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # Colors for output
+RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
@@ -20,6 +21,26 @@ fi
 if ! kubectl cluster-info &> /dev/null; then
     echo -e "${YELLOW}Cannot connect to Kubernetes cluster. Please check your kubeconfig.${NC}"
     exit 1
+fi
+
+# Check if template variables have been replaced
+if [[ "{{SETUP_REPO_DOMAIN}}" == *"{{"* ]]; then
+    echo -e "${RED}Error: Template variables not replaced. Please run the setup script first.${NC}"
+    exit 1
+fi
+
+# Wait for password generation job if it exists and hasn't completed
+echo -e "${BLUE}Checking password generation status...${NC}"
+if kubectl get job generate-initial-secrets -n digitalocean-secrets &> /dev/null; then
+    if ! kubectl wait --for=condition=complete job/generate-initial-secrets -n digitalocean-secrets --timeout=300s 2>/dev/null; then
+        echo -e "${YELLOW}Password generation job hasn't completed yet.${NC}"
+        echo -e "${YELLOW}The job may still be running. Please wait and try again in a few minutes.${NC}"
+        echo
+        echo "You can check the job status with:"
+        echo "  kubectl get job generate-initial-secrets -n digitalocean-secrets"
+        echo "  kubectl logs job/generate-initial-secrets -n digitalocean-secrets"
+        exit 1
+    fi
 fi
 
 # Retrieve credentials
