@@ -1,8 +1,0 @@
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  # Cert-manager with internal staging
-  - core/cert-manager
-  # Individual infrastructure and application components
-  - infrastructure.yaml
-  - apps.yaml
