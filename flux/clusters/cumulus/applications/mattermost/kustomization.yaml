@@ -10,4 +10,4 @@ resources:
   - service.yaml
   - ingress.yaml
   - keycloak-setup.yaml
-  - secrets.enc.yaml  # SOPS encrypted secrets
+  - external-secrets.yaml  # External Secrets Operator managed secrets

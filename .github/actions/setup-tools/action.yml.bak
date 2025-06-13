@@ -1,10 +1,13 @@
 ---
 name: 'Setup GitOps Tools'
 description: >-
+  Installs and caches GitOps tools (age, SOPS, yq, kubectl, flux)
 inputs:
   tools:
     description: >-
+      Comma-separated list of tools to install (age,sops,yq,kubectl,flux,gomplate,doctl)
     required: false
+    default: 'age,sops,yq,kubectl,flux,gomplate,doctl'
 outputs:
   cache-hit:
     description: 'Whether the tools were restored from cache'
@@ -18,12 +21,16 @@ runs:
       shell: bash
       run: |
         # Read versions from tool-versions.txt
+        AGE_VERSION=$(grep '^age=' tool-versions.txt | cut -d'=' -f2)
+        SOPS_VERSION=$(grep '^sops=' tool-versions.txt | cut -d'=' -f2)
         YQ_VERSION=$(grep '^yq=' tool-versions.txt | cut -d'=' -f2)
         KUBECTL_VERSION=$(grep '^kubectl=' tool-versions.txt | cut -d'=' -f2)
         FLUX_VERSION=$(grep '^flux=' tool-versions.txt | cut -d'=' -f2)
         GOMPLATE_VERSION=$(grep '^gomplate=' tool-versions.txt | cut -d'=' -f2)
         DOCTL_VERSION=$(grep '^doctl=' tool-versions.txt | cut -d'=' -f2)
 
+        echo "age-version=$AGE_VERSION" >> $GITHUB_OUTPUT
+        echo "sops-version=$SOPS_VERSION" >> $GITHUB_OUTPUT
         echo "yq-version=$YQ_VERSION" >> $GITHUB_OUTPUT
         echo "kubectl-version=$KUBECTL_VERSION" >> $GITHUB_OUTPUT
         echo "flux-version=$FLUX_VERSION" >> $GITHUB_OUTPUT
@@ -31,6 +38,8 @@ runs:
         echo "doctl-version=$DOCTL_VERSION" >> $GITHUB_OUTPUT
 
         echo "Tools versions:"
+        echo "  age: $AGE_VERSION"
+        echo "  sops: $SOPS_VERSION"
         echo "  yq: $YQ_VERSION"
         echo "  kubectl: $KUBECTL_VERSION"
         echo "  flux: $FLUX_VERSION"
@@ -42,6 +51,9 @@ runs:
       uses: actions/cache@v4
       with:
         path: |
+          /usr/local/bin/age
+          /usr/local/bin/age-keygen
+          /usr/local/bin/sops
           /usr/bin/yq
           /usr/local/bin/kubectl
           /usr/local/bin/flux
@@ -49,8 +61,10 @@ runs:
           /usr/local/bin/doctl
         key: ${{ runner.os }}-tools-${{ hashFiles('tool-versions.txt') }}
 
+    - name: Install age
       if: >-
         steps.cache-tools.outputs.cache-hit != 'true' &&
+        contains(inputs.tools, 'age')
       uses: nick-fields/retry@v2
       with:
         timeout_minutes: 5
@@ -58,10 +72,20 @@ runs:
         retry_wait_seconds: 5
         shell: bash
         command: |
+          echo "Installing age v${{ steps.versions.outputs.age-version }}..."
+          AGE_URL="https://github.com/FiloSottile/age/releases/download"
+          A_VER="${{ steps.versions.outputs.age-version }}"
+          AGE_FILE="age-v$A_VER-linux-amd64.tar.gz"
+          curl -Lo age.tar.gz "$AGE_URL/v$A_VER/$AGE_FILE"
+          tar xf age.tar.gz
+          sudo mv age/age* /usr/local/bin/
+          rm -rf age age.tar.gz
+          echo "✅ age installed"
 
     - name: Install SOPS
       if: >-
         steps.cache-tools.outputs.cache-hit != 'true' &&
+        contains(inputs.tools, 'sops')
       uses: nick-fields/retry@v2
       with:
         timeout_minutes: 5
@@ -69,6 +93,13 @@ runs:
         retry_wait_seconds: 10
         shell: bash
         command: |
+          echo "Installing SOPS v${{ steps.versions.outputs.sops-version }}..."
+          SOPS_URL="https://github.com/mozilla/sops/releases/download"
+          SOPS_FILE="sops-v${{ steps.versions.outputs.sops-version }}.linux.amd64"
+          curl -Lo sops \
+            "$SOPS_URL/v${{ steps.versions.outputs.sops-version }}/$SOPS_FILE"
+          chmod +x sops
+          sudo mv sops /usr/local/bin/
           echo "✅ SOPS installed"
 
     - name: Install yq
@@ -177,8 +208,12 @@ runs:
         echo "Verifying tool installations..."
         TOOLS="${{ inputs.tools }}"
 
+        if command -v age >/dev/null 2>&1 && [[ "$TOOLS" == *"age"* ]]; then
+          echo "✅ age: $(age --version 2>&1 | head -1)"
         fi
 
+        if command -v sops >/dev/null 2>&1 && [[ "$TOOLS" == *"sops"* ]]; then
+          echo "✅ sops: $(sops --version)"
         fi
 
         if command -v yq >/dev/null 2>&1 && [[ "$TOOLS" == *"yq"* ]]; then

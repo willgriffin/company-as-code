@@ -16,6 +16,7 @@ Deploy a complete, production-ready Kubernetes infrastructure in minutes:
 ### 🏗️ **Infrastructure**
 - **[DigitalOcean](https://digitalocean.pxf.io/3evZdB) Kubernetes Cluster** - Managed Kubernetes with auto-scaling
 - **GitOps with Flux v2** - Automated deployments from Git
+- **Encrypted Secrets** - SOPS + Age encryption for secure secret management
 - **Automatic DNS** - DigitalOcean DNS integration with external-dns
 - **TLS Certificates** - Automatic cert-manager with Let's Encrypt
 
@@ -120,6 +121,7 @@ This template uses modern DevOps practices for reliable, automated infrastructur
 
 ### GitOps with Flux v2
 - **Infrastructure-managed** - Flux bootstrap handled by Terraform
+- **Encrypted secrets** - SOPS + Age encryption for secure secret management  
 - **Automatic reconciliation** - Changes in Git automatically deployed to cluster
 - **Health checks** - Automatic rollback on deployment failures
 
@@ -177,6 +179,7 @@ your-kubernetes-project/
 ## 🌟 Features
 
 ### 🔐 **Security First**
+- Encrypted secrets with SOPS + Age
 - Automatic TLS certificates
 - OAuth/OIDC integration
 - Network policies and RBAC
@@ -202,6 +205,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 Built with:
 - [Terraform](https://terraform.io) - Infrastructure as Code
 - [Flux](https://fluxcd.io) - GitOps toolkit  
+- [SOPS](https://github.com/getsops/sops) - Secret encryption
 - [Kubernetes](https://kubernetes.io) - Container orchestration
 - [DigitalOcean](https://digitalocean.pxf.io/3evZdB) - Cloud infrastructure
 

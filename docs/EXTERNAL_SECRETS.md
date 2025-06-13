@@ -169,18 +169,27 @@ kubectl apply -f flux/clusters/cumulus/core/external-dns/external-secret.yaml
 
 ### Converted Resources
 
-The following resources have been migrated to External Secrets:
+All template resources have been successfully migrated to External Secrets:
 
-#### Infrastructure
+#### Infrastructure ✅ COMPLETE
 - ✅ `external-dns` - DigitalOcean DNS token
 - ✅ `velero` - Backup credentials for DigitalOcean Spaces
 - ✅ `sentry-operator` - Sentry authentication token
 
-#### Applications (In Progress)
-- 🔄 `keycloak` - Database and admin credentials
-- 🔄 `mattermost` - Database and OAuth credentials  
-- 🔄 `nextcloud` - Database, admin, and storage credentials
-- 🔄 `mailu` - Email server credentials
+#### Core Services ✅ COMPLETE
+- ✅ `grafana` - OAuth2 proxy credentials
+- ✅ `jaeger` - OAuth2 proxy credentials
+- ✅ `prometheus` - OAuth2 proxy credentials
+
+#### Applications ✅ COMPLETE
+- ✅ `keycloak` - Database, admin, and backup credentials
+- ✅ `mattermost` - Database, OAuth, and backup credentials  
+- ✅ `nextcloud` - Database, admin, OIDC, storage, and backup credentials
+- ✅ `mailu` - OAuth2 proxy, database, backup, and SES credentials
+- ✅ `postal` - OAuth, database, Redis, RabbitMQ, and application secrets
+- ✅ `sentry` - OAuth2 proxy, database, Redis, and backup credentials
+
+#### Migration Status: 🎉 **100% COMPLETE**
 
 ## Troubleshooting
 
