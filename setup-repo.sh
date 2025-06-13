@@ -60,10 +60,16 @@ validate_domain() {
 replace_placeholders() {
     echo -e "${BLUE}Replacing template placeholders...${NC}"
     
+    # Rename cluster directory first
+    if [[ -d "flux/clusters/cumulus" ]]; then
+        echo "  Renaming cluster directory: cumulus -> $SETUP_REPO_CLUSTER_NAME"
+        mv "flux/clusters/cumulus" "flux/clusters/$SETUP_REPO_CLUSTER_NAME"
+    fi
+    
     # Find all relevant files and replace placeholders
-    find . -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.tf" -o -name "*.md" \) \
+    find . -type f \( -name "*.yaml" -o -name "*.yml" -o -name "*.tf" -o -name "*.md" -o -name "*.sh" \) \
         -not -path "./.git/*" \
-        -exec grep -l "{{SETUP_REPO_" {} \; | while read -r file; do
+        -exec grep -l -E "({{SETUP_REPO_|clusters/cumulus)" {} \; | while read -r file; do
         echo "  Processing: $file"
         
         # Use temporary file for atomic replacement
@@ -78,6 +84,7 @@ replace_placeholders() {
             -e "s|{{SETUP_REPO_BACKUP_RETENTION}}|$SETUP_REPO_BACKUP_RETENTION|g" \
             -e "s|{{SETUP_REPO_SPACES_REGION}}|$SETUP_REPO_SPACES_REGION|g" \
             -e "s|{{SETUP_REPO_LETSENCRYPT_EMAIL}}|$SETUP_REPO_LETSENCRYPT_EMAIL|g" \
+            -e "s|clusters/cumulus|clusters/$SETUP_REPO_CLUSTER_NAME|g" \
             "$file" > "$temp_file"
         
         mv "$temp_file" "$file"
