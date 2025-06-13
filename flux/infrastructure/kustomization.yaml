@@ -22,6 +22,9 @@ resources:
   
   # Backup and disaster recovery
   - velero-backup.yaml
+  
+  # User management (applied after Keycloak is ready)
+  - users-kustomization.yaml
 
 # Apply resources in dependency order
 patches:
