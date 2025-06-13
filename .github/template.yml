@@ -87,3 +87,13 @@ prompts:
     validations:
       required: true
     target: SETUP_REPO_KEYCLOAK_REALM
+
+  - id: setup_project
+    type: checkbox
+    attributes:
+      label: Setup GitHub Project
+      description: Create GitHub project board with Kanban workflow labels and automation
+      options:
+        - label: Create project board with Kanban workflow (recommended)
+          value: "true"
+    target: SETUP_REPO_CREATE_PROJECT
