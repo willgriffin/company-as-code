@@ -317,7 +317,36 @@ spec:
       key: keycloak-admin-username
   - secretKey: password
     remoteRef:
-      key: keycloak-admin-password
+      key: digitalocean-credentials
+      property: keycloak-admin-password
+---
+# Admin user credentials for Keycloak realm import
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: admin-credentials
+  namespace: keycloak
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: cluster-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: admin-credentials
+    creationPolicy: Owner
+  data:
+  - secretKey: password
+    remoteRef:
+      key: digitalocean-credentials
+      property: admin-password
+  - secretKey: username
+    remoteRef:
+      key: digitalocean-credentials
+      property: admin-username
+  - secretKey: fullname
+    remoteRef:
+      key: digitalocean-credentials
+      property: admin-full-name
 ---
 # TLS certificate for Keycloak
 apiVersion: cert-manager.io/v1
@@ -477,4 +506,75 @@ spec:
       redirectUris:
       - "https://grafana.example.com/*"
       webOrigins:
-      - "https://grafana.example.com"
+      - "https://grafana.{{SETUP_REPO_DOMAIN}}"
+---
+# Keycloak Realm Configuration
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: KeycloakRealmImport
+metadata:
+  name: {{SETUP_REPO_KEYCLOAK_REALM}}-realm
+  namespace: keycloak
+spec:
+  keycloakCRName: keycloak
+  realm:
+    id: {{SETUP_REPO_KEYCLOAK_REALM}}
+    realm: {{SETUP_REPO_KEYCLOAK_REALM}}
+    displayName: "{{SETUP_REPO_PROJECT_NAME}}"
+    enabled: true
+    
+    # Login settings
+    loginWithEmailAllowed: true
+    duplicateEmailsAllowed: false
+    resetPasswordAllowed: true
+    editUsernameAllowed: false
+    
+    # Security settings
+    sslRequired: external
+    
+    # Default user settings
+    userManagedAccessAllowed: false
+    registrationAllowed: false
+    registrationEmailAsUsername: true
+    
+    # Users configuration
+    users:
+    - username: "admin"
+      email: "{{SETUP_REPO_EMAIL}}"
+      firstName: "{{SETUP_REPO_ADMIN_NAME}}"
+      lastName: "Administrator"
+      enabled: true
+      emailVerified: true
+      credentials:
+      - type: password
+        secretData: 
+          value:
+            name: admin-credentials
+            key: password
+        temporary: false
+      realmRoles:
+      - "admin"
+      - "user"
+      clientRoles:
+        realm-management:
+        - "realm-admin"
+        - "manage-users"
+        - "manage-clients"
+        - "manage-realm"
+      attributes:
+        department: ["Administration"]
+        organization: ["{{SETUP_REPO_PROJECT_NAME}}"]
+    
+    # Default groups
+    groups:
+    - name: "Administrators"
+      path: "/Administrators"
+      attributes:
+        description: ["System administrators with full access"]
+      realmRoles:
+      - "admin"
+    - name: "Users" 
+      path: "/Users"
+      attributes:
+        description: ["Standard users with limited access"]
+      realmRoles:
+      - "user"

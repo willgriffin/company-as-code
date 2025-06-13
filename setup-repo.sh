@@ -77,6 +77,7 @@ replace_placeholders() {
         sed \
             -e "s|{{SETUP_REPO_DOMAIN}}|$SETUP_REPO_DOMAIN|g" \
             -e "s|{{SETUP_REPO_EMAIL}}|$SETUP_REPO_EMAIL|g" \
+            -e "s|{{SETUP_REPO_ADMIN_NAME}}|$SETUP_REPO_ADMIN_NAME|g" \
             -e "s|{{SETUP_REPO_CLUSTER_NAME}}|$SETUP_REPO_CLUSTER_NAME|g" \
             -e "s|{{SETUP_REPO_PROJECT_NAME}}|$SETUP_REPO_PROJECT_NAME|g" \
             -e "s|{{SETUP_REPO_REGION}}|$SETUP_REPO_REGION|g" \
@@ -192,6 +193,7 @@ interactive_setup() {
         prompt_with_default "Admin email address" "" "SETUP_REPO_EMAIL"
     done
     
+    prompt_with_default "Administrator full name" "" "SETUP_REPO_ADMIN_NAME"
     prompt_with_default "Cluster name" "$(get_cluster_name_from_domain "$SETUP_REPO_DOMAIN")" "SETUP_REPO_CLUSTER_NAME"
     prompt_with_default "Project name" "$SETUP_REPO_CLUSTER_NAME" "SETUP_REPO_PROJECT_NAME"
     prompt_with_default "DigitalOcean region" "$DEFAULT_REGION" "SETUP_REPO_REGION"
@@ -215,6 +217,7 @@ non_interactive_setup() {
     required_vars=(
         "SETUP_REPO_DOMAIN"
         "SETUP_REPO_EMAIL"
+        "SETUP_REPO_ADMIN_NAME"
         "SETUP_REPO_CLUSTER_NAME"
         "SETUP_REPO_PROJECT_NAME"
     )
@@ -268,6 +271,7 @@ case "${1:-}" in
         echo "Required environment variables for non-interactive mode:"
         echo "  SETUP_REPO_DOMAIN        Primary domain"
         echo "  SETUP_REPO_EMAIL         Admin email address"
+        echo "  SETUP_REPO_ADMIN_NAME    Administrator full name"
         echo "  SETUP_REPO_CLUSTER_NAME  Cluster name"
         echo "  SETUP_REPO_PROJECT_NAME  Project name"
         echo
