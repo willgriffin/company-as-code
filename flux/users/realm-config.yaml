@@ -1,0 +1,35 @@
+# Keycloak Realm Configuration
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: KeycloakRealmImport
+metadata:
+  name: {{SETUP_REPO_KEYCLOAK_REALM}}-realm
+  namespace: keycloak
+spec:
+  keycloakCRName: keycloak
+  realm:
+    id: {{SETUP_REPO_KEYCLOAK_REALM}}
+    realm: {{SETUP_REPO_KEYCLOAK_REALM}}
+    displayName: "{{SETUP_REPO_PROJECT_NAME}}"
+    enabled: true
+    
+    # Login settings
+    loginWithEmailAllowed: true
+    duplicateEmailsAllowed: false
+    resetPasswordAllowed: true
+    editUsernameAllowed: false
+    
+    # Security settings
+    sslRequired: external
+    
+    # Default user settings
+    userManagedAccessAllowed: false
+    registrationAllowed: false
+    registrationEmailAsUsername: true
+    
+    # Token settings
+    accessTokenLifespan: 3600  # 1 hour
+    ssoSessionIdleTimeout: 1800  # 30 minutes
+    ssoSessionMaxLifespan: 36000  # 10 hours
+    
+    # Password policy
+    passwordPolicy: "hashIterations(27500) and length(8) and lowerCase(1) and upperCase(1) and digits(1) and notUsername(undefined) and notEmail(undefined)"

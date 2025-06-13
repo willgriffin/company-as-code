@@ -1,0 +1,58 @@
+# Default User Groups and Roles
+---
+# Administrators Group
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: KeycloakUserRole
+metadata:
+  name: administrators-group
+  namespace: keycloak
+spec:
+  realmRef:
+    name: {{SETUP_REPO_KEYCLOAK_REALM}}-realm
+  userRole:
+    name: "Administrators"
+    description: "System administrators with full access to all services"
+    composite: true
+    clientRole: false
+    containerId: {{SETUP_REPO_KEYCLOAK_REALM}}
+    attributes:
+      department: ["Administration"]
+      access_level: ["full"]
+---
+# Standard Users Group  
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: KeycloakUserRole
+metadata:
+  name: users-group
+  namespace: keycloak
+spec:
+  realmRef:
+    name: {{SETUP_REPO_KEYCLOAK_REALM}}-realm
+  userRole:
+    name: "Users"
+    description: "Standard users with limited access to applications"
+    composite: false
+    clientRole: false
+    containerId: {{SETUP_REPO_KEYCLOAK_REALM}}
+    attributes:
+      department: ["General"]
+      access_level: ["standard"]
+---
+# Viewers Group (Read-only access)
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: KeycloakUserRole
+metadata:
+  name: viewers-group
+  namespace: keycloak
+spec:
+  realmRef:
+    name: {{SETUP_REPO_KEYCLOAK_REALM}}-realm
+  userRole:
+    name: "Viewers"
+    description: "Read-only access to monitoring and dashboards"
+    composite: false
+    clientRole: false
+    containerId: {{SETUP_REPO_KEYCLOAK_REALM}}
+    attributes:
+      department: ["General"]
+      access_level: ["readonly"]

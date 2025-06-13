@@ -13,7 +13,7 @@ prompts:
       placeholder: example.com
     validations:
       required: true
-    target: INIT_DOMAIN
+    target: SETUP_REPO_DOMAIN
 
   - id: cluster_name
     type: input
@@ -24,7 +24,37 @@ prompts:
       default: production
     validations:
       required: true
-    target: INIT_CLUSTER_NAME
+    target: SETUP_REPO_CLUSTER_NAME
+
+  - id: project_name
+    type: input
+    attributes:
+      label: Project Name
+      description: Display name for your project
+      placeholder: My Production Environment
+    validations:
+      required: true
+    target: SETUP_REPO_PROJECT_NAME
+
+  - id: admin_email
+    type: input
+    attributes:
+      label: Administrator Email
+      description: Email address for administrator account and certificates
+      placeholder: admin@example.com
+    validations:
+      required: true
+    target: SETUP_REPO_EMAIL
+
+  - id: admin_full_name
+    type: input
+    attributes:
+      label: Administrator Full Name
+      description: Full name for the initial administrator account
+      placeholder: John Doe
+    validations:
+      required: true
+    target: SETUP_REPO_ADMIN_NAME
 
   - id: region
     type: dropdown
@@ -45,52 +75,25 @@ prompts:
       default: nyc3
     validations:
       required: true
-    target: INIT_REGION
+    target: SETUP_REPO_REGION
 
-  - id: enable_services
-    type: checkboxes
+  - id: keycloak_realm
+    type: input
     attributes:
-      label: Enable Services
-      description: Select which services to deploy
-      options:
-        - label: Nextcloud (Cloud Storage)
-          value: nextcloud
-          default: true
-        - label: Mattermost (Team Chat)
-          value: mattermost
-          default: true
-        - label: Mailu (Email Server)
-          value: mailu
-          default: false
-        - label: Postal (Mail Processing)
-          value: postal
-          default: false
-    target: INIT_SERVICES
+      label: Keycloak Realm Name
+      description: Name for the Keycloak authentication realm
+      placeholder: company
+      default: master
+    validations:
+      required: true
+    target: SETUP_REPO_KEYCLOAK_REALM
 
-  - id: enable_monitoring
-    type: checkboxes
-    attributes:
-      label: Enable Monitoring
-      description: Select monitoring tools to deploy
-      options:
-        - label: Prometheus (Metrics)
-          value: prometheus
-          default: true
-        - label: Grafana (Dashboards)
-          value: grafana
-          default: true
-        - label: Jaeger (Tracing)
-          value: jaeger
-          default: true
-        - label: Sentry (Error Tracking)
-          value: sentry
-          default: false
-    target: INIT_MONITORING
-
-  - id: ai_features
+  - id: setup_project
     type: checkbox
     attributes:
-      label: Enable AI Gateway
-      description: Deploy Kong Gateway with LiteLLM AI proxy and expense tracking
-      default: true
-    target: INIT_AI_GATEWAY
+      label: Setup GitHub Project
+      description: Create GitHub project board with Kanban workflow labels and automation
+      options:
+        - label: Create project board with Kanban workflow (recommended)
+          value: "true"
+    target: SETUP_REPO_CREATE_PROJECT

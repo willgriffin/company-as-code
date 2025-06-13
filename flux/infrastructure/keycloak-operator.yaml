@@ -317,7 +317,36 @@ spec:
       key: keycloak-admin-username
   - secretKey: password
     remoteRef:
-      key: keycloak-admin-password
+      key: digitalocean-credentials
+      property: keycloak-admin-password
+---
+# Admin user credentials for Keycloak realm import
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: keycloak-admin-credentials
+  namespace: keycloak
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: cluster-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: keycloak-admin-credentials
+    creationPolicy: Owner
+  data:
+  - secretKey: password
+    remoteRef:
+      key: digitalocean-credentials
+      property: admin-password
+  - secretKey: username
+    remoteRef:
+      key: digitalocean-credentials
+      property: admin-username
+  - secretKey: fullname
+    remoteRef:
+      key: digitalocean-credentials
+      property: admin-full-name
 ---
 # TLS certificate for Keycloak
 apiVersion: cert-manager.io/v1
@@ -353,128 +382,3 @@ spec:
     backendRefs:
     - name: keycloak-service
       port: 8080
----
-# Realm configuration for the project
-apiVersion: k8s.keycloak.org/v2alpha1
-kind: KeycloakRealmImport
-metadata:
-  name: mycompany-realm
-  namespace: keycloak
-  labels:
-    app: keycloak
-spec:
-  keycloakCRName: keycloak
-  realm:
-    realm: mycompany
-    displayName: "Example Project"
-    enabled: true
-    
-    # Login settings
-    loginWithEmailAllowed: true
-    registrationAllowed: false
-    rememberMe: true
-    resetPasswordAllowed: true
-    
-    # Session settings
-    ssoSessionIdleTimeout: 1800
-    ssoSessionMaxLifespan: 36000
-    
-    # Security settings
-    bruteForceProtected: true
-    permanentLockout: false
-    maxFailureWaitTime: 900
-    minimumQuickLoginWaitTime: 60
-    waitIncrementSeconds: 60
-    quickLoginCheckMilliSeconds: 1000
-    maxDeltaTimeSeconds: 43200
-    failureFactor: 30
-    
-    # Clients
-    clients:
-    - clientId: kong-gateway
-      name: Kong Gateway
-      description: Kong Gateway OIDC Client
-      enabled: true
-      clientAuthenticatorType: client-secret
-      secret: "example-cluster-kong-secret"
-      standardFlowEnabled: true
-      implicitFlowEnabled: false
-      directAccessGrantsEnabled: false
-      serviceAccountsEnabled: false
-      publicClient: false
-      frontchannelLogout: true
-      protocol: openid-connect
-      attributes:
-        "saml.assertion.signature": "false"
-        "saml.force.post.binding": "false"
-        "saml.multivalued.roles": "false"
-        "saml.encrypt": "false"
-        "saml.server.signature": "false"
-        "saml.server.signature.keyinfo.ext": "false"
-        "exclude.session.state.from.auth.response": "false"
-        "saml_force_name_id_format": "false"
-        "saml.client.signature": "false"
-        "tls.client.certificate.bound.access.tokens": "false"
-        "saml.authnstatement": "false"
-        "display.on.consent.screen": "false"
-        "saml.onetimeuse.condition": "false"
-      redirectUris:
-      - "https://*.example.com/*"
-      - "https://example.com/*"
-      webOrigins:
-      - "https://*.example.com"
-      - "https://example.com"
-      
-    - clientId: nextcloud
-      name: Nextcloud
-      description: Nextcloud OIDC Client
-      enabled: true
-      clientAuthenticatorType: client-secret
-      secret: "example-cluster-nextcloud-secret"
-      standardFlowEnabled: true
-      implicitFlowEnabled: false
-      directAccessGrantsEnabled: true
-      serviceAccountsEnabled: false
-      publicClient: false
-      frontchannelLogout: true
-      protocol: openid-connect
-      redirectUris:
-      - "https://cloud.example.com/*"
-      webOrigins:
-      - "https://cloud.example.com"
-      
-    - clientId: mattermost
-      name: Mattermost
-      description: Mattermost OIDC Client
-      enabled: true
-      clientAuthenticatorType: client-secret
-      secret: "example-cluster-mattermost-secret"
-      standardFlowEnabled: true
-      implicitFlowEnabled: false
-      directAccessGrantsEnabled: false
-      serviceAccountsEnabled: false
-      publicClient: false
-      frontchannelLogout: true
-      protocol: openid-connect
-      redirectUris:
-      - "https://chat.example.com/*"
-      webOrigins:
-      - "https://chat.example.com"
-      
-    - clientId: grafana
-      name: Grafana
-      description: Grafana OIDC Client
-      enabled: true
-      clientAuthenticatorType: client-secret
-      secret: "example-cluster-grafana-secret"
-      standardFlowEnabled: true
-      implicitFlowEnabled: false
-      directAccessGrantsEnabled: false
-      serviceAccountsEnabled: false
-      publicClient: false
-      frontchannelLogout: true
-      protocol: openid-connect
-      redirectUris:
-      - "https://grafana.example.com/*"
-      webOrigins:
-      - "https://grafana.example.com"
