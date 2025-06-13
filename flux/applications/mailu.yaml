@@ -620,12 +620,12 @@ spec:
   data:
     - secretKey: username
       remoteRef:
-        key: postgres
-        property: username
+        key: digitalocean-credentials
+        property: postgres-admin-username
     - secretKey: password
       remoteRef:
-        key: postgres
-        property: password
+        key: digitalocean-credentials
+        property: postgres-admin-password
 ---
 # Application secrets for Mailu
 apiVersion: external-secrets.io/v1beta1
@@ -643,13 +643,13 @@ spec:
   data:
     - secretKey: secret-key
       remoteRef:
-        key: mailu
-        property: secret-key
+        key: digitalocean-credentials
+        property: mailu-secret-key
     - secretKey: smtp-username
       remoteRef:
-        key: aws-ses
-        property: username
+        key: digitalocean-credentials
+        property: aws-access-key-id
     - secretKey: smtp-password
       remoteRef:
-        key: aws-ses
-        property: password
+        key: digitalocean-credentials
+        property: aws-secret-access-key
