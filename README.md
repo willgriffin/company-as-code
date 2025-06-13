@@ -2,31 +2,33 @@
 
 🚀 **One-click Kubernetes deployment template** for complete infrastructure with GitOps on [DigitalOcean](https://digitalocean.pxf.io/3evZdB).
 
-[![Deploy](https://img.shields.io/badge/Deploy-DigitalOcean-blue?style=for-the-badge&logo=digitalocean)](../../actions/workflows/cluster-deploy.yml)
 [![Use Template](https://img.shields.io/badge/Use-Template-green?style=for-the-badge&logo=github)](../../generate)
+[![Deploy Infrastructure](https://img.shields.io/badge/Deploy-Infrastructure-blue?style=for-the-badge&logo=digitalocean)](../../actions/workflows/terraform-deploy.yml)
 
 > **Note**: Links to DigitalOcean are affiliate links that help support the maintenance of this template.
 
 ## 🌟 What This Template Provides
 
-Deploy a complete, production-ready Kubernetes infrastructure in minutes:
-
-> **Template Note**: This template includes secret templates (`.yaml` files) but not encrypted secrets (`.enc.yaml` files). Encrypted secrets are automatically generated during your first deployment with your own unique encryption keys.
+Deploy a complete, production-ready Kubernetes infrastructure in under 5 minutes:
 
 ### 🏗️ **Infrastructure**
 - **[DigitalOcean](https://digitalocean.pxf.io/3evZdB) Kubernetes Cluster** - Managed Kubernetes with auto-scaling
-- **Kong Gateway** - API Gateway with OIDC authentication and AI expense tracking
+- **Kong Gateway** - API Gateway with OIDC authentication and rate limiting
 - **GitOps with Flux v2** - Automated deployments from Git
+- **External Secrets** - Secure secret management with Kubernetes Secret Store
 - **Automatic DNS** - DigitalOcean DNS integration with external-dns
 - **TLS Certificates** - Automatic cert-manager with Let's Encrypt
+- **Object Storage** - DigitalOcean Spaces integration for all applications
+- **Backup/Restore** - Velero backup system with disaster recovery
 
-### 🚀 **Applications** (All Optional)
-- **🔐 Keycloak** - Identity and access management (`auth.yourdomain.com`)
-- **💬 Mattermost** - Team chat and collaboration (`chat.yourdomain.com`)  
-- **☁️ Nextcloud** - Cloud storage and office suite (`cloud.yourdomain.com`)
-- **📧 Mailu** - Complete email server (`mail.yourdomain.com`)
-- **📮 Postal** - Mail processing with RabbitMQ (`postal.yourdomain.com`)
-- **🤖 AI Gateway** - LiteLLM proxy with multi-provider support (`ai.yourdomain.com`)
+### 🚀 **Applications**
+- **🔐 Keycloak** - Identity and access management (`auth.{{SETUP_REPO_DOMAIN}}`)
+- **💬 Mattermost** - Team chat and collaboration (`chat.{{SETUP_REPO_DOMAIN}}`)  
+- **☁️ Nextcloud** - Cloud storage and office suite (`cloud.{{SETUP_REPO_DOMAIN}}`)
+- **📧 Mailu** - Complete email server (`mail.{{SETUP_REPO_DOMAIN}}`)
+- **📮 Postal** - Advanced mail processing with RabbitMQ (`postal.{{SETUP_REPO_DOMAIN}}`)
+- **🤖 AI Gateway** - LiteLLM proxy with expense tracking (`ai.{{SETUP_REPO_DOMAIN}}`)
+- **📊 Monitoring** - Prometheus, Grafana, and Jaeger (`monitoring.{{SETUP_REPO_DOMAIN}}`)
 
 ## 🚀 Quick Start
 
@@ -34,13 +36,13 @@ Deploy a complete, production-ready Kubernetes infrastructure in minutes:
 
 Click the **"Use this template"** button above to create your own repository.
 
-📝 **Configuration Form**: GitHub will show a form where you can specify:
+📝 **Configuration Form**: GitHub will collect your basic configuration:
 - Your domain name
-- Cluster name and region  
-- Which services to enable (Nextcloud, Mattermost, etc.)
-- Monitoring preferences
+- Project name and cluster details
+- Admin email address
+- DigitalOcean region preferences
 
-✨ **Automatic Initialization**: Your new repository will be automatically configured with your form responses and converted to standard Kubernetes YAML. No manual setup needed!
+✨ **Automatic Setup**: Your repository will be automatically configured and ready for deployment!
 
 ### 2. Set Up Required Secrets
 

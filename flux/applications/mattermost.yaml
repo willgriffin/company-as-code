@@ -1,0 +1,425 @@
+# Mattermost team collaboration platform
+
+---
+# Mattermost namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mattermost
+  labels:
+    name: mattermost
+---
+# Mattermost Helm repository
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: mattermost
+  namespace: mattermost
+spec:
+  interval: 30m
+  url: https://helm.mattermost.com
+---
+# PostgreSQL cluster for Mattermost
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: mattermost-postgres
+  namespace: mattermost
+spec:
+  instances: 3
+  
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      effective_cache_size: "1GB"
+      work_mem: "4MB"
+      maintenance_work_mem: "64MB"
+      random_page_cost: "1.1"
+      effective_io_concurrency: "200"
+  
+  bootstrap:
+    initdb:
+      database: mattermost
+      owner: mattermost
+      secret:
+        name: mattermost-postgres-credentials
+  
+  storage:
+    size: 20Gi
+    storageClass: do-block-storage
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  
+  monitoring:
+    enabled: true
+---
+# Mattermost Helm release
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: mattermost-team-edition
+  namespace: mattermost
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: mattermost-team-edition
+      version: "6.6.49"
+      sourceRef:
+        kind: HelmRepository
+        name: mattermost
+        namespace: mattermost
+  values:
+    # Image configuration
+    image:
+      repository: mattermost/mattermost-team-edition
+      tag: "9.2"
+      pullPolicy: IfNotPresent
+    
+    # Replica configuration
+    replicaCount: 2
+    
+    # Ingress disabled (using Kong Gateway)
+    ingress:
+      enabled: false
+    
+    # Service configuration
+    service:
+      type: ClusterIP
+      externalPort: 8065
+      internalPort: 8065
+    
+    # Resource configuration
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+    
+    # Security context
+    securityContext:
+      runAsUser: 2000
+      runAsGroup: 2000
+      fsGroup: 2000
+    
+    # Persistence for file uploads
+    persistence:
+      data:
+        enabled: true
+        size: 50Gi
+        storageClass: do-block-storage
+        accessMode: ReadWriteOnce
+      plugins:
+        enabled: true
+        size: 1Gi
+        storageClass: do-block-storage
+        accessMode: ReadWriteOnce
+    
+    # External database configuration
+    externalDB:
+      enabled: true
+      externalDriverType: "postgres"
+      externalConnectionString: "postgres://mattermost:$(POSTGRES_PASSWORD)@mattermost-postgres-rw.mattermost.svc.cluster.local:5432/mattermost?sslmode=disable&connect_timeout=10"
+    
+    # MySQL disabled
+    mysql:
+      enabled: false
+    
+    # Configuration
+    config:
+      # Site URL
+      SiteURL: "https://chat.example.com"
+      
+      # Database settings
+      SqlSettings:
+        DriverName: "postgres"
+        DataSource: "postgres://mattermost:$(POSTGRES_PASSWORD)@mattermost-postgres-rw.mattermost.svc.cluster.local:5432/mattermost?sslmode=disable&connect_timeout=10"
+        MaxIdleConns: 20
+        MaxOpenConns: 300
+        Trace: false
+        AtRestEncryptKey: $(AT_REST_ENCRYPT_KEY)
+      
+      # File settings
+      FileSettings:
+        EnableFileAttachments: true
+        MaxFileSize: 52428800  # 50MB
+        DriverName: "local"
+        Directory: "/mattermost/data/"
+        EnablePublicLink: false
+        PublicLinkSalt: $(PUBLIC_LINK_SALT)
+      
+      # Email settings
+      EmailSettings:
+        EnableSignUpWithEmail: true
+        EnableSignInWithEmail: true
+        EnableSignInWithUsername: true
+        SendEmailNotifications: true
+        FeedbackName: "Mattermost"
+        FeedbackEmail: "noreply@example.com"
+        ReplyToAddress: "noreply@example.com"
+        SMTPServer: "email-smtp.us-east-1.amazonaws.com"
+        SMTPPort: "587"
+        SMTPUsername: $(SMTP_USERNAME)
+        SMTPPassword: $(SMTP_PASSWORD)
+        ConnectionSecurity: "STARTTLS"
+        EnableSMTPAuth: true
+      
+      # Team settings
+      TeamSettings:
+        SiteName: "Example Project Chat"
+        MaxUsersPerTeam: 50
+        EnableTeamCreation: true
+        EnableUserCreation: true
+        RestrictCreationToDomains: "example.com"
+      
+      # Service settings
+      ServiceSettings:
+        ListenAddress: ":8065"
+        ConnectionSecurity: ""
+        TLSCertFile: ""
+        TLSKeyFile: ""
+        UseLetsEncrypt: false
+        Forward80To443: false
+        ReadTimeout: 300
+        WriteTimeout: 300
+        MaximumLoginAttempts: 10
+        EnableDeveloper: false
+        EnableTesting: false
+        EnableSecurityFixAlert: true
+        EnableInsecureOutgoingConnections: false
+        AllowedUntrustedInternalConnections: ""
+        EnablePostSearch: true
+        EnableUserTypingMessages: true
+        EnableChannelViewedMessages: true
+        EnableUserStatuses: true
+        ClusterLogTimeoutMilliseconds: 2000
+        EnablePreviewFeatures: true
+        EnableTutorial: true
+        ExperimentalEnableDefaultChannelLeaveJoinMessages: true
+        ExperimentalGroupUnreadChannels: "disabled"
+        EnableAPITeamDeletion: false
+        EnableAPIUserDeletion: false
+        ExperimentalEnableHardenedMode: false
+      
+      # LDAP/OIDC settings for Keycloak integration
+      LdapSettings:
+        Enable: false
+      
+      GitLabSettings:
+        Enable: true
+        Secret: $(GITLAB_SECRET)
+        Id: "mattermost"
+        Scope: "openid email profile"
+        AuthEndpoint: "https://auth.example.com/realms/mycompany/protocol/openid-connect/auth"
+        TokenEndpoint: "https://auth.example.com/realms/mycompany/protocol/openid-connect/token"
+        UserApiEndpoint: "https://auth.example.com/realms/mycompany/protocol/openid-connect/userinfo"
+      
+      # Privacy settings
+      PrivacySettings:
+        ShowEmailAddress: true
+        ShowFullName: true
+      
+      # Support settings
+      SupportSettings:
+        TermsOfServiceLink: "https://about.mattermost.com/default-terms/"
+        PrivacyPolicyLink: "https://about.mattermost.com/default-privacy-policy/"
+        AboutLink: "https://about.mattermost.com/default-about/"
+        HelpLink: "https://about.mattermost.com/default-help/"
+        ReportAProblemLink: "https://about.mattermost.com/default-report-a-problem/"
+        SupportEmail: "support@example.com"
+      
+      # Log settings
+      LogSettings:
+        EnableConsole: true
+        ConsoleLevel: "INFO"
+        EnableFile: true
+        FileLevel: "INFO"
+        FileFormat: ""
+        FileLocation: ""
+        EnableWebhookDebugging: true
+        EnableDiagnostics: true
+      
+      # Notification log settings
+      NotificationLogSettings:
+        EnableConsole: true
+        ConsoleLevel: "INFO"
+        EnableFile: true
+        FileLevel: "INFO"
+        FileLocation: ""
+      
+      # Plugin settings
+      PluginSettings:
+        Enable: true
+        EnableUploads: true
+        Directory: "/mattermost/plugins/"
+        ClientDirectory: "/mattermost/client/plugins/"
+        EnableHealthCheck: true
+    
+    # Environment variables
+    extraEnvVars:
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: mattermost-postgres-credentials
+          key: password
+    - name: AT_REST_ENCRYPT_KEY
+      valueFrom:
+        secretKeyRef:
+          name: mattermost-secrets
+          key: at-rest-encrypt-key
+    - name: PUBLIC_LINK_SALT
+      valueFrom:
+        secretKeyRef:
+          name: mattermost-secrets
+          key: public-link-salt
+    - name: SMTP_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: mattermost-secrets
+          key: smtp-username
+    - name: SMTP_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: mattermost-secrets
+          key: smtp-password
+    - name: GITLAB_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: mattermost-secrets
+          key: gitlab-secret
+    
+    # Probes
+    livenessProbe:
+      initialDelaySeconds: 90
+      timeoutSeconds: 5
+      periodSeconds: 15
+      failureThreshold: 3
+    
+    readinessProbe:
+      initialDelaySeconds: 30
+      timeoutSeconds: 5
+      periodSeconds: 15
+      failureThreshold: 3
+    
+    # Horizontal Pod Autoscaler
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+---
+# External secrets for Mattermost
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: mattermost-secrets
+  namespace: mattermost
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: digitalocean-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: mattermost-secrets
+    creationPolicy: Owner
+  data:
+  - secretKey: at-rest-encrypt-key
+    remoteRef:
+      key: mattermost-at-rest-encrypt-key
+  - secretKey: public-link-salt
+    remoteRef:
+      key: mattermost-public-link-salt
+  - secretKey: smtp-username
+    remoteRef:
+      key: aws-ses-smtp-username
+  - secretKey: smtp-password
+    remoteRef:
+      key: aws-ses-smtp-password
+  - secretKey: gitlab-secret
+    remoteRef:
+      key: mattermost-oidc-secret
+---
+# PostgreSQL credentials
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: mattermost-postgres-credentials
+  namespace: mattermost
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: digitalocean-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: mattermost-postgres-credentials
+    creationPolicy: Owner
+  data:
+  - secretKey: username
+    remoteRef:
+      key: postgres-username
+  - secretKey: password
+    remoteRef:
+      key: postgres-admin-password
+---
+# Kong HTTPRoute for Mattermost
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: mattermost
+  namespace: mattermost
+spec:
+  parentRefs:
+  - name: kong-gateway
+    namespace: kong-system
+  hostnames:
+  - chat.example.com
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: mattermost-team-edition
+      port: 8065
+---
+# TLS certificate for Mattermost
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mattermost-tls
+  namespace: mattermost
+spec:
+  secretName: mattermost-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - chat.example.com
+---
+# ServiceMonitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mattermost
+  namespace: mattermost
+  labels:
+    app.kubernetes.io/name: mattermost-team-edition
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mattermost-team-edition
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 60s
+    scrapeTimeout: 30s

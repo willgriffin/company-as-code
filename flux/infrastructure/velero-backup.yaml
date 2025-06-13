@@ -1,0 +1,308 @@
+# Velero backup and disaster recovery
+
+---
+# Velero namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: velero
+  labels:
+    name: velero
+---
+# Velero Helm repository
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: vmware-tanzu
+  namespace: velero
+spec:
+  interval: 30m
+  url: https://vmware-tanzu.github.io/helm-charts
+---
+# Velero Helm release
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: velero
+  namespace: velero
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: velero
+      version: "5.4.0"
+      sourceRef:
+        kind: HelmRepository
+        name: vmware-tanzu
+        namespace: velero
+  values:
+    # Image configuration
+    image:
+      repository: velero/velero
+      tag: ""  # Uses chart default
+      pullPolicy: IfNotPresent
+    
+    # Plugin images
+    initContainers:
+    - name: velero-plugin-for-aws
+      image: velero/velero-plugin-for-aws:v1.8.2
+      imagePullPolicy: IfNotPresent
+      volumeMounts:
+      - mountPath: /target
+        name: plugins
+    
+    # Configuration
+    configuration:
+      # DigitalOcean Spaces configuration (S3-compatible)
+      backupStorageLocation:
+      - name: default
+        provider: aws
+        bucket: "example-cluster-backup"
+        config:
+          region: "nyc3"
+          s3ForcePathStyle: "true"
+          s3Url: "https://nyc3.digitaloceanspaces.com"
+          publicUrl: "https://example-cluster-backup.nyc3.digitaloceanspaces.com"
+      
+      # Volume snapshot location
+      volumeSnapshotLocation:
+      - name: default
+        provider: aws
+        config:
+          region: "nyc3"
+      
+      # Provider configuration
+      provider: aws
+      
+      # Backup features
+      features: "EnableCSI"
+      
+      # Default backup TTL
+      defaultBackupTTL: "30d"
+      
+      # Restore options
+      restoreResourcePriorities: "pods,persistentvolumeclaims,persistentvolumes,secrets,configmaps,serviceaccounts,services,deployments,statefulsets"
+      
+      # Log level
+      logLevel: info
+      logFormat: text
+    
+    # Credentials
+    credentials:
+      useSecret: true
+      name: velero-credentials
+      secretContents:
+        cloud: |
+          [default]
+          aws_access_key_id=${AWS_ACCESS_KEY_ID}
+          aws_secret_access_key=${AWS_SECRET_ACCESS_KEY}
+    
+    # Backup schedules
+    schedules:
+      # Daily backup
+      daily-backup:
+        disabled: false
+        schedule: "0 2 * * *"  # 2 AM daily
+        template:
+          ttl: "720h"  # 30 days
+          includedNamespaces:
+          - keycloak
+          - nextcloud
+          - mattermost
+          - mailu
+          - postal
+          - sentry
+          - kong-system
+          - grafana
+          - prometheus
+          excludedResources:
+          - events
+          - events.events.k8s.io
+          - backups.velero.io
+          - restores.velero.io
+          - resticrepositories.velero.io
+          storageLocation: default
+          volumeSnapshotLocations:
+          - default
+      
+      # Weekly full backup
+      weekly-backup:
+        disabled: false
+        schedule: "0 1 * * 0"  # 1 AM every Sunday
+        template:
+          ttl: "2160h"  # 90 days
+          includedNamespaces:
+          - keycloak
+          - nextcloud
+          - mattermost
+          - mailu
+          - postal
+          - sentry
+          - kong-system
+          - grafana
+          - prometheus
+          - cnpg-system
+          - redis-operator
+          - external-secrets-system
+          - cert-manager
+          - external-dns
+          - velero
+          excludedResources:
+          - events
+          - events.events.k8s.io
+          - backups.velero.io
+          - restores.velero.io
+          - resticrepositories.velero.io
+          storageLocation: default
+          volumeSnapshotLocations:
+          - default
+          labelSelector:
+            matchLabels:
+              backup: "weekly"
+    
+    # Resource configuration
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    
+    # Security context
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 65534
+      seccompProfile:
+        type: RuntimeDefault
+    
+    # Pod security context
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 65534
+      fsGroup: 65534
+      seccompProfile:
+        type: RuntimeDefault
+    
+    # Service account
+    serviceAccount:
+      server:
+        create: true
+        name: ""
+        annotations: {}
+        labels: {}
+    
+    # RBAC
+    rbac:
+      create: true
+      clusterAdministrator: true
+    
+    # Metrics
+    metrics:
+      enabled: true
+      scrapeInterval: 30s
+      scrapeTimeout: 10s
+      service:
+        labels: {}
+        annotations: {}
+      podAnnotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8085"
+        prometheus.io/path: "/metrics"
+      serviceMonitor:
+        enabled: true
+        additionalLabels: {}
+        namespace: velero
+    
+    # Node agent (for file-level backup)
+    nodeAgent:
+      podVolumePath: /var/lib/kubelet/pods
+      privileged: false
+      tolerations: []
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        runAsUser: 65534
+        seccompProfile:
+          type: RuntimeDefault
+    
+    # kubectl image for init containers and jobs
+    kubectl:
+      image:
+        repository: docker.io/bitnami/kubectl
+        tag: ""  # Uses chart default
+    
+    # Cleanup CRDs on uninstall
+    cleanUpCRDs: false
+---
+# Velero credentials secret
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: velero-credentials
+  namespace: velero
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: digitalocean-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: velero-credentials
+    creationPolicy: Owner
+  data:
+  - secretKey: cloud
+    remoteRef:
+      key: velero-credentials
+---
+# Backup labels for important resources
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-config
+  namespace: velero
+data:
+  backup-policy.yaml: |
+    # Add 'backup: weekly' label to critical resources
+    # for inclusion in weekly full backups
+    resources_to_label:
+      - keycloak/keycloak
+      - nextcloud/nextcloud
+      - mattermost/mattermost
+      - postgres clusters
+      - redis instances
+      - certificates
+      - secrets (encrypted)
+---
+# ServiceMonitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: velero
+  namespace: velero
+  labels:
+    app.kubernetes.io/name: velero
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: velero
+  endpoints:
+  - port: http-monitoring
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s

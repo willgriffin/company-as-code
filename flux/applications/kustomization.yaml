@@ -1,0 +1,66 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # Cloud storage with Spaces integration
+  - nextcloud.yaml
+  
+  # Team collaboration
+  - mattermost.yaml
+  
+  # Email servers
+  - mailu.yaml
+  - postal.yaml
+
+# Apply resources in dependency order
+patches:
+  # All applications depend on infrastructure being ready
+  - target:
+      kind: HelmRelease
+      name: nextcloud
+    patch: |
+      - op: add
+        path: /spec/dependsOn
+        value:
+          - name: cloudnative-pg
+            namespace: cnpg-system
+          - name: redis-operator
+            namespace: redis-operator
+          - name: keycloak
+            namespace: keycloak
+  
+  - target:
+      kind: HelmRelease
+      name: mattermost-team-edition
+    patch: |
+      - op: add
+        path: /spec/dependsOn
+        value:
+          - name: cloudnative-pg
+            namespace: cnpg-system
+          - name: keycloak
+            namespace: keycloak
+  
+  - target:
+      kind: HelmRelease
+      name: mailu
+    patch: |
+      - op: add
+        path: /spec/dependsOn
+        value:
+          - name: cloudnative-pg
+            namespace: cnpg-system
+          - name: redis-operator
+            namespace: redis-operator
+          - name: kong-gateway
+            namespace: kong-system
+  
+  # Postal depends on RabbitMQ operator as well
+  - target:
+      kind: Deployment
+      name: postal-web
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          fluxcd.io/depends-on: "cnpg-system/cloudnative-pg,redis-operator/redis-operator,rabbitmq-system/rabbitmq-cluster-operator"
