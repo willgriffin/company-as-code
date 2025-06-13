@@ -65,7 +65,7 @@ jobs:
             --owner=${{ github.repository_owner }} \
             --repository=${{ github.event.repository.name }} \
             --branch=main \
-            --path=./flux/clusters/cumulus \
+            --path=./flux/clusters/my-cluster \
             --personal=false \
             --private-key-file=flux-key
       

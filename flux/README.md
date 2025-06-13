@@ -67,7 +67,7 @@ kubectl get gitrepository,kustomizations -n flux-system
 
 ### To the Cumulus Cluster
 
-1. Create application directory under `flux/clusters/cumulus/`
+1. Create application directory under `flux/clusters/my-cluster/`
 2. Add Kubernetes manifests:
    - `namespace.yaml` - Application namespace
    - `deployment.yaml` - Application deployment
@@ -75,7 +75,7 @@ kubectl get gitrepository,kustomizations -n flux-system
    - `ingress.yaml` - Ingress rules (if needed)
    - `kustomization.yaml` - Kustomize configuration
 
-3. Update `flux/clusters/cumulus/kustomization.yaml` to include new path
+3. Update `flux/clusters/my-cluster/kustomization.yaml` to include new path
 
 Example structure:
 ```yaml

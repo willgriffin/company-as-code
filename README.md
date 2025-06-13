@@ -152,7 +152,7 @@ your-kubernetes-project/
 ├── terraform/                # 🏗️ Infrastructure as Code
 │   └── digitalocean/         # DigitalOcean Kubernetes cluster
 ├── flux/                     # 🔄 GitOps configurations  
-│   └── clusters/cumulus/     # Cluster-specific deployments
+│   └── clusters/my-cluster/     # Cluster-specific deployments
 ├── .github/                  # 🚀 GitHub Actions workflows
 │   ├── workflows/            # Deployment automation
 │   └── actions/              # Reusable validation steps
