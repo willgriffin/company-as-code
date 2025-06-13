@@ -11,4 +11,5 @@ resources:
   - ingress-route.yaml
   - oauth2-proxy.yaml
   - keycloak-setup.yaml
-  - secrets.enc.yaml  # SOPS encrypted secrets
+  - external-secrets.yaml
+  # - secrets.enc.yaml  # SOPS encrypted secrets (replaced by external-secrets)

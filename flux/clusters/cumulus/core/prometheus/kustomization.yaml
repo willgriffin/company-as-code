@@ -6,7 +6,7 @@ resources:
   - release.yaml
   - oauth2-proxy.yaml
   - ingress.yaml
-  - secrets-template.yaml
+  - external-secret.yaml
   - keycloak-client.yaml
   - servicemonitor-examples.yaml
   - prometheus-rules.yaml
