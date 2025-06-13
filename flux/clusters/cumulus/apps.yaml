@@ -11,7 +11,7 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn:
-    - name: traefik              # Needs ingress
+    - name: gateway              # Needs Kong Gateway routes
     - name: cert-manager-post-deploy  # Needs TLS certificates
     - name: cloudnativepg        # Needs PostgreSQL
     - name: keycloak            # Needs identity provider
@@ -39,7 +39,7 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn:
-    - name: traefik              # Needs ingress
+    - name: gateway              # Needs Kong Gateway routes
     - name: cert-manager-post-deploy  # Needs TLS certificates
     - name: cloudnativepg        # Needs PostgreSQL
     - name: redis-operator       # Needs Redis for caching
@@ -70,7 +70,7 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn:
-    - name: traefik              # Needs ingress
+    - name: gateway              # Needs Kong Gateway routes
     - name: cert-manager-post-deploy  # Needs TLS certificates
     - name: cloudnativepg        # Needs PostgreSQL operator
     - name: redis-operator       # Needs Redis operator
@@ -100,7 +100,7 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn:
-    - name: traefik              # Needs ingress
+    - name: gateway              # Needs Kong Gateway routes
     - name: cert-manager-post-deploy  # Needs TLS certificates
     - name: cloudnativepg        # Needs PostgreSQL operator
     - name: redis-operator       # Needs Redis operator
@@ -129,7 +129,7 @@ metadata:
   namespace: flux-system
 spec:
   dependsOn:
-    - name: traefik              # Needs ingress
+    - name: gateway              # Needs Kong Gateway routes
     - name: cert-manager-post-deploy  # Needs TLS certificates
     - name: cloudnativepg        # Needs PostgreSQL operator
     - name: redis-operator       # Needs Redis operator

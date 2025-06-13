@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - gateway.yaml
+  - plugins.yaml
+  - ai-gateway.yaml
+  - grafana-route.yaml
+  - nextcloud-route.yaml
+  - mattermost-route.yaml
+  - mailu-route.yaml
+  - postal-route.yaml
+  - sentry-route.yaml
+  - jaeger-route.yaml
+  - prometheus-route.yaml
+  - keycloak-route.yaml
+  - litellm-secrets-template.yaml
+  - servicemonitor.yaml
+  - knative-route.yaml

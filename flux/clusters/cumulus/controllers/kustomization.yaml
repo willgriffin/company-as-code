@@ -10,3 +10,4 @@ resources:
   - knative-operator
   - opentelemetry-operator
   - rabbitmq-operator
+  - kong-operator

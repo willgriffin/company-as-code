@@ -1,0 +1,37 @@
+apiVersion: databases.spotahome.com/v1
+kind: RedisFailover
+metadata:
+  name: kong-redis
+  namespace: kong-system
+spec:
+  sentinel:
+    replicas: 3
+    resources:
+      requests:
+        cpu: 100m
+        memory: 100Mi
+      limits:
+        cpu: 500m
+        memory: 200Mi
+  redis:
+    replicas: 3
+    resources:
+      requests:
+        cpu: 200m
+        memory: 200Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    persistence:
+      persistentVolumeClaim:
+        metadata:
+          name: kong-redis-data
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          storageClassName: do-block-storage
+          resources:
+            requests:
+              storage: 5Gi
+  auth:
+    secretPath: kong-redis-secret

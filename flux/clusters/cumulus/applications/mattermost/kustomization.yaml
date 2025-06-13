@@ -8,6 +8,5 @@ resources:
   - pvc.yaml
   - deployment.yaml
   - service.yaml
-  - ingress.yaml
   - keycloak-setup.yaml
   - external-secrets.yaml  # External Secrets Operator managed secrets

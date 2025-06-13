@@ -15,6 +15,7 @@ Deploy a complete, production-ready Kubernetes infrastructure in minutes:
 
 ### 🏗️ **Infrastructure**
 - **[DigitalOcean](https://digitalocean.pxf.io/3evZdB) Kubernetes Cluster** - Managed Kubernetes with auto-scaling
+- **Kong Gateway** - API Gateway with OIDC authentication and AI expense tracking
 - **GitOps with Flux v2** - Automated deployments from Git
 - **Automatic DNS** - DigitalOcean DNS integration with external-dns
 - **TLS Certificates** - Automatic cert-manager with Let's Encrypt
@@ -24,6 +25,8 @@ Deploy a complete, production-ready Kubernetes infrastructure in minutes:
 - **💬 Mattermost** - Team chat and collaboration (`chat.yourdomain.com`)  
 - **☁️ Nextcloud** - Cloud storage and office suite (`cloud.yourdomain.com`)
 - **📧 Mailu** - Complete email server (`mail.yourdomain.com`)
+- **📮 Postal** - Mail processing with RabbitMQ (`postal.yourdomain.com`)
+- **🤖 AI Gateway** - LiteLLM proxy with multi-provider support (`ai.yourdomain.com`)
 
 ## 🚀 Quick Start
 
@@ -38,6 +41,7 @@ Click the **"Use this template"** button above to create your own repository.
 - Monitoring preferences
 
 ✨ **Automatic Initialization**: Your new repository will be automatically configured with your form responses and converted to standard Kubernetes YAML. No manual setup needed!
+
 ### 2. Set Up Required Secrets
 
 In your new repository, go to **Settings → Secrets and variables → Actions** and add:
@@ -182,10 +186,12 @@ your-kubernetes-project/
 - Network policies and RBAC
 
 ### ⚡ **Production Ready**  
-- High availability setup
-- Auto-scaling nodes
-- Health checks and monitoring
-- Backup strategies
+- High availability setup with Kong Gateway
+- Auto-scaling nodes with load balancing
+- Comprehensive monitoring (Prometheus, Grafana, Jaeger)
+- AI usage tracking and expense monitoring
+- Automatic TLS certificates and DNS management
+- Backup strategies and disaster recovery
 
 ### 🛠️ **Developer Friendly**
 - One-command deployment

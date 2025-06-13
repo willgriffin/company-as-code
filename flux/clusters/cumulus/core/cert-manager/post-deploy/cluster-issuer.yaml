@@ -10,8 +10,10 @@ spec:
       name: letsencrypt-production
     solvers:
     - http01:
-        ingress:
-          class: traefik
+        gatewayHTTPRoute:
+          parentRefs:
+          - name: kong-gateway
+            namespace: kong-system
 ---
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
@@ -25,5 +27,7 @@ spec:
       name: letsencrypt-staging
     solvers:
     - http01:
-        ingress:
-          class: traefik
+        gatewayHTTPRoute:
+          parentRefs:
+          - name: kong-gateway
+            namespace: kong-system

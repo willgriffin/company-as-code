@@ -8,7 +8,6 @@ resources:
   - redis-cluster.yaml
   - repository.yaml
   - release.yaml
-  - ingress-route.yaml
   - oauth2-proxy.yaml
   - keycloak-setup.yaml
   - external-secrets.yaml
