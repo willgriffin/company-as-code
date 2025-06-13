@@ -324,7 +324,7 @@ spec:
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: admin-credentials
+  name: keycloak-admin-credentials
   namespace: keycloak
 spec:
   refreshInterval: 1h
@@ -332,7 +332,7 @@ spec:
     name: cluster-secret-store
     kind: ClusterSecretStore
   target:
-    name: admin-credentials
+    name: keycloak-admin-credentials
     creationPolicy: Owner
   data:
   - secretKey: password
