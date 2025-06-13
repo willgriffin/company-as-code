@@ -8,4 +8,5 @@ resources:
   - keycloak-cr.yaml
   - realm-happyvertical.yaml
   - service.yaml
-  - secrets.enc.yaml  # SOPS encrypted secrets
+  - ingress.yaml
+  - external-secrets.yaml  # External Secrets Operator managed secrets

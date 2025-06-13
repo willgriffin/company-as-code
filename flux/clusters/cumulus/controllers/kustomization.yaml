@@ -4,6 +4,7 @@ resources:
   - cloudnativepg
   - redis-operator
   - keycloak-operator
+  - external-secrets-operator
   - velero
   - sentry-operator
   - knative-operator

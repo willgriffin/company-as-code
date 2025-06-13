@@ -1,0 +1,257 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# SOPS Cleanup Script
+# Removes all SOPS-related files and configurations after External Secrets migration
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log() {
+    echo -e "${BLUE}[CLEANUP]${NC} $*"
+}
+
+success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $*"
+}
+
+warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $*"
+}
+
+error() {
+    echo -e "${RED}[ERROR]${NC} $*"
+}
+
+usage() {
+    cat << EOF
+Usage: $0 [OPTION]
+
+Clean up SOPS-related files and configurations after External Secrets migration.
+
+Options:
+    --dry-run           Show what would be removed without making changes
+    --help              Show this help message
+
+This script removes:
+    - secrets-template.yaml files
+    - secrets.enc.yaml files  
+    - SOPS configuration files
+    - Age key references
+    - SOPS-related GitHub Actions workflows
+    - SOPS documentation
+EOF
+}
+
+# Parse command line arguments
+DRY_RUN=false
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --help)
+            usage
+            exit 0
+            ;;
+        *)
+            error "Unknown option: $1"
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+cd "$PROJECT_ROOT"
+
+log "Starting SOPS cleanup process..."
+
+if [ "$DRY_RUN" = true ]; then
+    warning "DRY RUN MODE - No files will be deleted"
+fi
+
+# Function to remove file with logging
+remove_file() {
+    local file="$1"
+    if [ -f "$file" ]; then
+        if [ "$DRY_RUN" = true ]; then
+            echo "  Would remove: $file"
+        else
+            rm -f "$file"
+            success "Removed: $file"
+        fi
+    fi
+}
+
+# Function to remove directory with logging
+remove_directory() {
+    local dir="$1"
+    if [ -d "$dir" ]; then
+        if [ "$DRY_RUN" = true ]; then
+            echo "  Would remove directory: $dir"
+        else
+            rm -rf "$dir"
+            success "Removed directory: $dir"
+        fi
+    fi
+}
+
+log "🗑️  Removing SOPS template files..."
+
+# Remove secrets-template.yaml files
+find flux/ -name "secrets-template.yaml" -type f | while read -r file; do
+    remove_file "$file"
+done
+
+# Remove encrypted SOPS files
+find flux/ -name "*.enc.yaml" -type f | while read -r file; do
+    remove_file "$file"
+done
+
+log "🗑️  Removing SOPS configuration files..."
+
+# Remove SOPS configuration
+remove_file ".sops.yaml"
+remove_file "keys.txt"
+remove_file "age.key"
+
+log "🗑️  Removing SOPS-related GitHub Actions..."
+
+# Remove SOPS secrets management workflow
+remove_file ".github/workflows/secrets-management.yml"
+
+# Update cluster-deploy.yml to remove SOPS decryption
+if [ -f ".github/workflows/cluster-deploy.yml" ]; then
+    if [ "$DRY_RUN" = true ]; then
+        echo "  Would update: .github/workflows/cluster-deploy.yml (remove SOPS decryption)"
+    else
+        # Remove SOPS decryption sections
+        if grep -q "decryption:" ".github/workflows/cluster-deploy.yml"; then
+            log "Removing SOPS decryption from cluster-deploy.yml..."
+            # Create backup
+            cp ".github/workflows/cluster-deploy.yml" ".github/workflows/cluster-deploy.yml.bak"
+            
+            # Remove decryption blocks
+            sed -i '/decryption:/,/name: sops-age/d' ".github/workflows/cluster-deploy.yml"
+            
+            success "Updated: .github/workflows/cluster-deploy.yml"
+        fi
+    fi
+fi
+
+log "🗑️  Removing SOPS documentation..."
+
+# Remove SOPS-related documentation
+remove_file "docs/SECRETS.md"
+remove_file "docs/SOPS.md"
+
+# Update README.md to remove SOPS references
+if [ -f "README.md" ]; then
+    if [ "$DRY_RUN" = true ]; then
+        echo "  Would update: README.md (remove SOPS references)"
+    else
+        if grep -q "SOPS" "README.md"; then
+            log "Removing SOPS references from README.md..."
+            # Create backup
+            cp "README.md" "README.md.bak"
+            
+            # Remove SOPS-related sections
+            sed -i '/SOPS/d' "README.md"
+            sed -i '/Age encryption/d' "README.md"
+            sed -i '/SOPS_AGE_PRIVATE_KEY/d' "README.md"
+            
+            success "Updated: README.md"
+        fi
+    fi
+fi
+
+log "🗑️  Cleaning up tool dependencies..."
+
+# Remove SOPS and Age from tool-versions.txt
+if [ -f "tool-versions.txt" ]; then
+    if [ "$DRY_RUN" = true ]; then
+        echo "  Would update: tool-versions.txt (remove sops and age)"
+    else
+        if grep -q -E "(sops|age)" "tool-versions.txt"; then
+            log "Removing SOPS/Age from tool-versions.txt..."
+            # Create backup
+            cp "tool-versions.txt" "tool-versions.txt.bak"
+            
+            # Remove SOPS and Age lines
+            sed -i '/^sops /d' "tool-versions.txt"
+            sed -i '/^age /d' "tool-versions.txt"
+            
+            success "Updated: tool-versions.txt"
+        fi
+    fi
+fi
+
+log "🗑️  Removing SOPS from GitHub Actions setup..."
+
+# Update setup-tools action to remove SOPS/Age
+if [ -f ".github/actions/setup-tools/action.yml" ]; then
+    if [ "$DRY_RUN" = true ]; then
+        echo "  Would update: .github/actions/setup-tools/action.yml (remove sops and age)"
+    else
+        if grep -q -E "(sops|age)" ".github/actions/setup-tools/action.yml"; then
+            log "Removing SOPS/Age from setup-tools action..."
+            # Create backup
+            cp ".github/actions/setup-tools/action.yml" ".github/actions/setup-tools/action.yml.bak"
+            
+            # Remove SOPS and Age installation steps
+            sed -i '/sops/d' ".github/actions/setup-tools/action.yml"
+            sed -i '/age/d' ".github/actions/setup-tools/action.yml"
+            
+            success "Updated: .github/actions/setup-tools/action.yml"
+        fi
+    fi
+fi
+
+log "✅ Verifying cleanup..."
+
+# Count remaining SOPS references
+sops_refs=$(grep -r "sops" . --include="*.yaml" --include="*.yml" --include="*.md" --exclude-dir=".git" | wc -l || true)
+age_refs=$(grep -r "age" . --include="*.yaml" --include="*.yml" --include="*.md" --exclude-dir=".git" | wc -l || true)
+
+if [ "$sops_refs" -gt 0 ]; then
+    warning "Found $sops_refs remaining SOPS references:"
+    grep -r "sops" . --include="*.yaml" --include="*.yml" --include="*.md" --exclude-dir=".git" | head -5
+fi
+
+if [ "$age_refs" -gt 0 ]; then
+    warning "Found $age_refs remaining Age references:"
+    grep -r "age" . --include="*.yaml" --include="*.yml" --include="*.md" --exclude-dir=".git" | head -5
+fi
+
+# Show summary
+log "📊 Cleanup Summary:"
+echo "  🗑️  SOPS template files: $(find flux/ -name "secrets-template.yaml" -type f 2>/dev/null | wc -l || echo 0) removed"
+echo "  🗑️  SOPS encrypted files: $(find flux/ -name "*.enc.yaml" -type f 2>/dev/null | wc -l || echo 0) removed"
+echo "  🗑️  SOPS configuration files: cleaned"
+echo "  🗑️  SOPS workflows: cleaned"
+echo "  🗑️  SOPS documentation: cleaned"
+
+if [ "$DRY_RUN" = true ]; then
+    warning "DRY RUN COMPLETE - No actual changes made"
+    echo ""
+    echo "To perform the actual cleanup, run:"
+    echo "  $0"
+else
+    success "🎉 SOPS cleanup complete!"
+    echo ""
+    echo "External Secrets Operator migration is now 100% complete!"
+    echo ""
+    echo "Next steps:"
+    echo "1. Test External Secrets synchronization"
+    echo "2. Verify all applications can access secrets"
+    echo "3. Remove backup files (*.bak) when satisfied"
+    echo "4. Commit changes to complete migration"
+fi

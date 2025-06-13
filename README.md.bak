@@ -15,8 +15,8 @@ Deploy a complete, production-ready Kubernetes infrastructure in minutes:
 
 ### 🏗️ **Infrastructure**
 - **[DigitalOcean](https://digitalocean.pxf.io/3evZdB) Kubernetes Cluster** - Managed Kubernetes with auto-scaling
-- **Kong Gateway** - API Gateway with OIDC authentication and AI expense tracking
 - **GitOps with Flux v2** - Automated deployments from Git
+- **Encrypted Secrets** - SOPS + Age encryption for secure secret management
 - **Automatic DNS** - DigitalOcean DNS integration with external-dns
 - **TLS Certificates** - Automatic cert-manager with Let's Encrypt
 
@@ -25,8 +25,6 @@ Deploy a complete, production-ready Kubernetes infrastructure in minutes:
 - **💬 Mattermost** - Team chat and collaboration (`chat.yourdomain.com`)  
 - **☁️ Nextcloud** - Cloud storage and office suite (`cloud.yourdomain.com`)
 - **📧 Mailu** - Complete email server (`mail.yourdomain.com`)
-- **📮 Postal** - Mail processing with RabbitMQ (`postal.yourdomain.com`)
-- **🤖 AI Gateway** - LiteLLM proxy with multi-provider support (`ai.yourdomain.com`)
 
 ## 🚀 Quick Start
 
@@ -41,7 +39,6 @@ Click the **"Use this template"** button above to create your own repository.
 - Monitoring preferences
 
 ✨ **Automatic Initialization**: Your new repository will be automatically configured with your form responses and converted to standard Kubernetes YAML. No manual setup needed!
-
 ### 2. Set Up Required Secrets
 
 In your new repository, go to **Settings → Secrets and variables → Actions** and add:
@@ -124,6 +121,7 @@ This template uses modern DevOps practices for reliable, automated infrastructur
 
 ### GitOps with Flux v2
 - **Infrastructure-managed** - Flux bootstrap handled by Terraform
+- **Encrypted secrets** - SOPS + Age encryption for secure secret management  
 - **Automatic reconciliation** - Changes in Git automatically deployed to cluster
 - **Health checks** - Automatic rollback on deployment failures
 
@@ -181,17 +179,16 @@ your-kubernetes-project/
 ## 🌟 Features
 
 ### 🔐 **Security First**
+- Encrypted secrets with SOPS + Age
 - Automatic TLS certificates
 - OAuth/OIDC integration
 - Network policies and RBAC
 
 ### ⚡ **Production Ready**  
-- High availability setup with Kong Gateway
-- Auto-scaling nodes with load balancing
-- Comprehensive monitoring (Prometheus, Grafana, Jaeger)
-- AI usage tracking and expense monitoring
-- Automatic TLS certificates and DNS management
-- Backup strategies and disaster recovery
+- High availability setup
+- Auto-scaling nodes
+- Health checks and monitoring
+- Backup strategies
 
 ### 🛠️ **Developer Friendly**
 - One-command deployment
@@ -208,6 +205,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 Built with:
 - [Terraform](https://terraform.io) - Infrastructure as Code
 - [Flux](https://fluxcd.io) - GitOps toolkit  
+- [SOPS](https://github.com/getsops/sops) - Secret encryption
 - [Kubernetes](https://kubernetes.io) - Container orchestration
 - [DigitalOcean](https://digitalocean.pxf.io/3evZdB) - Cloud infrastructure
 

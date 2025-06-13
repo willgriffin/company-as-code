@@ -11,4 +11,4 @@ resources:
   - deployment.yaml
   - service.yaml
   - keycloak-setup.yaml
-  - secrets.enc.yaml  # SOPS encrypted secrets
+  - external-secrets.yaml  # External Secrets Operator managed secrets

@@ -7,6 +7,8 @@ resources:
   - postgresql-cluster.yaml
   - redis-cluster.yaml
   - oauth2-proxy.yaml
-  - secrets-template.yaml
+  - ingress.yaml
+  - external-secrets.yaml
+  # - secrets-template.yaml  # Replaced by external-secrets.yaml
   - resource-quota.yaml
   - keycloak-client.yaml

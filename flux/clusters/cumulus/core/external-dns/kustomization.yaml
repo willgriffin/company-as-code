@@ -4,5 +4,5 @@ namespace: external-dns
 resources:
   - namespace.yaml
   - repository.yaml
-  - secrets.enc.yaml  # Encrypted secrets work with Flux Operator SOPS support
+  - external-secret.yaml  # External Secrets Operator managed secrets
   - release.yaml
