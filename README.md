@@ -3,7 +3,7 @@
 🚀 **One-click Kubernetes deployment template** for complete infrastructure with GitOps on [DigitalOcean](https://digitalocean.pxf.io/3evZdB).
 
 [![Use Template](https://img.shields.io/badge/Use-Template-green?style=for-the-badge&logo=github)](../../generate)
-[![Deploy Infrastructure](https://img.shields.io/badge/Deploy-Infrastructure-blue?style=for-the-badge&logo=digitalocean)](../../actions/workflows/terraform-deploy.yml)
+[![Deploy Infrastructure](https://img.shields.io/badge/Deploy-Infrastructure-blue?style=for-the-badge&logo=digitalocean)](./.github/workflows/terraform-deploy.yml)
 
 > **Note**: Links to DigitalOcean are affiliate links that help support the maintenance of this template.
 

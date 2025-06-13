@@ -57,10 +57,10 @@ patches:
   
   # Postal depends on RabbitMQ operator as well
   - target:
-      kind: Deployment
-      name: postal-web
+      kind: HelmRelease
+      name: postal
     patch: |
       - op: add
-        path: /metadata/annotations
+        path: /spec/dependsOn
         value:
           fluxcd.io/depends-on: "cnpg-system/cloudnative-pg,redis-operator/redis-operator,rabbitmq-system/rabbitmq-cluster-operator"

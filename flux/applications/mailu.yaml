@@ -601,3 +601,55 @@ spec:
     path: /metrics
     interval: 60s
     scrapeTimeout: 30s
+---
+# PostgreSQL credentials for Mailu
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: mailu-postgres-credentials
+  namespace: mailu
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: cluster-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: mailu-postgres-credentials
+    template:
+      type: kubernetes.io/basic-auth
+  data:
+    - secretKey: username
+      remoteRef:
+        key: postgres
+        property: username
+    - secretKey: password
+      remoteRef:
+        key: postgres
+        property: password
+---
+# Application secrets for Mailu
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: mailu-secrets
+  namespace: mailu
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: cluster-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: mailu-secrets
+  data:
+    - secretKey: secret-key
+      remoteRef:
+        key: mailu
+        property: secret-key
+    - secretKey: smtp-username
+      remoteRef:
+        key: aws-ses
+        property: username
+    - secretKey: smtp-password
+      remoteRef:
+        key: aws-ses
+        property: password
