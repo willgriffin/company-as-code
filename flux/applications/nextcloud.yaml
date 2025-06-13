@@ -1,0 +1,474 @@
+# Nextcloud with DigitalOcean Spaces primary storage
+
+---
+# Nextcloud namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nextcloud
+  labels:
+    name: nextcloud
+---
+# Nextcloud Helm repository
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: nextcloud
+  namespace: nextcloud
+spec:
+  interval: 30m
+  url: https://nextcloud.github.io/helm/
+---
+# PostgreSQL cluster for Nextcloud
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: nextcloud-postgres
+  namespace: nextcloud
+spec:
+  instances: 3
+  
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      effective_cache_size: "1GB"
+      work_mem: "4MB"
+      maintenance_work_mem: "64MB"
+      random_page_cost: "1.1"
+      effective_io_concurrency: "200"
+      checkpoint_completion_target: "0.9"
+      wal_buffers: "16MB"
+      default_statistics_target: "100"
+  
+  bootstrap:
+    initdb:
+      database: nextcloud
+      owner: nextcloud
+      secret:
+        name: nextcloud-postgres-credentials
+  
+  storage:
+    size: 20Gi
+    storageClass: do-block-storage
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  
+  monitoring:
+    enabled: true
+---
+# Redis for Nextcloud caching
+apiVersion: redis.redis.opstreelabs.in/v1beta2
+kind: Redis
+metadata:
+  name: nextcloud-redis
+  namespace: nextcloud
+spec:
+  kubernetesConfig:
+    image: redis:7-alpine
+    imagePullPolicy: IfNotPresent
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: do-block-storage
+        resources:
+          requests:
+            storage: 2Gi
+  redisConfig:
+    maxmemory: 1gb
+    maxmemory-policy: allkeys-lru
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+---
+# Nextcloud Helm release
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: nextcloud
+  namespace: nextcloud
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: nextcloud
+      version: "4.6.4"
+      sourceRef:
+        kind: HelmRepository
+        name: nextcloud
+        namespace: nextcloud
+  values:
+    # Image configuration
+    image:
+      repository: nextcloud
+      tag: "28-apache"
+      pullPolicy: IfNotPresent
+    
+    # Replica configuration
+    replicaCount: 2
+    
+    # NextCloud configuration
+    nextcloud:
+      host: cloud.example.com
+      existingSecret:
+        enabled: true
+        secretName: nextcloud-credentials
+        usernameKey: admin-username
+        passwordKey: admin-password
+      
+      # Mail configuration
+      mail:
+        enabled: true
+        fromAddress: cloud
+        domain: example.com
+        smtp:
+          host: email-smtp.us-east-1.amazonaws.com
+          secure: ssl
+          port: 465
+          authtype: LOGIN
+          name: nextcloud-smtp-secret
+          password: nextcloud-smtp-secret
+      
+      # PHP configuration
+      phpConfigs:
+        uploadLimit.ini: |
+          upload_max_filesize = 16G
+          post_max_size = 16G
+          max_input_time = 3600
+          max_execution_time = 3600
+        www.conf: |
+          [www]
+          pm = dynamic
+          pm.max_children = 120
+          pm.start_servers = 12
+          pm.min_spare_servers = 6
+          pm.max_spare_servers = 18
+      
+      # Default configurations
+      configs:
+        # Primary storage configuration for DigitalOcean Spaces
+        s3.config.php: |-
+          <?php
+          $CONFIG = array (
+            'objectstore' => array(
+              'class' => '\\OC\\Files\\ObjectStore\\S3',
+              'arguments' => array(
+                'bucket' => 'example-cluster-nextcloud',
+                'autocreate' => false,
+                'key' => getenv('S3_ACCESS_KEY'),
+                'secret' => getenv('S3_SECRET_KEY'),
+                'hostname' => 'nyc3.digitaloceanspaces.com',
+                'port' => 443,
+                'use_ssl' => true,
+                'region' => 'nyc3',
+                'use_path_style' => false,
+                'legacy_auth' => false
+              ),
+            ),
+          );
+        
+        # Performance and caching configuration
+        custom.config.php: |-
+          <?php
+          $CONFIG = array (
+            'memcache.local' => '\\OC\\Memcache\\APCu',
+            'memcache.distributed' => '\\OC\\Memcache\\Redis',
+            'memcache.locking' => '\\OC\\Memcache\\Redis',
+            'redis' => array(
+              'host' => 'rfs-nextcloud-redis.nextcloud.svc.cluster.local',
+              'port' => 6379,
+            ),
+            'preview_max_x' => 1024,
+            'preview_max_y' => 768,
+            'preview_max_scale_factor' => 1,
+            'enable_previews' => true,
+            'enabledPreviewProviders' => array(
+              'OC\\Preview\\PNG',
+              'OC\\Preview\\JPEG',
+              'OC\\Preview\\GIF',
+              'OC\\Preview\\BMP',
+              'OC\\Preview\\XBitmap',
+              'OC\\Preview\\MP3',
+              'OC\\Preview\\MP4',
+              'OC\\Preview\\TXT',
+              'OC\\Preview\\MarkDown'
+            ),
+            'filesystem_check_changes' => 0,
+            'part_file_in_storage' => false,
+            'skeletondirectory' => '',
+          );
+        
+        # OIDC configuration for Keycloak
+        oidc.config.php: |-
+          <?php
+          $CONFIG = array (
+            'allow_user_to_change_display_name' => false,
+            'lost_password_link' => 'disabled',
+            'oidc_login_provider_url' => 'https://auth.example.com/realms/mycompany',
+            'oidc_login_client_id' => 'nextcloud',
+            'oidc_login_client_secret' => getenv('OIDC_CLIENT_SECRET'),
+            'oidc_login_auto_redirect' => false,
+            'oidc_login_end_session_redirect' => false,
+            'oidc_login_button_text' => 'Log in with Example Project',
+            'oidc_login_hide_password_form' => false,
+            'oidc_login_use_id_token' => true,
+            'oidc_login_attributes' => array (
+              'id' => 'preferred_username',
+              'name' => 'name',
+              'mail' => 'email',
+              'groups' => 'groups',
+            ),
+            'oidc_login_default_group' => 'oidc',
+            'oidc_login_use_external_storage' => false,
+            'oidc_login_scope' => 'openid profile email groups',
+            'oidc_login_proxy_ldap' => false,
+            'oidc_login_disable_registration' => true,
+            'oidc_login_redir_fallback' => false,
+            'oidc_login_tls_verify' => true,
+          );
+    
+    # Ingress disabled (using Kong Gateway)
+    ingress:
+      enabled: false
+    
+    # Service configuration
+    service:
+      type: ClusterIP
+      port: 8080
+      loadBalancerIP: ""
+    
+    # Internal database disabled (using external PostgreSQL)
+    internalDatabase:
+      enabled: false
+    
+    # External database configuration
+    externalDatabase:
+      enabled: true
+      type: postgresql
+      host: nextcloud-postgres-rw.nextcloud.svc.cluster.local
+      database: nextcloud
+      existingSecret:
+        enabled: true
+        secretName: nextcloud-postgres-credentials
+        usernameKey: username
+        passwordKey: password
+    
+    # Persistence for config and custom apps only (data is in S3)
+    persistence:
+      enabled: true
+      storageClass: do-block-storage
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      
+      # Additional volumes for local caching
+      nextcloudData:
+        enabled: true
+        storageClass: do-block-storage
+        accessMode: ReadWriteOnce
+        size: 50Gi  # Local cache for frequently accessed files
+    
+    # Resource configuration
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+    
+    # Security context
+    securityContext:
+      runAsUser: 33
+      runAsGroup: 33
+      fsGroup: 33
+    
+    # Liveness and readiness probes
+    livenessProbe:
+      enabled: true
+      initialDelaySeconds: 30
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 3
+      successThreshold: 1
+    
+    readinessProbe:
+      enabled: true
+      initialDelaySeconds: 30
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 3
+      successThreshold: 1
+    
+    # Startup probe
+    startupProbe:
+      enabled: true
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 30
+      successThreshold: 1
+    
+    # Cron job for maintenance
+    cronjob:
+      enabled: true
+      schedule: "*/5 * * * *"
+      annotations: {}
+      curlInsecure: false
+      failedJobsHistoryLimit: 5
+      successfulJobsHistoryLimit: 2
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+    
+    # Horizontal Pod Autoscaler
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+---
+# External secrets for Nextcloud
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: nextcloud-credentials
+  namespace: nextcloud
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: digitalocean-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: nextcloud-credentials
+    creationPolicy: Owner
+  data:
+  - secretKey: admin-username
+    remoteRef:
+      key: nextcloud-admin-username
+  - secretKey: admin-password
+    remoteRef:
+      key: nextcloud-admin-password
+  - secretKey: S3_ACCESS_KEY
+    remoteRef:
+      key: digitalocean-spaces-access-key
+  - secretKey: S3_SECRET_KEY
+    remoteRef:
+      key: digitalocean-spaces-secret-key
+  - secretKey: OIDC_CLIENT_SECRET
+    remoteRef:
+      key: nextcloud-oidc-secret
+---
+# PostgreSQL credentials
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: nextcloud-postgres-credentials
+  namespace: nextcloud
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: digitalocean-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: nextcloud-postgres-credentials
+    creationPolicy: Owner
+  data:
+  - secretKey: username
+    remoteRef:
+      key: postgres-username
+  - secretKey: password
+    remoteRef:
+      key: postgres-admin-password
+---
+# SMTP credentials
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: nextcloud-smtp-secret
+  namespace: nextcloud
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: digitalocean-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: nextcloud-smtp-secret
+    creationPolicy: Owner
+  data:
+  - secretKey: smtp-username
+    remoteRef:
+      key: aws-ses-smtp-username
+  - secretKey: smtp-password
+    remoteRef:
+      key: aws-ses-smtp-password
+---
+# Kong HTTPRoute for Nextcloud
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: nextcloud
+  namespace: nextcloud
+spec:
+  parentRefs:
+  - name: kong-gateway
+    namespace: kong-system
+  hostnames:
+  - cloud.example.com
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: nextcloud
+      port: 8080
+---
+# TLS certificate for Nextcloud
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: nextcloud-tls
+  namespace: nextcloud
+spec:
+  secretName: nextcloud-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - cloud.example.com
+---
+# ServiceMonitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: nextcloud
+  namespace: nextcloud
+  labels:
+    app.kubernetes.io/name: nextcloud
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nextcloud
+  endpoints:
+  - port: http
+    path: /ocs/v2.php/apps/serverinfo/api/v1/info
+    interval: 60s
+    scrapeTimeout: 30s
+    params:
+      format: ['prometheus']

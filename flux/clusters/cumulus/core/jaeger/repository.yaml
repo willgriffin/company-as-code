@@ -1,8 +1,0 @@
-apiVersion: source.toolkit.fluxcd.io/v1beta2
-kind: HelmRepository
-metadata:
-  name: jaegertracing
-  namespace: jaeger
-spec:
-  interval: 24h
-  url: https://jaegertracing.github.io/helm-charts

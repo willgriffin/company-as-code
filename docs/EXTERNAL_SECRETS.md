@@ -112,7 +112,7 @@ For manual deployment:
 
 ```bash
 # 1. Deploy External Secrets Operator
-kubectl apply -k flux/clusters/cumulus/controllers/external-secrets-operator/
+kubectl apply -k flux/clusters/my-cluster/controllers/external-secrets-operator/
 
 # 2. Wait for operator to be ready
 kubectl wait --for=condition=available --timeout=300s deployment/external-secrets -n external-secrets-system
@@ -124,13 +124,13 @@ export DO_SPACES_SECRET_KEY="your-secret"
 # ... other secrets
 
 # Process and apply central secrets
-gomplate --file flux/clusters/cumulus/core/external-secrets/digitalocean-source-secrets.yaml | kubectl apply -f -
+gomplate --file flux/clusters/my-cluster/core/external-secrets/digitalocean-source-secrets.yaml | kubectl apply -f -
 
 # 4. Apply secret stores
-kubectl apply -k flux/clusters/cumulus/core/external-secrets/
+kubectl apply -k flux/clusters/my-cluster/core/external-secrets/
 
 # 5. Deploy application ExternalSecrets
-kubectl apply -f flux/clusters/cumulus/core/external-dns/external-secret.yaml
+kubectl apply -f flux/clusters/my-cluster/core/external-dns/external-secret.yaml
 ```
 
 ## Migration from SOPS
@@ -150,7 +150,7 @@ kubectl apply -f flux/clusters/cumulus/core/external-dns/external-secret.yaml
 
 1. **Deploy External Secrets Operator**
    ```bash
-   kubectl apply -k flux/clusters/cumulus/controllers/external-secrets-operator/
+   kubectl apply -k flux/clusters/my-cluster/controllers/external-secrets-operator/
    ```
 
 2. **Populate Central Secrets**

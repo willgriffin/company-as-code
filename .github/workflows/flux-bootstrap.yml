@@ -1,0 +1,148 @@
+name: Bootstrap Flux GitOps
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy Infrastructure"]
+    types:
+      - completed
+
+jobs:
+  bootstrap-flux:
+    name: Bootstrap Flux
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Flux CLI
+        uses: fluxcd/flux2/action@main
+        with:
+          version: 'latest'
+      
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.29.0'
+      
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig
+          chmod 600 kubeconfig
+          echo "KUBECONFIG=$(pwd)/kubeconfig" >> $GITHUB_ENV
+      
+      - name: Check cluster connectivity
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+      
+      - name: Generate Flux deploy key
+        id: flux-key
+        run: |
+          ssh-keygen -t ed25519 -f flux-key -N ""
+          echo "FLUX_PUBLIC_KEY=$(cat flux-key.pub)" >> $GITHUB_OUTPUT
+          echo "FLUX_PRIVATE_KEY=$(cat flux-key | base64 -w 0)" >> $GITHUB_OUTPUT
+      
+      - name: Add deploy key to repository
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeployKey({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Flux GitOps Deploy Key',
+              key: '${{ steps.flux-key.outputs.FLUX_PUBLIC_KEY }}',
+              read_only: false
+            });
+      
+      - name: Bootstrap Flux
+        run: |
+          flux bootstrap github \
+            --owner=${{ github.repository_owner }} \
+            --repository=${{ github.event.repository.name }} \
+            --branch=main \
+            --path=./flux/clusters/my-cluster \
+            --personal=false \
+            --private-key-file=flux-key
+      
+      - name: Update secrets in cluster
+        run: |
+          # Create digitalocean-secrets namespace and secrets
+          kubectl create namespace digitalocean-secrets --dry-run=client -o yaml | kubectl apply -f -
+          
+          # Create source secrets for External Secrets Operator
+          kubectl create secret generic digitalocean-credentials \
+            --namespace=digitalocean-secrets \
+            --from-literal=digitalocean-token="${{ secrets.DIGITALOCEAN_TOKEN }}" \
+            --from-literal=digitalocean-spaces-access-key="${{ secrets.DIGITALOCEAN_SPACES_ACCESS_KEY }}" \
+            --from-literal=digitalocean-spaces-secret-key="${{ secrets.DIGITALOCEAN_SPACES_SECRET_KEY }}" \
+            --from-literal=aws-access-key-id="${{ secrets.AWS_ACCESS_KEY_ID }}" \
+            --from-literal=aws-secret-access-key="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+            --from-literal=aws-ses-smtp-username="${{ secrets.AWS_SES_SMTP_USERNAME }}" \
+            --from-literal=aws-ses-smtp-password="${{ secrets.AWS_SES_SMTP_PASSWORD }}" \
+            --from-literal=postgres-username="postgres" \
+            --from-literal=postgres-admin-password="$(openssl rand -base64 32)" \
+            --from-literal=redis-password="$(openssl rand -base64 32)" \
+            --from-literal=keycloak-admin-username="admin" \
+            --from-literal=keycloak-admin-password="$(openssl rand -base64 32)" \
+            --from-literal=grafana-admin-username="admin" \
+            --from-literal=grafana-admin-password="$(openssl rand -base64 32)" \
+            --from-literal=nextcloud-admin-username="admin" \
+            --from-literal=nextcloud-admin-password="$(openssl rand -base64 32)" \
+            --from-literal=mattermost-at-rest-encrypt-key="$(openssl rand -base64 32)" \
+            --from-literal=mattermost-public-link-salt="$(openssl rand -base64 32)" \
+            --from-literal=mailu-secret-key="$(openssl rand -base64 32)" \
+            --from-literal=mailu-admin-password="$(openssl rand -base64 32)" \
+            --from-literal=postal-secret-key="$(openssl rand -base64 32)" \
+            --from-literal=postal-admin-password="$(openssl rand -base64 32)" \
+            --from-literal=postal-signing-key="$(openssl genrsa 2048)" \
+            --from-literal=postal-rabbitmq-username="postal" \
+            --from-literal=postal-rabbitmq-password="$(openssl rand -base64 32)" \
+            --from-literal=openai-api-key="${{ secrets.OPENAI_API_KEY || 'placeholder' }}" \
+            --from-literal=anthropic-api-key="${{ secrets.ANTHROPIC_API_KEY || 'placeholder' }}" \
+            --from-literal=cohere-api-key="${{ secrets.COHERE_API_KEY || 'placeholder' }}" \
+            --from-literal=nextcloud-oidc-secret="$(openssl rand -base64 32)" \
+            --from-literal=mattermost-oidc-secret="$(openssl rand -base64 32)" \
+            --from-literal=grafana-oidc-secret="$(openssl rand -base64 32)" \
+            --from-literal=mailu-oidc-secret="$(openssl rand -base64 32)" \
+            --from-literal=mailu-oauth2-cookie-secret="$(openssl rand -base64 32)" \
+            --from-literal=postal-oidc-secret="$(openssl rand -base64 32)" \
+            --from-literal=postal-oauth2-cookie-secret="$(openssl rand -base64 32)" \
+            --from-literal=velero-credentials="[default]
+          aws_access_key_id=${{ secrets.DIGITALOCEAN_SPACES_ACCESS_KEY }}
+          aws_secret_access_key=${{ secrets.DIGITALOCEAN_SPACES_SECRET_KEY }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+      
+      - name: Wait for Flux to reconcile
+        run: |
+          echo "Waiting for Flux to reconcile the repository..."
+          flux reconcile source git flux-system
+          
+          echo "Waiting for infrastructure to be ready..."
+          kubectl wait --for=condition=Ready kustomization/infrastructure -n flux-system --timeout=600s
+          
+          echo "Waiting for applications to be ready..."
+          kubectl wait --for=condition=Ready kustomization/applications -n flux-system --timeout=600s
+      
+      - name: Check deployment status
+        run: |
+          echo "=== Flux Status ==="
+          flux get all
+          
+          echo "=== Infrastructure Status ==="
+          kubectl get pods -n kong-system
+          kubectl get pods -n keycloak
+          kubectl get pods -n monitoring
+          
+          echo "=== Application Status ==="
+          kubectl get pods -n nextcloud
+          kubectl get pods -n mattermost
+          kubectl get pods -n mailu
+          kubectl get pods -n postal
+          
+          echo "=== Services ==="
+          kubectl get svc -A | grep LoadBalancer

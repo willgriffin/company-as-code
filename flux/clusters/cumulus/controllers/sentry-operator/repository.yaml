@@ -1,8 +1,0 @@
-apiVersion: source.toolkit.fluxcd.io/v1beta2
-kind: HelmRepository
-metadata:
-  name: sentry-operator
-  namespace: sentry-operator
-spec:
-  interval: 24h
-  url: https://charts.jetstack.io

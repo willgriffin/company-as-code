@@ -1,0 +1,521 @@
+# Complete monitoring stack with Prometheus, Grafana, and Jaeger
+
+---
+# Monitoring namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    name: monitoring
+---
+# Prometheus Community Helm repository
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: prometheus-community
+  namespace: monitoring
+spec:
+  interval: 30m
+  url: https://prometheus-community.github.io/helm-charts
+---
+# Grafana Helm repository
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  interval: 30m
+  url: https://grafana.github.io/helm-charts
+---
+# Jaeger Helm repository
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: jaegertracing
+  namespace: monitoring
+spec:
+  interval: 30m
+  url: https://jaegertracing.github.io/helm-charts
+---
+# Prometheus (kube-prometheus-stack)
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      version: "56.8.0"
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: monitoring
+  values:
+    # Global configuration
+    global:
+      rbac:
+        create: true
+        createAggregateClusterRoles: true
+    
+    # Prometheus configuration
+    prometheus:
+      enabled: true
+      
+      prometheusSpec:
+        # Retention and storage
+        retention: 30d
+        retentionSize: 50GB
+        
+        # Storage configuration
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: do-block-storage
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 50Gi
+        
+        # Resource configuration
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+        
+        # Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          fsGroup: 65534
+          seccompProfile:
+            type: RuntimeDefault
+        
+        # Service monitor selector
+        serviceMonitorSelectorNilUsesHelmValues: false
+        podMonitorSelectorNilUsesHelmValues: false
+        ruleSelectorNilUsesHelmValues: false
+        
+        # External URL
+        externalUrl: "https://prometheus.example.com"
+        
+        # Additional scrape configs
+        additionalScrapeConfigs:
+        - job_name: 'kong-gateway'
+          static_configs:
+          - targets: ['kong-gateway.kong-system.svc.cluster.local:8100']
+        - job_name: 'expense-tracker'
+          static_configs:
+          - targets: ['expense-tracker.kong-system.svc.cluster.local:8080']
+        - job_name: 'velero'
+          static_configs:
+          - targets: ['velero.velero.svc.cluster.local:8085']
+    
+    # AlertManager configuration
+    alertmanager:
+      enabled: true
+      
+      alertmanagerSpec:
+        # Storage configuration
+        storage:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: do-block-storage
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 10Gi
+        
+        # Resource configuration
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        
+        # Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          fsGroup: 65534
+          seccompProfile:
+            type: RuntimeDefault
+        
+        # External URL
+        externalUrl: "https://alertmanager.example.com"
+    
+    # Grafana (disabled - we deploy separately)
+    grafana:
+      enabled: false
+    
+    # Node exporter
+    nodeExporter:
+      enabled: true
+    
+    # Kube state metrics
+    kubeStateMetrics:
+      enabled: true
+    
+    # Default rules
+    defaultRules:
+      create: true
+      rules:
+        alertmanager: true
+        etcd: true
+        configReloaders: true
+        general: true
+        k8s: true
+        kubeApiserverAvailability: true
+        kubeApiserverBurnrate: true
+        kubeApiserverHistogram: true
+        kubeApiserverSlos: true
+        kubelet: true
+        kubeProxy: true
+        kubePrometheusGeneral: true
+        kubePrometheusNodeRecording: true
+        kubernetesApps: true
+        kubernetesResources: true
+        kubernetesStorage: true
+        kubernetesSystem: true
+        node: true
+        nodeExporterAlerting: true
+        nodeExporterRecording: true
+        prometheus: true
+        prometheusOperator: true
+---
+# Grafana
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: grafana
+      version: "7.3.7"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: monitoring
+  values:
+    # Admin configuration
+    admin:
+      existingSecret: "grafana-admin-credentials"
+      userKey: username
+      passwordKey: password
+    
+    # Persistence
+    persistence:
+      type: pvc
+      enabled: true
+      storageClassName: do-block-storage
+      accessModes:
+        - ReadWriteOnce
+      size: 10Gi
+    
+    # Resource configuration
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    
+    # Security context
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 472
+      fsGroup: 472
+      seccompProfile:
+        type: RuntimeDefault
+    
+    # Datasources
+    datasources:
+      datasources.yaml:
+        apiVersion: 1
+        datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
+          access: proxy
+          isDefault: true
+        - name: Jaeger
+          type: jaeger
+          url: http://jaeger-query.monitoring.svc.cluster.local:16686
+          access: proxy
+        - name: Loki
+          type: loki
+          url: http://loki.monitoring.svc.cluster.local:3100
+          access: proxy
+    
+    # Dashboard providers
+    dashboardProviders:
+      dashboardproviders.yaml:
+        apiVersion: 1
+        providers:
+        - name: 'default'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+        - name: 'applications'
+          orgId: 1
+          folder: 'Applications'
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/applications
+    
+    # Dashboards
+    dashboards:
+      default:
+        # Kubernetes cluster overview
+        kubernetes-cluster:
+          gnetId: 7249
+          revision: 1
+          datasource: Prometheus
+        
+        # Node exporter
+        node-exporter:
+          gnetId: 1860
+          revision: 37
+          datasource: Prometheus
+        
+        # Kong Gateway
+        kong-official:
+          gnetId: 7424
+          revision: 6
+          datasource: Prometheus
+      
+      applications:
+        # PostgreSQL
+        postgresql:
+          gnetId: 9628
+          revision: 7
+          datasource: Prometheus
+        
+        # Redis
+        redis:
+          gnetId: 763
+          revision: 5
+          datasource: Prometheus
+        
+        # Keycloak
+        keycloak:
+          gnetId: 10441
+          revision: 1
+          datasource: Prometheus
+    
+    # Grafana configuration
+    grafana.ini:
+      server:
+        protocol: http
+        domain: "grafana.example.com"
+        root_url: "https://grafana.example.com"
+        serve_from_sub_path: false
+      
+      auth:
+        disable_login_form: false
+        disable_signout_menu: false
+      
+      auth.generic_oauth:
+        enabled: true
+        name: Keycloak
+        allow_sign_up: true
+        client_id: grafana
+        client_secret: "example-cluster-grafana-secret"
+        scopes: openid email profile
+        email_attribute_path: email
+        login_attribute_path: preferred_username
+        name_attribute_path: name
+        auth_url: "https://auth.example.com/realms/mycompany/protocol/openid-connect/auth"
+        token_url: "https://auth.example.com/realms/mycompany/protocol/openid-connect/token"
+        api_url: "https://auth.example.com/realms/mycompany/protocol/openid-connect/userinfo"
+        role_attribute_path: contains(groups[*], 'admin') && 'Admin' || 'Viewer'
+      
+      security:
+        admin_user: admin
+        cookie_secure: true
+        cookie_samesite: lax
+        content_type_protection: true
+        strict_transport_security: true
+        x_content_type_options: true
+        x_xss_protection: true
+      
+      analytics:
+        reporting_enabled: false
+        check_for_updates: false
+      
+      log:
+        mode: console
+        level: info
+---
+# Jaeger (distributed tracing)
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: jaeger
+  namespace: monitoring
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: jaeger
+      version: "0.71.13"
+      sourceRef:
+        kind: HelmRepository
+        name: jaegertracing
+        namespace: monitoring
+  values:
+    # Storage configuration (in-memory for simplicity)
+    storage:
+      type: memory
+    
+    # Agent configuration
+    agent:
+      enabled: true
+      
+    # Collector configuration
+    collector:
+      enabled: true
+      replicaCount: 2
+      
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+    
+    # Query configuration
+    query:
+      enabled: true
+      replicaCount: 1
+      
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+---
+# External secrets for monitoring credentials
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: grafana-admin-credentials
+  namespace: monitoring
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: digitalocean-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: grafana-admin-credentials
+    creationPolicy: Owner
+  data:
+  - secretKey: username
+    remoteRef:
+      key: grafana-admin-username
+  - secretKey: password
+    remoteRef:
+      key: grafana-admin-password
+---
+# Kong HTTPRoute for Prometheus
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: prometheus
+  namespace: monitoring
+  annotations:
+    konghq.com/plugins: keycloak-oidc,prometheus-metrics
+spec:
+  parentRefs:
+  - name: kong-gateway
+    namespace: kong-system
+  hostnames:
+  - prometheus.example.com
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: prometheus-kube-prometheus-prometheus
+      port: 9090
+---
+# Kong HTTPRoute for Grafana
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  parentRefs:
+  - name: kong-gateway
+    namespace: kong-system
+  hostnames:
+  - grafana.example.com
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: grafana
+      port: 80
+---
+# Kong HTTPRoute for Jaeger
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: jaeger
+  namespace: monitoring
+  annotations:
+    konghq.com/plugins: keycloak-oidc,prometheus-metrics
+spec:
+  parentRefs:
+  - name: kong-gateway
+    namespace: kong-system
+  hostnames:
+  - jaeger.example.com
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: jaeger-query
+      port: 80
