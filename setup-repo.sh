@@ -135,6 +135,7 @@ setup_github_project() {
     # Create template cleanup label
     gh label create "template-cleanup" --color "#c5def5" --description "Template cleanup task." 2>/dev/null || true
     
+    
     echo "  Creating GitHub project..."
     
     # Get repository owner for project creation
