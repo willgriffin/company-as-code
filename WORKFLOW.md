@@ -232,15 +232,18 @@ graph TD
     C -- Yes --> D[Analyze issue and generate reasonable defaults];
     C -- No --> E{Missing estimation?};
     E -- Yes --> F[Provide complexity estimate based on scope];
-    E -- No --> G[Comment explaining other missing requirements];
-    D --> H[Add generated criteria and estimation];
-    F --> H;
-    H --> I{Now meets Definition of Ready?};
-    I -- Yes --> J[Auto-progress to 'To Do'];
-    I -- No --> G;
-    B -- Yes --> K{Are all questions answered?};
-    K -- No --> L[Comment to Clarify Remaining Questions];
-    K -- Yes --> J;
+    E -- No --> G{Missing implementation gameplan?};
+    G -- Yes --> H[Create gameplan comment on issue];
+    G -- No --> I[Comment explaining other missing requirements];
+    D --> J[Add generated criteria and estimation];
+    F --> J;
+    H --> J;
+    J --> K{Now meets Definition of Ready?};
+    K -- Yes --> L[Auto-progress to 'To Do'];
+    K -- No --> I;
+    B -- Yes --> M{Are all questions answered?};
+    M -- No --> N[Comment to Clarify Remaining Questions];
+    M -- Yes --> L;
 ```
 
 ## 4. Development & CI/CD Lanes
@@ -249,15 +252,20 @@ These lanes represent the active workflow for developing, testing, and deploying
 
 ### 4.1. To Do / Ready for Dev
 
-This lane contains fully refined and prioritized issues that are ready for a developer to begin working on.
+This lane contains fully refined and prioritized issues that are ready for a developer to begin working on. Each issue should have an implementation gameplan already established.
 ```mermaid
 graph TD
     A[Ready for New Work] --> B[Select Highest Priority Issue from 'To Do'];
-    B --> C[Add Implementation Plan if Missing];
-    C --> D{High confidence in approach?};
-    D -- No --> E[Comment explaining concerns and questions];
-    D -- Yes --> F[Assign Issue to Self];
-    F --> G[Move Issue to 'In Progress'];
+    B --> C{Review implementation gameplan};
+    C --> D{Need clarification on gameplan?};
+    D -- Yes --> E[Comment questions on issue for discussion];
+    E --> F{Gameplan finalized?};
+    F -- No --> E;
+    F -- Yes --> G[Create feature branch from main];
+    D -- No --> G;
+    G --> H[Name branch: feature/issue-description];
+    H --> I[Assign Issue to Self];
+    I --> J[Move Issue to 'In Progress'];
 ```
 
 ### 4.2. In Progress
@@ -265,7 +273,7 @@ graph TD
 This is the active development stage. The goal is to write high-quality code, create corresponding tests, and prepare the work for a peer review.
 ```mermaid
 graph TD
-    A[Issue in 'In Progress'] --> B[Create New Feature Branch from `main`];
+    A[Issue in 'In Progress'] --> B[Switch to feature branch];
     B --> C[Write Code & Corresponding Unit/Integration Tests];
     C --> D{Does code pass all local tests?};
     D -- No --> C;

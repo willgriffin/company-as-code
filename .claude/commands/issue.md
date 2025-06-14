@@ -41,21 +41,24 @@ When passed an issue number:
 - Decision: close as stale, keep in icebox with update, or move to backlog
 
 **BACKLOG:**
-- Check Definition of Ready (acceptance criteria, estimates, no blockers)
+- Check Definition of Ready (acceptance criteria, estimates, gameplan, no blockers)
 - Look for clarifying comments
 - If acceptance criteria missing: analyze issue and generate reasonable defaults based on problem description and proposed solution
 - If estimation missing: provide complexity estimate (S/M/L) based on scope analysis
+- If implementation gameplan missing: create detailed gameplan comment on issue outlining approach, key changes, and considerations
 - Decision: request missing info or move to todo
 - If Definition of Ready is met: automatically progress to todo
 - If not ready to progress: add comment explaining what's needed for Definition of Ready
 
 **TO-DO:**
-- Add implementation plan as comment if one doesn't exist
-- If confidence in approach is low: add comment explaining concerns and questions
-- Automatically assign to self
-- Create feature branch (`issue-<number>`)
-- Move to in-progress  
-- Immediately begin full implementation (analyze codebase, implement solution, write tests, prepare for review)
+- Review existing implementation gameplan from backlog stage
+- If clarification needed on gameplan: add comment with questions for discussion
+- Wait for gameplan finalization if questions exist
+- Once gameplan is finalized:
+  - Create feature branch from main (`feature/<issue-description>`)
+  - Automatically assign to self
+  - Move to in-progress  
+  - Begin full implementation following the agreed gameplan
 
 **IN-PROGRESS:**
 - Check for review comments or feedback
