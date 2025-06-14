@@ -186,6 +186,147 @@ setup_github_project() {
 setup_infrastructure() {
     echo -e "${BLUE}Setting up infrastructure and credentials...${NC}"
     
+    # Check if dry-run mode
+    if [[ "${DRY_RUN:-false}" == "true" ]]; then
+        echo -e "${YELLOW}=== DRY RUN MODE ===${NC}"
+        echo "Would perform the following actions:"
+        echo "  • Create DigitalOcean Spaces bucket: ${SETUP_REPO_CLUSTER_NAME}-tf-<random>"
+        echo "  • Generate Spaces access keys"
+        echo "  • Create AWS IAM user: ${SETUP_REPO_CLUSTER_NAME}-ses-smtp"
+        echo "  • Create AWS IAM policy: ${SETUP_REPO_CLUSTER_NAME}-ses-policy"
+        echo "  • Generate SMTP credentials"
+        echo "  • Set GitHub repository secrets"
+        echo -e "${YELLOW}No actual changes will be made.${NC}"
+        return 0
+    fi
+    
+    # Resource tracking for rollback capability
+    local CREATED_RESOURCES=()
+    local STATE_FILE="${HOME}/.startup-gitops-setup-state-${SETUP_REPO_CLUSTER_NAME}.json"
+    
+    # Load existing state if available
+    if [[ -f "$STATE_FILE" ]]; then
+        echo -e "${YELLOW}Found existing state file from previous run${NC}"
+        echo "Resources created in previous run:"
+        jq -r '.resources[] | "  • \(.type): \(.id)"' "$STATE_FILE" 2>/dev/null || true
+        echo
+        echo -e "${YELLOW}These resources will be reused if they still exist.${NC}"
+        
+        # Load resources into array for idempotency checks
+        while IFS= read -r resource; do
+            CREATED_RESOURCES+=("$resource")
+        done < <(jq -r '.resources[] | "\(.type):\(.id)"' "$STATE_FILE" 2>/dev/null || true)
+    fi
+    
+    # Cleanup function for failed setup
+    cleanup_on_failure() {
+        local exit_code=$?
+        
+        # Only cleanup if we actually failed (non-zero exit code)
+        if [[ $exit_code -ne 0 ]]; then
+            echo
+            echo -e "${YELLOW}Setup failed. Cleaning up resources created during this run...${NC}"
+            
+            # Reverse the array to delete in reverse order
+            local reversed_resources=()
+            for ((i=${#CREATED_RESOURCES[@]}-1; i>=0; i--)); do
+                reversed_resources+=("${CREATED_RESOURCES[i]}")
+            done
+            
+            # Clean up each resource
+            for resource in "${reversed_resources[@]}"; do
+                IFS=':' read -r resource_type resource_id <<< "$resource"
+                
+                case "$resource_type" in
+                    "spaces-bucket")
+                        echo "  Deleting Spaces bucket: $resource_id"
+                        if doctl spaces bucket delete "$resource_id" --force >/dev/null 2>&1; then
+                            echo -e "    ${GREEN}✓ Deleted${NC}"
+                        else
+                            echo -e "    ${RED}✗ Failed to delete${NC}"
+                        fi
+                        ;;
+                    "spaces-key")
+                        echo "  Deleting Spaces access key: $resource_id"
+                        if doctl spaces access-key delete "$resource_id" --force >/dev/null 2>&1; then
+                            echo -e "    ${GREEN}✓ Deleted${NC}"
+                        else
+                            echo -e "    ${RED}✗ Failed to delete${NC}"
+                        fi
+                        ;;
+                    "iam-user")
+                        echo "  Deleting IAM user: $resource_id"
+                        # First remove all access keys
+                        local access_keys
+                        access_keys=$(aws iam list-access-keys --user-name "$resource_id" --query 'AccessKeyMetadata[].AccessKeyId' --output text 2>/dev/null || true)
+                        for key in $access_keys; do
+                            aws iam delete-access-key --user-name "$resource_id" --access-key-id "$key" >/dev/null 2>&1 || true
+                        done
+                        # Detach all policies
+                        local attached_policies
+                        attached_policies=$(aws iam list-attached-user-policies --user-name "$resource_id" --query 'AttachedPolicies[].PolicyArn' --output text 2>/dev/null || true)
+                        for policy in $attached_policies; do
+                            aws iam detach-user-policy --user-name "$resource_id" --policy-arn "$policy" >/dev/null 2>&1 || true
+                        done
+                        # Delete the user
+                        if aws iam delete-user --user-name "$resource_id" >/dev/null 2>&1; then
+                            echo -e "    ${GREEN}✓ Deleted${NC}"
+                        else
+                            echo -e "    ${RED}✗ Failed to delete${NC}"
+                        fi
+                        ;;
+                    "iam-policy")
+                        echo "  Deleting IAM policy: $resource_id"
+                        if aws iam delete-policy --policy-arn "$resource_id" >/dev/null 2>&1; then
+                            echo -e "    ${GREEN}✓ Deleted${NC}"
+                        else
+                            echo -e "    ${RED}✗ Failed to delete${NC}"
+                        fi
+                        ;;
+                    *)
+                        echo "  Unknown resource type: $resource_type"
+                        ;;
+                esac
+            done
+            
+            # Remove state file since we cleaned up
+            rm -f "$STATE_FILE"
+            
+            echo -e "${YELLOW}Cleanup completed. You can safely re-run the setup.${NC}"
+        else
+            # Success exit - remove state file
+            rm -f "$STATE_FILE" 2>/dev/null || true
+        fi
+    }
+    
+    # Set trap for cleanup on error or script exit
+    trap cleanup_on_failure EXIT ERR
+    
+    # Function to track created resources
+    track_resource() {
+        local resource_type="$1"
+        local resource_id="$2"
+        
+        CREATED_RESOURCES+=("${resource_type}:${resource_id}")
+        
+        # Save state to file
+        {
+            echo "{"
+            echo "  \"cluster_name\": \"$SETUP_REPO_CLUSTER_NAME\","
+            echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\","
+            echo "  \"resources\": ["
+            local first=true
+            for resource in "${CREATED_RESOURCES[@]}"; do
+                [[ $first == true ]] && first=false || echo ","
+                IFS=':' read -r type id <<< "$resource"
+                printf '    {"type": "%s", "id": "%s"}' "$type" "$id"
+            done
+            echo
+            echo "  ]"
+            echo "}"
+        } > "$STATE_FILE"
+    }
+    
     # Validate required CLI tools
     local required_tools=("doctl" "aws" "gh" "jq" "python3")
     for tool in "${required_tools[@]}"; do
@@ -257,6 +398,7 @@ setup_infrastructure() {
             # Bucket doesn't exist, try to create it
             if doctl spaces bucket create "$bucket_name" --region "$spaces_region"; then
                 echo -e "${GREEN}✓ Spaces bucket '$bucket_name' created${NC}"
+                track_resource "spaces-bucket" "$bucket_name"
                 bucket_exists=true
                 break
             else
@@ -283,9 +425,11 @@ setup_infrastructure() {
         -d "{\"name\": \"$bucket_name-key\"}")
     
     if [[ $? -eq 0 ]] && echo "$spaces_key_response" | jq -e '.key' >/dev/null 2>&1; then
-        local spaces_access_key spaces_secret_key
+        local spaces_access_key spaces_secret_key spaces_key_id
         spaces_access_key=$(echo "$spaces_key_response" | jq -r '.key.access_key_id')
         spaces_secret_key=$(echo "$spaces_key_response" | jq -r '.key.secret_access_key')
+        spaces_key_id=$(echo "$spaces_key_response" | jq -r '.key.id // .key.access_key_id')
+        track_resource "spaces-key" "$spaces_key_id"
         echo -e "${GREEN}✓ Spaces access keys generated${NC}"
     else
         echo -e "${RED}✗ Failed to create Spaces access keys${NC}"
@@ -309,6 +453,7 @@ setup_infrastructure() {
     
     if aws iam create-user --user-name "$smtp_user" >/dev/null 2>&1; then
         echo -e "${GREEN}✓ IAM user '$smtp_user' created${NC}"
+        track_resource "iam-user" "$smtp_user"
     else
         echo -e "${YELLOW}⚠ IAM user may already exist${NC}"
     fi
@@ -334,6 +479,7 @@ setup_infrastructure() {
     
     if aws iam create-policy --policy-name "$policy_name" --policy-document "$policy_doc" >/dev/null 2>&1; then
         echo -e "${GREEN}✓ SES policy created${NC}"
+        track_resource "iam-policy" "arn:aws:iam::$account_id:policy/$policy_name"
     else
         echo -e "${YELLOW}⚠ SES policy may already exist${NC}"
     fi
@@ -448,6 +594,135 @@ print(derive_smtp_password('$smtp_secret_key'))
     
     echo -e "${BLUE}After adding these DNS records, domain verification will complete automatically.${NC}"
     echo
+    
+    # Clear trap and state file on successful completion
+    trap - EXIT ERR
+    rm -f "$STATE_FILE"
+}
+
+# Function to cleanup resources from previous run
+cleanup_previous_run() {
+    echo -e "${BLUE}Cleaning up resources from previous run...${NC}"
+    
+    local cluster_name="${1:-}"
+    if [[ -z "$cluster_name" ]]; then
+        echo -e "${RED}✗ Cluster name required for cleanup${NC}"
+        echo "Usage: $0 --cleanup <cluster-name>"
+        return 1
+    fi
+    
+    # Validate required tools for cleanup
+    local required_tools=("doctl" "aws" "jq")
+    for tool in "${required_tools[@]}"; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            echo -e "${RED}✗ Required tool '$tool' not found${NC}"
+            echo "Please install $tool before running cleanup"
+            return 1
+        fi
+    done
+    
+    # Check for required credentials
+    if [[ -z "${DIGITALOCEAN_TOKEN:-}" ]] || [[ -z "${AWS_ACCESS_KEY_ID:-}" ]] || [[ -z "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
+        echo -e "${RED}✗ Required credentials not set${NC}"
+        echo "Please set the following environment variables:"
+        echo "  • DIGITALOCEAN_TOKEN"
+        echo "  • AWS_ACCESS_KEY_ID"
+        echo "  • AWS_SECRET_ACCESS_KEY"
+        return 1
+    fi
+    
+    local state_file="${HOME}/.startup-gitops-setup-state-${cluster_name}.json"
+    
+    if [[ ! -f "$state_file" ]]; then
+        echo -e "${YELLOW}⚠ No state file found for cluster '$cluster_name'${NC}"
+        echo "State file path: $state_file"
+        return 1
+    fi
+    
+    echo "Found state file from $(jq -r '.timestamp' "$state_file" 2>/dev/null || echo 'unknown time')"
+    
+    # Parse resources from state file
+    local resources
+    resources=$(jq -r '.resources[] | "\(.type):\(.id)"' "$state_file" 2>/dev/null || echo "")
+    
+    if [[ -z "$resources" ]]; then
+        echo -e "${YELLOW}⚠ No resources found in state file${NC}"
+        rm -f "$state_file"
+        return 0
+    fi
+    
+    # Reverse order for cleanup
+    local reversed_resources=()
+    while IFS= read -r resource; do
+        reversed_resources=("$resource" "${reversed_resources[@]}")
+    done <<< "$resources"
+    
+    # Clean up each resource
+    for resource in "${reversed_resources[@]}"; do
+        IFS=':' read -r resource_type resource_id <<< "$resource"
+        
+        case "$resource_type" in
+            "spaces-bucket")
+                echo "  Deleting Spaces bucket: $resource_id"
+                if doctl spaces bucket delete "$resource_id" --force >/dev/null 2>&1; then
+                    echo -e "    ${GREEN}✓ Deleted${NC}"
+                else
+                    echo -e "    ${YELLOW}⚠ May already be deleted${NC}"
+                fi
+                ;;
+            "spaces-key")
+                echo "  Deleting Spaces access key: $resource_id"
+                if doctl spaces access-key delete "$resource_id" --force >/dev/null 2>&1; then
+                    echo -e "    ${GREEN}✓ Deleted${NC}"
+                else
+                    echo -e "    ${YELLOW}⚠ May already be deleted${NC}"
+                fi
+                ;;
+            "iam-user")
+                echo "  Deleting IAM user: $resource_id"
+                # First remove all access keys
+                local access_keys
+                access_keys=$(aws iam list-access-keys --user-name "$resource_id" --query 'AccessKeyMetadata[].AccessKeyId' --output text 2>/dev/null || true)
+                for key in $access_keys; do
+                    aws iam delete-access-key --user-name "$resource_id" --access-key-id "$key" >/dev/null 2>&1 || true
+                done
+                # Detach all policies
+                local attached_policies
+                attached_policies=$(aws iam list-attached-user-policies --user-name "$resource_id" --query 'AttachedPolicies[].PolicyArn' --output text 2>/dev/null || true)
+                for policy in $attached_policies; do
+                    aws iam detach-user-policy --user-name "$resource_id" --policy-arn "$policy" >/dev/null 2>&1 || true
+                done
+                # Delete the user
+                if aws iam delete-user --user-name "$resource_id" >/dev/null 2>&1; then
+                    echo -e "    ${GREEN}✓ Deleted${NC}"
+                else
+                    echo -e "    ${YELLOW}⚠ May already be deleted${NC}"
+                fi
+                ;;
+            "iam-policy")
+                echo "  Deleting IAM policy: $resource_id"
+                if aws iam delete-policy --policy-arn "$resource_id" >/dev/null 2>&1; then
+                    echo -e "    ${GREEN}✓ Deleted${NC}"
+                else
+                    echo -e "    ${YELLOW}⚠ May already be deleted${NC}"
+                fi
+                ;;
+            *)
+                echo "  Unknown resource type: $resource_type"
+                ;;
+        esac
+    done
+    
+    # Remove state file
+    rm -f "$state_file"
+    echo -e "${GREEN}✓ Cleanup completed${NC}"
+    
+    # Show recovery suggestions
+    echo
+    echo -e "${BLUE}Next steps:${NC}"
+    echo "  • You can now run the setup script again: $0"
+    echo "  • All resources have been cleaned up"
+    echo "  • No manual cleanup should be necessary"
 }
 
 # Function to setup repository secrets
@@ -755,7 +1030,7 @@ interactive_setup() {
     prompt_with_default "Keycloak realm name" "$DEFAULT_KEYCLOAK_REALM" "SETUP_REPO_KEYCLOAK_REALM"
     prompt_with_default "Backup retention period" "$DEFAULT_BACKUP_RETENTION" "SETUP_REPO_BACKUP_RETENTION"
     prompt_with_default "Spaces region" "$DEFAULT_SPACES_REGION" "SETUP_REPO_SPACES_REGION"
-    prompt_with_default "Let's Encrypt email" "$SETUP_REPO_EMAIL" "SETUP_REPO_LETSENCRYPT_EMAIL"
+    prompt_with_default "Let'\''s Encrypt email" "$SETUP_REPO_EMAIL" "SETUP_REPO_LETSENCRYPT_EMAIL"
     
     echo
     echo -e "${YELLOW}=== Infrastructure API Credentials ===${NC}"
@@ -868,13 +1143,31 @@ case "${1:-}" in
     --non-interactive)
         non_interactive_setup
         ;;
+    --cleanup)
+        if [[ -z "${2:-}" ]]; then
+            echo -e "${RED}✗ Cluster name required for cleanup${NC}"
+            echo "Usage: $0 --cleanup <cluster-name>"
+            exit 1
+        fi
+        cleanup_previous_run "$2"
+        ;;
+    --dry-run)
+        export DRY_RUN=true
+        if [[ "${2:-}" == "--non-interactive" ]]; then
+            non_interactive_setup
+        else
+            interactive_setup
+        fi
+        ;;
     --help|-h)
-        echo "Usage: $0 [--non-interactive|--eject|--help]"
+        echo "Usage: $0 [--non-interactive|--eject|--cleanup|--dry-run|--help]"
         echo
         echo "Options:"
-        echo "  --non-interactive  Use environment variables (SETUP_REPO_*)"
-        echo "  --eject           Remove template artifacts"
-        echo "  --help, -h        Show this help message"
+        echo "  --non-interactive    Use environment variables (SETUP_REPO_*)"
+        echo "  --eject             Remove template artifacts"
+        echo "  --cleanup <cluster>  Remove resources from a previous run"
+        echo "  --dry-run           Show what would be done without making changes"
+        echo "  --help, -h          Show this help message"
         echo
         echo "Required environment variables for non-interactive mode:"
         echo "  SETUP_REPO_DOMAIN        Primary domain"
