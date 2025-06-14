@@ -30,6 +30,13 @@ jobs:
 
           This repository was created from the GitOps template and needs to be configured.
 
+          ### Prerequisites
+          Before running the setup script, you need API credentials for:
+          
+          1. **DigitalOcean API Token** - Get from [DigitalOcean API Tokens](https://digitalocean.pxf.io/je2Ggv)
+          2. **AWS Access Key & Secret** - For SES email and other AWS services
+          3. **Anthropic API Key** - For Claude Code integration (optional but recommended)
+
           ### Next Steps
           Run the setup script to configure this repository:
 
@@ -44,17 +51,18 @@ jobs:
           - **Region**: DigitalOcean region for infrastructure
           - **Project Name**: Display name for your project
           - **Admin Name**: Full name for initial admin account
-          - **Keycloak Realm**: Authentication realm name
-          - **GitHub Project**: Whether to create a GitHub project board
+          - **API Credentials**: The 4 API keys listed above
 
-          ### What the setup script does:
-          - Replaces template placeholders with your actual values
-          - Updates all Kubernetes manifests and Terraform files
-          - Configures GitHub repository settings and labels
-          - Creates an issue for template cleanup after completion
+          ### What the setup script automatically creates:
+          - **DigitalOcean Spaces bucket** for Terraform state storage
+          - **Spaces access keys** for the bucket
+          - **AWS SES domain verification** for email sending
+          - **AWS IAM user and SMTP credentials** for applications
+          - **All GitHub repository secrets** needed for deployment
+          - **DNS record instructions** for domain verification
 
           ### Alternative: Non-Interactive Mode
-          If you want to run without prompts, set environment variables first:
+          Set all required environment variables first:
           ```bash
           export SETUP_REPO_DOMAIN="example.com"
           export SETUP_REPO_EMAIL="admin@example.com"
@@ -62,7 +70,10 @@ jobs:
           export SETUP_REPO_REGION="nyc3"
           export SETUP_REPO_PROJECT_NAME="My Production Environment"
           export SETUP_REPO_ADMIN_NAME="John Doe"
-          export SETUP_REPO_KEYCLOAK_REALM="master"
+          export DIGITALOCEAN_TOKEN="your_do_token"
+          export AWS_ACCESS_KEY_ID="your_aws_key"
+          export AWS_SECRET_ACCESS_KEY="your_aws_secret"
+          export ANTHROPIC_API_KEY="your_anthropic_key"
           ./setup-repo.sh --non-interactive
           ```
           EOF

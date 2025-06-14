@@ -182,6 +182,215 @@ setup_github_project() {
     fi
 }
 
+# Function to setup infrastructure and credentials
+setup_infrastructure() {
+    echo -e "${BLUE}Setting up infrastructure and credentials...${NC}"
+    
+    # Validate required CLI tools
+    local required_tools=("doctl" "aws" "gh" "jq" "python3")
+    for tool in "${required_tools[@]}"; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            echo -e "${RED}✗ Required tool '$tool' not found${NC}"
+            echo "Please install $tool and try again"
+            return 1
+        fi
+    done
+    
+    # Validate required environment variables
+    local required_vars=("DIGITALOCEAN_TOKEN" "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY" "ANTHROPIC_API_KEY")
+    for var in "${required_vars[@]}"; do
+        if [[ -z "${!var}" ]]; then
+            echo -e "${RED}✗ Required environment variable $var not set${NC}"
+            echo "Please set all required variables and try again"
+            return 1
+        fi
+    done
+    
+    echo -e "${GREEN}✓ All required tools and credentials available${NC}"
+    
+    # Set up DigitalOcean authentication
+    echo "  Configuring DigitalOcean CLI..."
+    doctl auth init --access-token "$DIGITALOCEAN_TOKEN" >/dev/null 2>&1
+    
+    # Set up AWS CLI
+    echo "  Configuring AWS CLI..."
+    aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID" >/dev/null
+    aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY" >/dev/null
+    aws configure set default.region us-east-1 >/dev/null
+    
+    # Create DigitalOcean Spaces bucket for Terraform state
+    echo "  Creating DigitalOcean Spaces bucket..."
+    local bucket_name="${SETUP_REPO_CLUSTER_NAME}-terraform-state"
+    local spaces_region="${SETUP_REPO_SPACES_REGION:-nyc3}"
+    
+    if doctl spaces bucket create "$bucket_name" --region "$spaces_region" >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ Spaces bucket '$bucket_name' created${NC}"
+    else
+        echo -e "${YELLOW}⚠ Spaces bucket may already exist or creation failed${NC}"
+    fi
+    
+    # Generate Spaces access keys using DigitalOcean API
+    echo "  Creating Spaces access keys..."
+    local spaces_key_response
+    spaces_key_response=$(curl -s -X POST "https://api.digitalocean.com/v2/spaces/keys" \
+        -H "Authorization: Bearer $DIGITALOCEAN_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\": \"$bucket_name-key\"}")
+    
+    if [[ $? -eq 0 ]] && echo "$spaces_key_response" | jq -e '.key' >/dev/null 2>&1; then
+        local spaces_access_key spaces_secret_key
+        spaces_access_key=$(echo "$spaces_key_response" | jq -r '.key.access_key_id')
+        spaces_secret_key=$(echo "$spaces_key_response" | jq -r '.key.secret_access_key')
+        echo -e "${GREEN}✓ Spaces access keys generated${NC}"
+    else
+        echo -e "${RED}✗ Failed to create Spaces access keys${NC}"
+        echo "Response: $spaces_key_response"
+        return 1
+    fi
+    
+    # Set up AWS SES for email
+    echo "  Setting up AWS SES for domain verification..."
+    
+    # Verify domain with SES
+    if aws ses verify-domain-identity --domain "$SETUP_REPO_DOMAIN" --region us-east-1 >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ Domain verification initiated${NC}"
+    else
+        echo -e "${YELLOW}⚠ Domain verification may already be set up${NC}"
+    fi
+    
+    # Create IAM user for SMTP
+    local smtp_user="${SETUP_REPO_CLUSTER_NAME}-ses-smtp"
+    echo "  Creating AWS IAM user for SMTP..."
+    
+    if aws iam create-user --user-name "$smtp_user" >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ IAM user '$smtp_user' created${NC}"
+    else
+        echo -e "${YELLOW}⚠ IAM user may already exist${NC}"
+    fi
+    
+    # Create and attach SES policy
+    local policy_name="${SETUP_REPO_CLUSTER_NAME}-ses-policy"
+    local policy_doc='{
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Action": [
+                    "ses:SendEmail",
+                    "ses:SendRawEmail"
+                ],
+                "Resource": "*"
+            }
+        ]
+    }'
+    
+    local account_id
+    account_id=$(aws sts get-caller-identity --query Account --output text)
+    
+    if aws iam create-policy --policy-name "$policy_name" --policy-document "$policy_doc" >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ SES policy created${NC}"
+    else
+        echo -e "${YELLOW}⚠ SES policy may already exist${NC}"
+    fi
+    
+    # Attach policy to user
+    aws iam attach-user-policy --user-name "$smtp_user" --policy-arn "arn:aws:iam::$account_id:policy/$policy_name" >/dev/null 2>&1
+    
+    # Create access key for SMTP user
+    echo "  Generating SMTP credentials..."
+    local smtp_keys_response smtp_access_key smtp_secret_key smtp_password
+    smtp_keys_response=$(aws iam create-access-key --user-name "$smtp_user" 2>/dev/null)
+    
+    if [[ $? -eq 0 ]]; then
+        smtp_access_key=$(echo "$smtp_keys_response" | jq -r '.AccessKey.AccessKeyId')
+        smtp_secret_key=$(echo "$smtp_keys_response" | jq -r '.AccessKey.SecretAccessKey')
+        
+        # Generate SES SMTP password
+        smtp_password=$(python3 -c "
+import hashlib
+import hmac
+import base64
+
+def derive_smtp_password(secret_access_key, region='us-east-1'):
+    message = 'SendRawEmail'
+    version = 4
+    signature = hmac.new(
+        key=(version.to_bytes(1, byteorder='big') + secret_access_key.encode('utf-8')),
+        msg=message.encode('utf-8'),
+        digestmod=hashlib.sha256
+    ).digest()
+    return base64.b64encode(signature).decode('utf-8')
+
+print(derive_smtp_password('$smtp_secret_key'))
+")
+        echo -e "${GREEN}✓ SMTP credentials generated${NC}"
+    else
+        echo -e "${RED}✗ Failed to create SMTP credentials${NC}"
+        return 1
+    fi
+    
+    # Set all GitHub secrets
+    echo "  Setting GitHub repository secrets..."
+    
+    # Core secrets provided by user
+    gh secret set DIGITALOCEAN_TOKEN --body "$DIGITALOCEAN_TOKEN" >/dev/null 2>&1
+    gh secret set AWS_ACCESS_KEY_ID --body "$AWS_ACCESS_KEY_ID" >/dev/null 2>&1
+    gh secret set AWS_SECRET_ACCESS_KEY --body "$AWS_SECRET_ACCESS_KEY" >/dev/null 2>&1
+    gh secret set ANTHROPIC_API_KEY --body "$ANTHROPIC_API_KEY" >/dev/null 2>&1
+    
+    # Generated infrastructure secrets
+    gh secret set DIGITALOCEAN_SPACES_ACCESS_KEY --body "$spaces_access_key" >/dev/null 2>&1
+    gh secret set DIGITALOCEAN_SPACES_SECRET_KEY --body "$spaces_secret_key" >/dev/null 2>&1
+    gh secret set AWS_SES_SMTP_USERNAME --body "$smtp_access_key" >/dev/null 2>&1
+    gh secret set AWS_SES_SMTP_PASSWORD --body "$smtp_password" >/dev/null 2>&1
+    
+    echo -e "${GREEN}✓ All infrastructure secrets configured${NC}"
+    
+    # Display DNS records that need to be configured
+    echo
+    echo -e "${YELLOW}=== DNS Configuration Required ===${NC}"
+    echo "You need to add these DNS records to your domain:"
+    echo
+    
+    # Get domain verification token
+    local verification_token
+    verification_token=$(aws ses get-identity-verification-attributes \
+        --identities "$SETUP_REPO_DOMAIN" \
+        --region us-east-1 \
+        --query "VerificationAttributes.\"$SETUP_REPO_DOMAIN\".VerificationToken" \
+        --output text 2>/dev/null)
+    
+    if [[ "$verification_token" != "None" && -n "$verification_token" ]]; then
+        echo "1. SES Domain Verification (TXT record):"
+        echo "   Name: _amazonses.$SETUP_REPO_DOMAIN"
+        echo "   Value: $verification_token"
+        echo
+    fi
+    
+    # Get DKIM tokens
+    aws ses put-identity-dkim-attributes --identity "$SETUP_REPO_DOMAIN" --dkim-enabled --region us-east-1 >/dev/null 2>&1
+    local dkim_tokens
+    dkim_tokens=$(aws ses get-identity-dkim-attributes \
+        --identities "$SETUP_REPO_DOMAIN" \
+        --region us-east-1 \
+        --query "DkimAttributes.\"$SETUP_REPO_DOMAIN\".DkimTokens" \
+        --output text 2>/dev/null)
+    
+    if [[ "$dkim_tokens" != "None" && -n "$dkim_tokens" ]]; then
+        echo "2. DKIM Records (CNAME records):"
+        local i=1
+        for token in $dkim_tokens; do
+            echo "   Name: ${token}._domainkey.$SETUP_REPO_DOMAIN"
+            echo "   Value: ${token}.dkim.amazonses.com"
+            echo
+            ((i++))
+        done
+    fi
+    
+    echo -e "${BLUE}After adding these DNS records, domain verification will complete automatically.${NC}"
+    echo
+}
+
 # Function to setup repository secrets
 setup_repository_secrets() {
     echo -e "${BLUE}Setting up repository secrets...${NC}"
@@ -489,6 +698,16 @@ interactive_setup() {
     prompt_with_default "Spaces region" "$DEFAULT_SPACES_REGION" "SETUP_REPO_SPACES_REGION"
     prompt_with_default "Let's Encrypt email" "$SETUP_REPO_EMAIL" "SETUP_REPO_LETSENCRYPT_EMAIL"
     
+    echo
+    echo -e "${YELLOW}=== Infrastructure API Credentials ===${NC}"
+    echo "The following credentials are required for automated infrastructure setup:"
+    echo
+    
+    prompt_with_default "DigitalOcean API Token" "" "DIGITALOCEAN_TOKEN"
+    prompt_with_default "AWS Access Key ID" "" "AWS_ACCESS_KEY_ID"
+    prompt_with_default "AWS Secret Access Key" "" "AWS_SECRET_ACCESS_KEY"
+    prompt_with_default "Anthropic API Key (for Claude integration)" "" "ANTHROPIC_API_KEY"
+    
     # Ask about project setup
     echo
     read -p "Setup GitHub project with Kanban workflow? (y/N) " -n 1 -r
@@ -498,6 +717,9 @@ interactive_setup() {
     else
         SETUP_REPO_CREATE_PROJECT="false"
     fi
+    
+    # Setup infrastructure and credentials
+    setup_infrastructure
     
     # Process the configuration
     replace_placeholders
@@ -528,6 +750,10 @@ non_interactive_setup() {
         "SETUP_REPO_ADMIN_NAME"
         "SETUP_REPO_CLUSTER_NAME"
         "SETUP_REPO_PROJECT_NAME"
+        "DIGITALOCEAN_TOKEN"
+        "AWS_ACCESS_KEY_ID"
+        "AWS_SECRET_ACCESS_KEY"
+        "ANTHROPIC_API_KEY"
     )
     
     for var in "${required_vars[@]}"; do
@@ -555,6 +781,9 @@ non_interactive_setup() {
         echo -e "${RED}Error: Invalid email format: $SETUP_REPO_EMAIL${NC}"
         exit 1
     fi
+    
+    # Setup infrastructure and credentials
+    setup_infrastructure
     
     # Process the configuration
     replace_placeholders
