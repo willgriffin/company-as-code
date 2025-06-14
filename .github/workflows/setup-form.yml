@@ -64,7 +64,6 @@ jobs:
 
           @claude Please run the setup script using the non-interactive mode with the form values.
           EOF
-          )" \
-            --label "setup-required"
+          )"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
