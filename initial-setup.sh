@@ -208,6 +208,17 @@ setup_infrastructure() {
     
     echo -e "${GREEN}✓ All required tools and credentials available${NC}"
     
+    # Check GitHub CLI authentication
+    echo "  Checking GitHub CLI authentication..."
+    if ! gh auth status >/dev/null 2>&1; then
+        echo -e "${RED}✗ GitHub CLI not authenticated${NC}"
+        echo "Please authenticate with GitHub:"
+        echo "  gh auth login"
+        echo "Then re-run this setup script"
+        return 1
+    fi
+    echo -e "${GREEN}✓ GitHub CLI authenticated${NC}"
+    
     # Set up DigitalOcean authentication
     echo "  Configuring DigitalOcean CLI..."
     doctl auth init --access-token "$DIGITALOCEAN_TOKEN" >/dev/null 2>&1
@@ -332,19 +343,32 @@ print(derive_smtp_password('$smtp_secret_key'))
     # Set all GitHub secrets
     echo "  Setting GitHub repository secrets..."
     
+    # Helper function to set secret with verification
+    set_github_secret() {
+        local secret_name="$1"
+        local secret_value="$2"
+        
+        if gh secret set "$secret_name" --body "$secret_value"; then
+            echo -e "    ${GREEN}✓ $secret_name secret set${NC}"
+        else
+            echo -e "    ${RED}✗ Failed to set $secret_name secret${NC}"
+            return 1
+        fi
+    }
+    
     # Core secrets provided by user
-    gh secret set DIGITALOCEAN_TOKEN --body "$DIGITALOCEAN_TOKEN" >/dev/null 2>&1
-    gh secret set AWS_ACCESS_KEY_ID --body "$AWS_ACCESS_KEY_ID" >/dev/null 2>&1
-    gh secret set AWS_SECRET_ACCESS_KEY --body "$AWS_SECRET_ACCESS_KEY" >/dev/null 2>&1
-    gh secret set ANTHROPIC_API_KEY --body "$ANTHROPIC_API_KEY" >/dev/null 2>&1
+    set_github_secret "DIGITALOCEAN_TOKEN" "$DIGITALOCEAN_TOKEN" || return 1
+    set_github_secret "AWS_ACCESS_KEY_ID" "$AWS_ACCESS_KEY_ID" || return 1
+    set_github_secret "AWS_SECRET_ACCESS_KEY" "$AWS_SECRET_ACCESS_KEY" || return 1
+    set_github_secret "ANTHROPIC_API_KEY" "$ANTHROPIC_API_KEY" || return 1
     
     # Generated infrastructure secrets
-    gh secret set DIGITALOCEAN_SPACES_ACCESS_KEY --body "$spaces_access_key" >/dev/null 2>&1
-    gh secret set DIGITALOCEAN_SPACES_SECRET_KEY --body "$spaces_secret_key" >/dev/null 2>&1
-    gh secret set AWS_SES_SMTP_USERNAME --body "$smtp_access_key" >/dev/null 2>&1
-    gh secret set AWS_SES_SMTP_PASSWORD --body "$smtp_password" >/dev/null 2>&1
+    set_github_secret "DIGITALOCEAN_SPACES_ACCESS_KEY" "$spaces_access_key" || return 1
+    set_github_secret "DIGITALOCEAN_SPACES_SECRET_KEY" "$spaces_secret_key" || return 1
+    set_github_secret "AWS_SES_SMTP_USERNAME" "$smtp_access_key" || return 1
+    set_github_secret "AWS_SES_SMTP_PASSWORD" "$smtp_password" || return 1
     
-    echo -e "${GREEN}✓ All infrastructure secrets configured${NC}"
+    echo -e "${GREEN}✓ All infrastructure secrets successfully configured${NC}"
     
     # Display DNS records that need to be configured
     echo
