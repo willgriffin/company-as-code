@@ -327,32 +327,33 @@ setup_infrastructure() {
         } > "$STATE_FILE"
     }
     
+    # Function to detect available package managers
+    detect_package_managers() {
+        HAS_BREW=$(command -v brew >/dev/null 2>&1 && echo "true" || echo "false")
+        HAS_APT=$(command -v apt-get >/dev/null 2>&1 && echo "true" || echo "false")
+        HAS_YUM=$(command -v yum >/dev/null 2>&1 && echo "true" || echo "false")
+        HAS_DNF=$(command -v dnf >/dev/null 2>&1 && echo "true" || echo "false")
+        HAS_PACMAN=$(command -v pacman >/dev/null 2>&1 && echo "true" || echo "false")
+        HAS_SNAP=$(command -v snap >/dev/null 2>&1 && echo "true" || echo "false")
+        HAS_NIX=$(command -v nix-env >/dev/null 2>&1 && echo "true" || echo "false")
+    }
+
     # Function to suggest installation command for missing tools
     suggest_install_command() {
         local tool="$1"
-        local os_type="$(uname -s)"
         
         echo
         echo -e "${YELLOW}Installation instructions for $tool:${NC}"
         
-        # Check for common package managers
-        local has_brew=$(command -v brew >/dev/null 2>&1 && echo "true" || echo "false")
-        local has_apt=$(command -v apt-get >/dev/null 2>&1 && echo "true" || echo "false")
-        local has_yum=$(command -v yum >/dev/null 2>&1 && echo "true" || echo "false")
-        local has_dnf=$(command -v dnf >/dev/null 2>&1 && echo "true" || echo "false")
-        local has_pacman=$(command -v pacman >/dev/null 2>&1 && echo "true" || echo "false")
-        local has_snap=$(command -v snap >/dev/null 2>&1 && echo "true" || echo "false")
-        local has_nix=$(command -v nix-env >/dev/null 2>&1 && echo "true" || echo "false")
-        
         case "$tool" in
             "doctl")
-                if [[ "$has_brew" == "true" ]]; then
+                if [[ "$HAS_BREW" == "true" ]]; then
                     echo "  brew install doctl"
                 fi
-                if [[ "$has_snap" == "true" ]]; then
+                if [[ "$HAS_SNAP" == "true" ]]; then
                     echo "  sudo snap install doctl"
                 fi
-                if [[ "$has_pacman" == "true" ]]; then
+                if [[ "$HAS_PACMAN" == "true" ]]; then
                     echo "  yay -S doctl-bin  # or another AUR helper"
                 fi
                 echo "  # Direct download:"
@@ -361,18 +362,18 @@ setup_infrastructure() {
                 ;;
                 
             "aws")
-                if [[ "$has_brew" == "true" ]]; then
+                if [[ "$HAS_BREW" == "true" ]]; then
                     echo "  brew install awscli"
                 fi
-                if [[ "$has_apt" == "true" ]]; then
+                if [[ "$HAS_APT" == "true" ]]; then
                     echo "  sudo apt-get update && sudo apt-get install awscli"
                 fi
-                if [[ "$has_dnf" == "true" ]]; then
+                if [[ "$HAS_DNF" == "true" ]]; then
                     echo "  sudo dnf install awscli"
-                elif [[ "$has_yum" == "true" ]]; then
+                elif [[ "$HAS_YUM" == "true" ]]; then
                     echo "  sudo yum install awscli"
                 fi
-                if [[ "$has_pacman" == "true" ]]; then
+                if [[ "$HAS_PACMAN" == "true" ]]; then
                     echo "  sudo pacman -S aws-cli"
                 fi
                 echo "  # Using Python pip:"
@@ -380,65 +381,65 @@ setup_infrastructure() {
                 ;;
                 
             "gh")
-                if [[ "$has_brew" == "true" ]]; then
+                if [[ "$HAS_BREW" == "true" ]]; then
                     echo "  brew install gh"
                 fi
-                if [[ "$has_apt" == "true" ]]; then
+                if [[ "$HAS_APT" == "true" ]]; then
                     echo "  # Add GitHub CLI repository:"
                     echo "  curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg"
                     echo "  echo \"deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null"
                     echo "  sudo apt update && sudo apt install gh"
                 fi
-                if [[ "$has_dnf" == "true" ]]; then
+                if [[ "$HAS_DNF" == "true" ]]; then
                     echo "  sudo dnf install 'dnf-command(config-manager)'"
                     echo "  sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo"
                     echo "  sudo dnf install gh"
-                elif [[ "$has_yum" == "true" ]]; then
+                elif [[ "$HAS_YUM" == "true" ]]; then
                     echo "  sudo yum-config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo"
                     echo "  sudo yum install gh"
                 fi
-                if [[ "$has_pacman" == "true" ]]; then
+                if [[ "$HAS_PACMAN" == "true" ]]; then
                     echo "  sudo pacman -S github-cli"
                 fi
                 ;;
                 
             "jq")
-                if [[ "$has_brew" == "true" ]]; then
+                if [[ "$HAS_BREW" == "true" ]]; then
                     echo "  brew install jq"
                 fi
-                if [[ "$has_apt" == "true" ]]; then
+                if [[ "$HAS_APT" == "true" ]]; then
                     echo "  sudo apt-get update && sudo apt-get install jq"
                 fi
-                if [[ "$has_dnf" == "true" ]]; then
+                if [[ "$HAS_DNF" == "true" ]]; then
                     echo "  sudo dnf install jq"
-                elif [[ "$has_yum" == "true" ]]; then
+                elif [[ "$HAS_YUM" == "true" ]]; then
                     echo "  sudo yum install jq"
                 fi
-                if [[ "$has_pacman" == "true" ]]; then
+                if [[ "$HAS_PACMAN" == "true" ]]; then
                     echo "  sudo pacman -S jq"
                 fi
                 ;;
                 
             "python3")
-                if [[ "$has_brew" == "true" ]]; then
+                if [[ "$HAS_BREW" == "true" ]]; then
                     echo "  brew install python@3"
                 fi
-                if [[ "$has_apt" == "true" ]]; then
+                if [[ "$HAS_APT" == "true" ]]; then
                     echo "  sudo apt-get update && sudo apt-get install python3"
                 fi
-                if [[ "$has_dnf" == "true" ]]; then
+                if [[ "$HAS_DNF" == "true" ]]; then
                     echo "  sudo dnf install python3"
-                elif [[ "$has_yum" == "true" ]]; then
+                elif [[ "$HAS_YUM" == "true" ]]; then
                     echo "  sudo yum install python3"
                 fi
-                if [[ "$has_pacman" == "true" ]]; then
+                if [[ "$HAS_PACMAN" == "true" ]]; then
                     echo "  sudo pacman -S python"
                 fi
                 ;;
         esac
         
         # Add nix-shell option if available
-        if [[ "$has_nix" == "true" ]]; then
+        if [[ "$HAS_NIX" == "true" ]]; then
             local nix_pkg=""
             case "$tool" in
                 "doctl") nix_pkg="doctl" ;;
@@ -466,6 +467,9 @@ setup_infrastructure() {
         echo
     }
     
+    # Detect available package managers once
+    detect_package_managers
+    
     # Validate required CLI tools
     local required_tools=("doctl" "aws" "gh" "jq" "python3")
     local missing_tools=()
@@ -486,14 +490,8 @@ setup_infrastructure() {
         echo
         
         # Provide combined installation commands for detected package managers
-        local has_brew=$(command -v brew >/dev/null 2>&1 && echo "true" || echo "false")
-        local has_apt=$(command -v apt-get >/dev/null 2>&1 && echo "true" || echo "false")
-        local has_yum=$(command -v yum >/dev/null 2>&1 && echo "true" || echo "false")
-        local has_dnf=$(command -v dnf >/dev/null 2>&1 && echo "true" || echo "false")
-        local has_pacman=$(command -v pacman >/dev/null 2>&1 && echo "true" || echo "false")
-        local has_snap=$(command -v snap >/dev/null 2>&1 && echo "true" || echo "false")
         
-        if [[ "$has_brew" == "true" ]]; then
+        if [[ "$HAS_BREW" == "true" ]]; then
             echo "To install all missing tools with Homebrew:"
             local brew_pkgs=()
             for tool in "${missing_tools[@]}"; do
@@ -509,7 +507,7 @@ setup_infrastructure() {
             echo
         fi
         
-        if [[ "$has_apt" == "true" ]]; then
+        if [[ "$HAS_APT" == "true" ]]; then
             echo "To install available tools with apt:"
             local apt_pkgs=()
             local needs_gh_repo=false
@@ -530,7 +528,7 @@ setup_infrastructure() {
             echo
         fi
         
-        if [[ "$has_dnf" == "true" ]]; then
+        if [[ "$HAS_DNF" == "true" ]]; then
             echo "To install available tools with dnf:"
             local dnf_pkgs=()
             for tool in "${missing_tools[@]}"; do
@@ -546,7 +544,7 @@ setup_infrastructure() {
             fi
             echo "  # Note: gh requires repository setup (see instructions above)"
             echo
-        elif [[ "$has_yum" == "true" ]]; then
+        elif [[ "$HAS_YUM" == "true" ]]; then
             echo "To install available tools with yum:"
             local yum_pkgs=()
             for tool in "${missing_tools[@]}"; do
@@ -564,7 +562,7 @@ setup_infrastructure() {
             echo
         fi
         
-        if [[ "$has_pacman" == "true" ]]; then
+        if [[ "$HAS_PACMAN" == "true" ]]; then
             echo "To install available tools with pacman:"
             local pacman_pkgs=()
             for tool in "${missing_tools[@]}"; do
@@ -585,7 +583,7 @@ setup_infrastructure() {
             echo
         fi
         
-        if [[ "$has_snap" == "true" ]]; then
+        if [[ "$HAS_SNAP" == "true" ]]; then
             local snap_tools=()
             for tool in "${missing_tools[@]}"; do
                 case "$tool" in
