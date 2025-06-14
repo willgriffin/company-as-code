@@ -331,12 +331,6 @@ setup_infrastructure() {
     suggest_install_command() {
         local tool="$1"
         local os_type="$(uname -s)"
-        local os_release=""
-        
-        # Detect Linux distribution if applicable
-        if [[ "$os_type" == "Linux" ]] && [[ -f /etc/os-release ]]; then
-            os_release=$(grep -E "^ID=" /etc/os-release | cut -d'=' -f2 | tr -d '"')
-        fi
         
         echo
         echo -e "${YELLOW}Installation instructions for $tool:${NC}"
@@ -373,8 +367,10 @@ setup_infrastructure() {
                 if [[ "$has_apt" == "true" ]]; then
                     echo "  sudo apt-get update && sudo apt-get install awscli"
                 fi
-                if [[ "$has_yum" == "true" ]] || [[ "$has_dnf" == "true" ]]; then
-                    echo "  sudo ${has_dnf:+dnf}${has_yum:+yum} install awscli"
+                if [[ "$has_dnf" == "true" ]]; then
+                    echo "  sudo dnf install awscli"
+                elif [[ "$has_yum" == "true" ]]; then
+                    echo "  sudo yum install awscli"
                 fi
                 if [[ "$has_pacman" == "true" ]]; then
                     echo "  sudo pacman -S aws-cli"
@@ -393,10 +389,13 @@ setup_infrastructure() {
                     echo "  echo \"deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null"
                     echo "  sudo apt update && sudo apt install gh"
                 fi
-                if [[ "$has_yum" == "true" ]] || [[ "$has_dnf" == "true" ]]; then
+                if [[ "$has_dnf" == "true" ]]; then
                     echo "  sudo dnf install 'dnf-command(config-manager)'"
                     echo "  sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo"
                     echo "  sudo dnf install gh"
+                elif [[ "$has_yum" == "true" ]]; then
+                    echo "  sudo yum-config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo"
+                    echo "  sudo yum install gh"
                 fi
                 if [[ "$has_pacman" == "true" ]]; then
                     echo "  sudo pacman -S github-cli"
@@ -410,8 +409,10 @@ setup_infrastructure() {
                 if [[ "$has_apt" == "true" ]]; then
                     echo "  sudo apt-get update && sudo apt-get install jq"
                 fi
-                if [[ "$has_yum" == "true" ]] || [[ "$has_dnf" == "true" ]]; then
-                    echo "  sudo ${has_dnf:+dnf}${has_yum:+yum} install jq"
+                if [[ "$has_dnf" == "true" ]]; then
+                    echo "  sudo dnf install jq"
+                elif [[ "$has_yum" == "true" ]]; then
+                    echo "  sudo yum install jq"
                 fi
                 if [[ "$has_pacman" == "true" ]]; then
                     echo "  sudo pacman -S jq"
@@ -425,8 +426,10 @@ setup_infrastructure() {
                 if [[ "$has_apt" == "true" ]]; then
                     echo "  sudo apt-get update && sudo apt-get install python3"
                 fi
-                if [[ "$has_yum" == "true" ]] || [[ "$has_dnf" == "true" ]]; then
-                    echo "  sudo ${has_dnf:+dnf}${has_yum:+yum} install python3"
+                if [[ "$has_dnf" == "true" ]]; then
+                    echo "  sudo dnf install python3"
+                elif [[ "$has_yum" == "true" ]]; then
+                    echo "  sudo yum install python3"
                 fi
                 if [[ "$has_pacman" == "true" ]]; then
                     echo "  sudo pacman -S python"
@@ -485,6 +488,10 @@ setup_infrastructure() {
         # Provide combined installation commands for detected package managers
         local has_brew=$(command -v brew >/dev/null 2>&1 && echo "true" || echo "false")
         local has_apt=$(command -v apt-get >/dev/null 2>&1 && echo "true" || echo "false")
+        local has_yum=$(command -v yum >/dev/null 2>&1 && echo "true" || echo "false")
+        local has_dnf=$(command -v dnf >/dev/null 2>&1 && echo "true" || echo "false")
+        local has_pacman=$(command -v pacman >/dev/null 2>&1 && echo "true" || echo "false")
+        local has_snap=$(command -v snap >/dev/null 2>&1 && echo "true" || echo "false")
         
         if [[ "$has_brew" == "true" ]]; then
             echo "To install all missing tools with Homebrew:"
@@ -521,6 +528,75 @@ setup_infrastructure() {
                 echo "  # Then install GitHub CLI (see instructions above)"
             fi
             echo
+        fi
+        
+        if [[ "$has_dnf" == "true" ]]; then
+            echo "To install available tools with dnf:"
+            local dnf_pkgs=()
+            for tool in "${missing_tools[@]}"; do
+                case "$tool" in
+                    "aws") dnf_pkgs+=("awscli") ;;
+                    "gh") dnf_pkgs+=("gh") ;;
+                    "jq") dnf_pkgs+=("jq") ;;
+                    "python3") dnf_pkgs+=("python3") ;;
+                esac
+            done
+            if [[ ${#dnf_pkgs[@]} -gt 0 ]]; then
+                echo -e "${GREEN}  sudo dnf install ${dnf_pkgs[*]}${NC}"
+            fi
+            echo "  # Note: gh requires repository setup (see instructions above)"
+            echo
+        elif [[ "$has_yum" == "true" ]]; then
+            echo "To install available tools with yum:"
+            local yum_pkgs=()
+            for tool in "${missing_tools[@]}"; do
+                case "$tool" in
+                    "aws") yum_pkgs+=("awscli") ;;
+                    "gh") yum_pkgs+=("gh") ;;
+                    "jq") yum_pkgs+=("jq") ;;
+                    "python3") yum_pkgs+=("python3") ;;
+                esac
+            done
+            if [[ ${#yum_pkgs[@]} -gt 0 ]]; then
+                echo -e "${GREEN}  sudo yum install ${yum_pkgs[*]}${NC}"
+            fi
+            echo "  # Note: gh requires repository setup (see instructions above)"
+            echo
+        fi
+        
+        if [[ "$has_pacman" == "true" ]]; then
+            echo "To install available tools with pacman:"
+            local pacman_pkgs=()
+            for tool in "${missing_tools[@]}"; do
+                case "$tool" in
+                    "aws") pacman_pkgs+=("aws-cli") ;;
+                    "gh") pacman_pkgs+=("github-cli") ;;
+                    "jq") pacman_pkgs+=("jq") ;;
+                    "python3") pacman_pkgs+=("python") ;;
+                esac
+            done
+            if [[ ${#pacman_pkgs[@]} -gt 0 ]]; then
+                echo -e "${GREEN}  sudo pacman -S ${pacman_pkgs[*]}${NC}"
+            fi
+            # Check for doctl in missing tools
+            if printf '%s\n' "${missing_tools[@]}" | grep -q '^doctl$'; then
+                echo "  # For doctl, use AUR: yay -S doctl-bin"
+            fi
+            echo
+        fi
+        
+        if [[ "$has_snap" == "true" ]]; then
+            local snap_tools=()
+            for tool in "${missing_tools[@]}"; do
+                case "$tool" in
+                    "doctl") snap_tools+=("doctl") ;;
+                esac
+            done
+            if [[ ${#snap_tools[@]} -gt 0 ]]; then
+                echo "To install available tools with snap:"
+                echo -e "${GREEN}  sudo snap install ${snap_tools[*]}${NC}"
+                echo
+            fi
         fi
         
         echo "After installing the required tools, please run this script again."
