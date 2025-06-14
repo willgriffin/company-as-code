@@ -67,7 +67,7 @@ jobs:
             -var="do_token=${{ secrets.DIGITALOCEAN_TOKEN }}" \
             -var="github_owner=${{ steps.github.outputs.owner }}" \
             -var="github_repo=${{ steps.github.outputs.repo }}" \
-            -out=tfplan
+            -out=tfplan | tee terraform-plan.txt
       
       - name: Terraform Apply
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
@@ -75,7 +75,7 @@ jobs:
           terraform apply -auto-approve \
             -var="do_token=${{ secrets.DIGITALOCEAN_TOKEN }}" \
             -var="github_owner=${{ steps.github.outputs.owner }}" \
-            -var="github_repo=${{ steps.github.outputs.repo }}"
+            -var="github_repo=${{ steps.github.outputs.repo }}" | tee terraform-plan.txt
       
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
@@ -132,8 +132,6 @@ jobs:
             - Monitor deployment status in the Actions tab
             
             Timestamp: ${{ github.event.created_at }}
-          attachments: |
-            terraform-plan.txt
 
   terraform-aws:
     name: Terraform AWS

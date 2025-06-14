@@ -147,8 +147,8 @@ jobs:
           echo "=== Services ==="
           kubectl get svc -A | grep LoadBalancer
       
-      - name: Get deployment URLs
-        id: urls
+      - name: Get deployment info
+        id: deployment_info
         run: |
           # Get Kong Gateway LoadBalancer IP
           KONG_IP=$(kubectl get svc -n kong-system kong-gateway-proxy -o jsonpath='{.status.loadBalancer.ingress[0].ip}' || echo "pending")
@@ -158,10 +158,14 @@ jobs:
           KEYCLOAK_PASSWORD=$(kubectl get secret -n digitalocean-secrets digitalocean-credentials -o jsonpath='{.data.keycloak-admin-password}' | base64 -d || echo "unavailable")
           GRAFANA_PASSWORD=$(kubectl get secret -n digitalocean-secrets digitalocean-credentials -o jsonpath='{.data.grafana-admin-password}' | base64 -d || echo "unavailable")
           NEXTCLOUD_PASSWORD=$(kubectl get secret -n digitalocean-secrets digitalocean-credentials -o jsonpath='{.data.nextcloud-admin-password}' | base64 -d || echo "unavailable")
+          MATTERMOST_PASSWORD=$(kubectl get secret -n digitalocean-secrets digitalocean-credentials -o jsonpath='{.data.mattermost-admin-password}' | base64 -d || echo "unavailable")
+          MAILU_PASSWORD=$(kubectl get secret -n digitalocean-secrets digitalocean-credentials -o jsonpath='{.data.mailu-admin-password}' | base64 -d || echo "unavailable")
           
           echo "keycloak_password=$KEYCLOAK_PASSWORD" >> $GITHUB_OUTPUT
           echo "grafana_password=$GRAFANA_PASSWORD" >> $GITHUB_OUTPUT
           echo "nextcloud_password=$NEXTCLOUD_PASSWORD" >> $GITHUB_OUTPUT
+          echo "mattermost_password=$MATTERMOST_PASSWORD" >> $GITHUB_OUTPUT
+          echo "mailu_password=$MAILU_PASSWORD" >> $GITHUB_OUTPUT
       
       - name: Send deployment success notification
         if: success()
@@ -181,26 +185,28 @@ jobs:
             Branch: ${{ github.ref_name }}
             Commit: ${{ github.sha }}
             
-            🌐 Application URLs (replace with your domain):
-            - Keycloak (Auth): https://auth.example.com
-            - Nextcloud (Files): https://cloud.example.com  
-            - Mattermost (Chat): https://chat.example.com
-            - Grafana (Monitoring): https://grafana.example.com
-            - Mailu (Email): https://mail.example.com
+            🌐 Application URLs:
+            - Keycloak (Auth): https://auth.${{ secrets.DOMAIN }}
+            - Nextcloud (Files): https://cloud.${{ secrets.DOMAIN }}  
+            - Mattermost (Chat): https://chat.${{ secrets.DOMAIN }}
+            - Grafana (Monitoring): https://grafana.${{ secrets.DOMAIN }}
+            - Mailu (Email): https://mail.${{ secrets.DOMAIN }}
             
             🔐 Admin Credentials:
-            - Keycloak: admin / ${{ steps.urls.outputs.keycloak_password }}
-            - Grafana: admin / ${{ steps.urls.outputs.grafana_password }}
-            - Nextcloud: admin / ${{ steps.urls.outputs.nextcloud_password }}
+            - Keycloak: admin / ${{ steps.deployment_info.outputs.keycloak_password }}
+            - Grafana: admin / ${{ steps.deployment_info.outputs.grafana_password }}
+            - Nextcloud: admin / ${{ steps.deployment_info.outputs.nextcloud_password }}
+            - Mattermost: admin / ${{ steps.deployment_info.outputs.mattermost_password }}
+            - Mailu: admin / ${{ steps.deployment_info.outputs.mailu_password }}
             
             🚀 Next Steps:
-            1. Update your DNS records to point to: ${{ steps.urls.outputs.kong_ip }}
+            1. Update your DNS records to point to: ${{ steps.deployment_info.outputs.kong_ip }}
             2. Wait for TLS certificates to be issued automatically
             3. Access your applications using the URLs above
             4. Configure OIDC authentication in each application
             
             📊 Deployment Details:
-            - Kong Gateway IP: ${{ steps.urls.outputs.kong_ip }}
+            - Kong Gateway IP: ${{ steps.deployment_info.outputs.kong_ip }}
             - Flux Status: All applications reconciled
             - TLS Certificates: Automatic via cert-manager
             - Backup: Configured via Velero
