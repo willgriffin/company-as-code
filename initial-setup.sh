@@ -899,7 +899,7 @@ This issue was automatically created after repository setup to track cleanup of 
 - [ ] Review generated configuration files
 - [ ] Test deployment pipeline
 - [ ] Remove template-specific files when ready
-- [ ] Verify all placeholders were replaced correctly"
+- [ ] Verify all placeholders were replaced correctly
 
     # Add project setup info if enabled
     if [[ "${SETUP_REPO_CREATE_PROJECT:-}" == "true" ]]; then
