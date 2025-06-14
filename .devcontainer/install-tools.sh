@@ -1,9 +1,14 @@
 #!/bin/bash
 set -e
+set -u
 
 echo "Installing GitOps tools..."
 
 # Read tool versions from tool-versions.txt
+if [ ! -r tool-versions.txt ]; then
+    echo "Error: tool-versions.txt is missing or not readable."
+    exit 1
+fi
 AGE_VERSION=$(grep "^age=" tool-versions.txt | cut -d'=' -f2)
 SOPS_VERSION=$(grep "^sops=" tool-versions.txt | cut -d'=' -f2)
 YQ_VERSION=$(grep "^yq=" tool-versions.txt | cut -d'=' -f2)
@@ -13,8 +18,9 @@ DOCTL_VERSION=$(grep "^doctl=" tool-versions.txt | cut -d'=' -f2)
 
 # Install Age
 echo "Installing Age v${AGE_VERSION}..."
+mkdir -p /tmp/age
 curl -Lo /tmp/age.tar.gz "https://github.com/FiloSottile/age/releases/download/v${AGE_VERSION}/age-v${AGE_VERSION}-linux-amd64.tar.gz"
-tar -xzf /tmp/age.tar.gz -C /tmp
+tar -xzf /tmp/age.tar.gz --strip-components=1 -C /tmp/age
 sudo mv /tmp/age/age /usr/local/bin/
 sudo mv /tmp/age/age-keygen /usr/local/bin/
 rm -rf /tmp/age.tar.gz /tmp/age
