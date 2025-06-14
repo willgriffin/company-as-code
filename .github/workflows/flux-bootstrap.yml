@@ -23,6 +23,27 @@ jobs:
         uses: ./.github/actions/check-setup
         with:
           strict: true
+          digitalocean-token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          digitalocean-spaces-access-key: ${{ secrets.DIGITALOCEAN_SPACES_ACCESS_KEY }}
+          digitalocean-spaces-secret-key: ${{ secrets.DIGITALOCEAN_SPACES_SECRET_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          admin-email: ${{ secrets.ADMIN_EMAIL }}
+          domain: ${{ secrets.DOMAIN }}
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+          digitalocean-token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          digitalocean-spaces-access-key: ${{ secrets.DIGITALOCEAN_SPACES_ACCESS_KEY }}
+          digitalocean-spaces-secret-key: ${{ secrets.DIGITALOCEAN_SPACES_SECRET_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-ses-smtp-username: ${{ secrets.AWS_SES_SMTP_USERNAME }}
+          aws-ses-smtp-password: ${{ secrets.AWS_SES_SMTP_PASSWORD }}
+          admin-email: ${{ secrets.ADMIN_EMAIL }}
+          domain: ${{ secrets.DOMAIN }}
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          cohere-api-key: ${{ secrets.COHERE_API_KEY }}
+          kubeconfig: ${{ secrets.KUBECONFIG }}
 
   bootstrap-flux:
     name: Bootstrap Flux

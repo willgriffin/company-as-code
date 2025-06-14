@@ -5,6 +5,45 @@ inputs:
     description: 'Fail if any setup issues are found'
     required: false
     default: 'true'
+  digitalocean-token:
+    description: 'DigitalOcean API token'
+    required: false
+  digitalocean-spaces-access-key:
+    description: 'DigitalOcean Spaces access key'
+    required: false
+  digitalocean-spaces-secret-key:
+    description: 'DigitalOcean Spaces secret key'
+    required: false
+  aws-access-key-id:
+    description: 'AWS access key ID'
+    required: false
+  aws-secret-access-key:
+    description: 'AWS secret access key'
+    required: false
+  aws-ses-smtp-username:
+    description: 'AWS SES SMTP username'
+    required: false
+  aws-ses-smtp-password:
+    description: 'AWS SES SMTP password'
+    required: false
+  admin-email:
+    description: 'Admin email address'
+    required: false
+  domain:
+    description: 'Primary domain'
+    required: false
+  anthropic-api-key:
+    description: 'Anthropic API key'
+    required: false
+  openai-api-key:
+    description: 'OpenAI API key (optional)'
+    required: false
+  cohere-api-key:
+    description: 'Cohere API key (optional)'
+    required: false
+  kubeconfig:
+    description: 'Kubernetes config (set by terraform-deploy)'
+    required: false
 outputs:
   setup-complete:
     description: 'Whether the repository setup is complete'
@@ -25,42 +64,91 @@ runs:
         SETUP_COMPLETE=true
         MISSING_ITEMS=""
         
-        # Check if template placeholders still exist
-        echo "Checking for template placeholders..."
+        # Check required secrets for infrastructure deployment
+        echo "Checking required secrets..."
         
-        # Check for CHANGEME placeholders
-        if grep -r "CHANGEME" --include="*.yml" --include="*.yaml" --include="*.tf" . >/dev/null 2>&1; then
+        # Core DigitalOcean secrets
+        if [[ -z "${{ inputs.digitalocean-token }}" ]]; then
           SETUP_COMPLETE=false
-          MISSING_ITEMS="$MISSING_ITEMS- Template placeholders (CHANGEME) still present\n"
-          echo "❌ Found CHANGEME placeholders"
+          MISSING_ITEMS="$MISSING_ITEMS- DIGITALOCEAN_TOKEN secret is missing\n"
+          echo "❌ DIGITALOCEAN_TOKEN secret is missing"
         else
-          echo "✅ No CHANGEME placeholders found"
+          echo "✅ DIGITALOCEAN_TOKEN secret is set"
         fi
         
-        # Check for example.com placeholders
-        if grep -r "example\.com" --include="*.yml" --include="*.yaml" --include="*.tf" . >/dev/null 2>&1; then
+        if [[ -z "${{ inputs.digitalocean-spaces-access-key }}" ]]; then
           SETUP_COMPLETE=false
-          MISSING_ITEMS="$MISSING_ITEMS- Example domain (example.com) still present\n"
-          echo "❌ Found example.com placeholders"
+          MISSING_ITEMS="$MISSING_ITEMS- DIGITALOCEAN_SPACES_ACCESS_KEY secret is missing\n"
+          echo "❌ DIGITALOCEAN_SPACES_ACCESS_KEY secret is missing"
         else
-          echo "✅ No example.com placeholders found"
+          echo "✅ DIGITALOCEAN_SPACES_ACCESS_KEY secret is set"
         fi
         
-        # Check for template-specific files that should be removed
-        TEMPLATE_FILES=(
-          ".github/workflows/create-setup-issue.yml"
-          "README-TEMPLATE.md"
-        )
+        if [[ -z "${{ inputs.digitalocean-spaces-secret-key }}" ]]; then
+          SETUP_COMPLETE=false
+          MISSING_ITEMS="$MISSING_ITEMS- DIGITALOCEAN_SPACES_SECRET_KEY secret is missing\n"
+          echo "❌ DIGITALOCEAN_SPACES_SECRET_KEY secret is missing"
+        else
+          echo "✅ DIGITALOCEAN_SPACES_SECRET_KEY secret is set"
+        fi
         
-        for file in "${TEMPLATE_FILES[@]}"; do
-          if [[ -f "$file" ]]; then
-            SETUP_COMPLETE=false
-            MISSING_ITEMS="$MISSING_ITEMS- Template file $file should be removed\n"
-            echo "❌ Template file $file still exists"
-          fi
-        done
+        # AWS secrets for services
+        if [[ -z "${{ inputs.aws-access-key-id }}" ]]; then
+          SETUP_COMPLETE=false
+          MISSING_ITEMS="$MISSING_ITEMS- AWS_ACCESS_KEY_ID secret is missing\n"
+          echo "❌ AWS_ACCESS_KEY_ID secret is missing"
+        else
+          echo "✅ AWS_ACCESS_KEY_ID secret is set"
+        fi
+        
+        if [[ -z "${{ inputs.aws-secret-access-key }}" ]]; then
+          SETUP_COMPLETE=false
+          MISSING_ITEMS="$MISSING_ITEMS- AWS_SECRET_ACCESS_KEY secret is missing\n"
+          echo "❌ AWS_SECRET_ACCESS_KEY secret is missing"
+        else
+          echo "✅ AWS_SECRET_ACCESS_KEY secret is set"
+        fi
+        
+        # Application configuration secrets
+        if [[ -z "${{ inputs.admin-email }}" ]]; then
+          SETUP_COMPLETE=false
+          MISSING_ITEMS="$MISSING_ITEMS- ADMIN_EMAIL secret is missing\n"
+          echo "❌ ADMIN_EMAIL secret is missing"
+        else
+          echo "✅ ADMIN_EMAIL secret is set"
+        fi
+        
+        if [[ -z "${{ inputs.domain }}" ]]; then
+          SETUP_COMPLETE=false
+          MISSING_ITEMS="$MISSING_ITEMS- DOMAIN secret is missing\n"
+          echo "❌ DOMAIN secret is missing"
+        else
+          echo "✅ DOMAIN secret is set"
+        fi
+        
+        # Optional but recommended secrets
+        if [[ -z "${{ inputs.aws-ses-smtp-username }}" ]]; then
+          echo "⚠️ AWS_SES_SMTP_USERNAME secret not set (email notifications may not work)"
+        else
+          echo "✅ AWS_SES_SMTP_USERNAME secret is set"
+        fi
+        
+        if [[ -z "${{ inputs.aws-ses-smtp-password }}" ]]; then
+          echo "⚠️ AWS_SES_SMTP_PASSWORD secret not set (email notifications may not work)"
+        else
+          echo "✅ AWS_SES_SMTP_PASSWORD secret is set"
+        fi
+        
+        # AI integration secrets (optional)
+        if [[ -z "${{ inputs.anthropic-api-key }}" ]]; then
+          echo "⚠️ ANTHROPIC_API_KEY secret not set (Claude integration disabled)"
+        else
+          echo "✅ ANTHROPIC_API_KEY secret is set"
+        fi
         
         # Check for required configuration files
+        echo "Checking required configuration files..."
+        
         REQUIRED_FILES=(
           "config.yaml"
           ".sops.yaml"
@@ -76,26 +164,85 @@ runs:
           fi
         done
         
-        # Check if config.yaml has been customized
-        if [[ -f "config.yaml" ]]; then
-          if grep -q "example\.com\|CHANGEME" config.yaml; then
+        # Check for required GitHub secrets
+        echo "Checking required GitHub secrets..."
+        
+        # Function to check if a secret appears to be set (GitHub doesn't expose secret values)
+        # We use the fact that GitHub Actions will replace undefined secrets with empty strings
+        check_secret() {
+          local secret_name="$1"
+          local secret_value="$2"
+          
+          if [[ -z "$secret_value" ]]; then
             SETUP_COMPLETE=false
-            MISSING_ITEMS="$MISSING_ITEMS- config.yaml contains template values\n"
-            echo "❌ config.yaml contains template values"
+            MISSING_ITEMS="$MISSING_ITEMS- GitHub secret $secret_name is not set\n"
+            echo "❌ GitHub secret $secret_name is not set"
+            return 1
           else
-            echo "✅ config.yaml appears to be customized"
+            echo "✅ GitHub secret $secret_name appears to be set"
+            return 0
           fi
+        }
+        
+        # Required secrets for terraform-deploy workflow
+        check_secret "DIGITALOCEAN_TOKEN" "${{ inputs.digitalocean-token }}"
+        check_secret "DIGITALOCEAN_SPACES_ACCESS_KEY" "${{ inputs.digitalocean-spaces-access-key }}"
+        check_secret "DIGITALOCEAN_SPACES_SECRET_KEY" "${{ inputs.digitalocean-spaces-secret-key }}"
+        check_secret "AWS_ACCESS_KEY_ID" "${{ inputs.aws-access-key-id }}"
+        check_secret "AWS_SECRET_ACCESS_KEY" "${{ inputs.aws-secret-access-key }}"
+        
+        # Required secrets for flux-bootstrap workflow
+        check_secret "AWS_SES_SMTP_USERNAME" "${{ inputs.aws-ses-smtp-username }}"
+        check_secret "AWS_SES_SMTP_PASSWORD" "${{ inputs.aws-ses-smtp-password }}"
+        check_secret "ADMIN_EMAIL" "${{ inputs.admin-email }}"
+        check_secret "DOMAIN" "${{ inputs.domain }}"
+        
+        # Required secrets for claude.yaml workflow
+        check_secret "ANTHROPIC_API_KEY" "${{ inputs.anthropic-api-key }}"
+        
+        # Optional secrets (warn if not set)
+        if [[ -z "${{ inputs.openai-api-key }}" ]]; then
+          echo "⚠️ Optional secret OPENAI_API_KEY is not set"
+        else
+          echo "✅ Optional secret OPENAI_API_KEY is set"
         fi
         
-        # Check if .sops.yaml has been customized
-        if [[ -f ".sops.yaml" ]]; then
-          if grep -q "age1.*template" .sops.yaml; then
-            SETUP_COMPLETE=false
-            MISSING_ITEMS="$MISSING_ITEMS- .sops.yaml contains template age key\n"
-            echo "❌ .sops.yaml contains template age key"
-          else
-            echo "✅ .sops.yaml appears to be customized"
+        if [[ -z "${{ inputs.cohere-api-key }}" ]]; then
+          echo "⚠️ Optional secret COHERE_API_KEY is not set"
+        else
+          echo "✅ Optional secret COHERE_API_KEY is set"
+        fi
+        
+        # KUBECONFIG is set by terraform-deploy workflow, so we check if it exists
+        if [[ -z "${{ inputs.kubeconfig }}" ]]; then
+          echo "ℹ️ KUBECONFIG secret not yet set (will be created by terraform-deploy workflow)"
+        else
+          echo "✅ KUBECONFIG secret is set"
+        fi
+        
+        # Check for template-specific files that should be removed after setup
+        echo "Checking for template-specific files..."
+        
+        TEMPLATE_FILES=(
+          ".github/workflows/create-setup-issue.yml"
+          "README-TEMPLATE.md"
+        )
+        
+        for file in "${TEMPLATE_FILES[@]}"; do
+          if [[ -f "$file" ]]; then
+            echo "ℹ️ Template file $file still exists (will be cleaned up after successful deployment)"
           fi
+        done
+        
+        # Check for obvious template placeholders that would prevent deployment
+        echo "Checking for critical template placeholders..."
+        
+        if grep -r "CHANGEME" --include="*.yml" --include="*.yaml" --include="*.tf" . >/dev/null 2>&1; then
+          SETUP_COMPLETE=false
+          MISSING_ITEMS="$MISSING_ITEMS- Critical template placeholders (CHANGEME) still present\n"
+          echo "❌ Found CHANGEME placeholders that will prevent deployment"
+        else
+          echo "✅ No critical CHANGEME placeholders found"
         fi
         
         # Set outputs
@@ -104,15 +251,20 @@ runs:
         
         # Summary
         if [[ "$SETUP_COMPLETE" == "true" ]]; then
-          echo "✅ Repository setup is complete!"
+          echo "✅ Repository setup is complete and ready for deployment!"
         else
           echo "❌ Repository setup is incomplete"
           echo -e "Missing items:\n$MISSING_ITEMS"
+          echo ""
+          echo "To complete setup:"
+          echo "1. Ensure all required GitHub secrets are configured in Settings → Secrets and variables → Actions"
+          echo "2. Run ./setup-repo.sh to customize configuration files"
+          echo "3. Verify config.yaml and .sops.yaml have been properly configured"
           
           if [[ "${{ inputs.strict }}" == "true" ]]; then
-            echo "::error::Repository setup is incomplete. Run ./setup-repo.sh to complete setup."
+            echo "::error::Repository setup is incomplete. Please configure all required secrets and run ./setup-repo.sh to complete setup."
             exit 1
           else
-            echo "::warning::Repository setup is incomplete. Consider running ./setup-repo.sh to complete setup."
+            echo "::warning::Repository setup is incomplete. Please configure all required secrets and consider running ./setup-repo.sh to complete setup."
           fi
         fi
