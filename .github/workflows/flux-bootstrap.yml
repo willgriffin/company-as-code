@@ -8,11 +8,42 @@ on:
       - completed
 
 jobs:
+  check-setup:
+    name: Check Repository Setup
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    outputs:
+      setup-complete: ${{ steps.check.outputs.setup-complete }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Check setup status
+        id: check
+        uses: ./.github/actions/check-setup
+        with:
+          strict: true
+          digitalocean-token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          digitalocean-spaces-access-key: ${{ secrets.DIGITALOCEAN_SPACES_ACCESS_KEY }}
+          digitalocean-spaces-secret-key: ${{ secrets.DIGITALOCEAN_SPACES_SECRET_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          admin-email: ${{ secrets.ADMIN_EMAIL }}
+          domain: ${{ secrets.DOMAIN }}
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+          aws-ses-smtp-username: ${{ secrets.AWS_SES_SMTP_USERNAME }}
+          aws-ses-smtp-password: ${{ secrets.AWS_SES_SMTP_PASSWORD }}
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+
   bootstrap-flux:
     name: Bootstrap Flux
     runs-on: ubuntu-latest
     environment: production
-    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
+    needs: [check-setup]
+    if: |
+      always() && 
+      (github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch') &&
+      (needs.check-setup.result == 'success' || needs.check-setup.result == 'skipped')
     
     steps:
       - name: Checkout
