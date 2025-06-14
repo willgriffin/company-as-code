@@ -29,6 +29,7 @@ jobs:
   terraform-digitalocean:
     name: Terraform DigitalOcean
     runs-on: ubuntu-latest
+    environment: production
     defaults:
       run:
         working-directory: terraform/digitalocean
@@ -98,10 +99,12 @@ jobs:
           name: 'KUBECONFIG'
           value: ${{ env.KUBECONFIG_BASE64 }}
           token: ${{ secrets.GITHUB_TOKEN }}
+      
 
   terraform-aws:
     name: Terraform AWS
     runs-on: ubuntu-latest
+    environment: production
     needs: terraform-digitalocean
     if: github.event.inputs.action != 'destroy'
     defaults:

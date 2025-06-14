@@ -181,6 +181,78 @@ setup_github_project() {
     fi
 }
 
+# Function to setup repository secrets
+setup_repository_secrets() {
+    echo -e "${BLUE}Setting up repository secrets...${NC}"
+    
+    # Check if gh CLI is available
+    if ! command -v gh >/dev/null 2>&1; then
+        echo -e "${YELLOW}⚠ GitHub CLI not found - skipping repository secrets setup${NC}"
+        return
+    fi
+    
+    # Check if authenticated
+    if ! gh auth status >/dev/null 2>&1; then
+        echo -e "${YELLOW}⚠ Not authenticated with GitHub CLI - skipping repository secrets setup${NC}"
+        return
+    fi
+    
+    echo "  Setting ADMIN_EMAIL secret..."
+    if gh secret set ADMIN_EMAIL --body "$SETUP_REPO_EMAIL" 2>/dev/null; then
+        echo -e "${GREEN}✓ ADMIN_EMAIL secret set${NC}"
+    else
+        echo -e "${YELLOW}⚠ Could not set ADMIN_EMAIL secret${NC}"
+    fi
+    
+    echo "  Setting DOMAIN secret..."
+    if gh secret set DOMAIN --body "$SETUP_REPO_DOMAIN" 2>/dev/null; then
+        echo -e "${GREEN}✓ DOMAIN secret set${NC}"
+    else
+        echo -e "${YELLOW}⚠ Could not set DOMAIN secret${NC}"
+    fi
+    
+    echo -e "${GREEN}✓ Repository secrets configured${NC}"
+    echo
+}
+
+# Function to setup GitHub environments
+setup_github_environments() {
+    echo -e "${BLUE}Setting up GitHub environments...${NC}"
+    
+    # Check if gh CLI is available
+    if ! command -v gh >/dev/null 2>&1; then
+        echo -e "${YELLOW}⚠ GitHub CLI not found - skipping environment setup${NC}"
+        return
+    fi
+    
+    # Check if authenticated
+    if ! gh auth status >/dev/null 2>&1; then
+        echo -e "${YELLOW}⚠ Not authenticated with GitHub CLI - skipping environment setup${NC}"
+        return
+    fi
+    
+    echo "  Creating production environment..."
+    if gh api --method PUT repos/:owner/:repo/environments/production >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ Production environment created${NC}"
+        
+        # Set up protection rules
+        echo "  Configuring production environment protection rules..."
+        
+        # Note: Full protection rules require GitHub Pro/Enterprise
+        # Basic environment creation works on all plans
+        echo -e "${BLUE}   Note: Manual configuration required for:${NC}"
+        echo "   - Required reviewers"
+        echo "   - Branch restrictions (main only)"
+        echo "   - Environment secrets"
+        echo "   Visit: Settings → Environments → production"
+    else
+        echo -e "${YELLOW}⚠ Could not create production environment${NC}"
+    fi
+    
+    echo -e "${GREEN}✓ Environment setup completed${NC}"
+    echo
+}
+
 # Function to create label-to-status GitHub workflow
 create_label_to_status_workflow() {
     local project_number="$1"
@@ -434,6 +506,12 @@ interactive_setup() {
     if [[ "$SETUP_REPO_CREATE_PROJECT" == "true" ]]; then
         setup_github_project
     fi
+    
+    # Setup repository secrets for deployment notifications
+    setup_repository_secrets
+    
+    # Setup GitHub environments
+    setup_github_environments
 }
 
 # Function for non-interactive setup
@@ -485,6 +563,12 @@ non_interactive_setup() {
     if [[ "$SETUP_REPO_CREATE_PROJECT" == "true" ]]; then
         setup_github_project
     fi
+    
+    # Setup repository secrets for deployment notifications
+    setup_repository_secrets
+    
+    # Setup GitHub environments
+    setup_github_environments
 }
 
 # Main script logic
