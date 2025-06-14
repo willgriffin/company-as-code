@@ -41,7 +41,7 @@ jobs:
           Run the setup script to configure this repository:
 
           ```bash
-          ./setup-repo.sh
+          ./initial-setup.sh
           ```
 
           The script will prompt you for:
@@ -74,7 +74,7 @@ jobs:
           export AWS_ACCESS_KEY_ID="your_aws_key"
           export AWS_SECRET_ACCESS_KEY="your_aws_secret"
           export ANTHROPIC_API_KEY="your_anthropic_key"
-          ./setup-repo.sh --non-interactive
+          ./initial-setup.sh --non-interactive
           ```
           EOF
           )"

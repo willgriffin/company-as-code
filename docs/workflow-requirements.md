@@ -103,7 +103,7 @@ The `check-setup` action validates:
    ```
 3. **Run the setup script** to finalize configuration:
    ```bash
-   ./setup-repo.sh
+   ./initial-setup.sh
    ```
 
 ## Troubleshooting

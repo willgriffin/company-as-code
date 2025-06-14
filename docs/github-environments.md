@@ -8,9 +8,9 @@ GitHub environments provide deployment protection and approval workflows. This t
 
 ## Setup Process
 
-The `setup-repo.sh` script automatically creates the production environment. However, some configuration requires manual steps through the GitHub web interface.
+The `initial-setup.sh` script automatically creates the production environment. However, some configuration requires manual steps through the GitHub web interface.
 
-### Automatic Setup (via setup-repo.sh)
+### Automatic Setup (via initial-setup.sh)
 
 The setup script will:
 - Create the `production` environment
@@ -18,7 +18,7 @@ The setup script will:
 
 ### Manual Configuration Required
 
-After running setup-repo.sh, complete the configuration:
+After running initial-setup.sh, complete the configuration:
 
 1. Go to your repository on GitHub
 2. Navigate to **Settings** → **Environments** → **production**

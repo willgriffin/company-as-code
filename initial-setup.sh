@@ -581,7 +581,7 @@ This issue was automatically created after repository setup to track cleanup of 
 When you're ready to remove all template artifacts and convert this to a standalone repository, run:
 
 \`\`\`bash
-./setup-repo.sh --eject
+./initial-setup.sh --eject
 \`\`\`
 
 This will:
@@ -662,7 +662,7 @@ eject_template() {
     
     # Remove this setup script last
     echo "  Removing setup script..."
-    rm -f setup-repo.sh
+    rm -f initial-setup.sh
     
     echo -e "${GREEN}✓ Template artifacts removed successfully${NC}"
     echo -e "${GREEN}This is now a standalone GitOps repository!${NC}"
