@@ -1,0 +1,118 @@
+name: 'Check Repository Setup'
+description: 'Validates that the repository has been properly configured from the template'
+inputs:
+  strict:
+    description: 'Fail if any setup issues are found'
+    required: false
+    default: 'true'
+outputs:
+  setup-complete:
+    description: 'Whether the repository setup is complete'
+    value: ${{ steps.check.outputs.setup-complete }}
+  missing-items:
+    description: 'List of missing setup items'
+    value: ${{ steps.check.outputs.missing-items }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Check repository setup
+      id: check
+      shell: bash
+      run: |
+        echo "🔍 Checking repository setup status..."
+        
+        SETUP_COMPLETE=true
+        MISSING_ITEMS=""
+        
+        # Check if template placeholders still exist
+        echo "Checking for template placeholders..."
+        
+        # Check for CHANGEME placeholders
+        if grep -r "CHANGEME" --include="*.yml" --include="*.yaml" --include="*.tf" . >/dev/null 2>&1; then
+          SETUP_COMPLETE=false
+          MISSING_ITEMS="$MISSING_ITEMS- Template placeholders (CHANGEME) still present\n"
+          echo "❌ Found CHANGEME placeholders"
+        else
+          echo "✅ No CHANGEME placeholders found"
+        fi
+        
+        # Check for example.com placeholders
+        if grep -r "example\.com" --include="*.yml" --include="*.yaml" --include="*.tf" . >/dev/null 2>&1; then
+          SETUP_COMPLETE=false
+          MISSING_ITEMS="$MISSING_ITEMS- Example domain (example.com) still present\n"
+          echo "❌ Found example.com placeholders"
+        else
+          echo "✅ No example.com placeholders found"
+        fi
+        
+        # Check for template-specific files that should be removed
+        TEMPLATE_FILES=(
+          ".github/workflows/create-setup-issue.yml"
+          "README-TEMPLATE.md"
+        )
+        
+        for file in "${TEMPLATE_FILES[@]}"; do
+          if [[ -f "$file" ]]; then
+            SETUP_COMPLETE=false
+            MISSING_ITEMS="$MISSING_ITEMS- Template file $file should be removed\n"
+            echo "❌ Template file $file still exists"
+          fi
+        done
+        
+        # Check for required configuration files
+        REQUIRED_FILES=(
+          "config.yaml"
+          ".sops.yaml"
+        )
+        
+        for file in "${REQUIRED_FILES[@]}"; do
+          if [[ ! -f "$file" ]]; then
+            SETUP_COMPLETE=false
+            MISSING_ITEMS="$MISSING_ITEMS- Required file $file is missing\n"
+            echo "❌ Required file $file is missing"
+          else
+            echo "✅ Required file $file exists"
+          fi
+        done
+        
+        # Check if config.yaml has been customized
+        if [[ -f "config.yaml" ]]; then
+          if grep -q "example\.com\|CHANGEME" config.yaml; then
+            SETUP_COMPLETE=false
+            MISSING_ITEMS="$MISSING_ITEMS- config.yaml contains template values\n"
+            echo "❌ config.yaml contains template values"
+          else
+            echo "✅ config.yaml appears to be customized"
+          fi
+        fi
+        
+        # Check if .sops.yaml has been customized
+        if [[ -f ".sops.yaml" ]]; then
+          if grep -q "age1.*template" .sops.yaml; then
+            SETUP_COMPLETE=false
+            MISSING_ITEMS="$MISSING_ITEMS- .sops.yaml contains template age key\n"
+            echo "❌ .sops.yaml contains template age key"
+          else
+            echo "✅ .sops.yaml appears to be customized"
+          fi
+        fi
+        
+        # Set outputs
+        echo "setup-complete=$SETUP_COMPLETE" >> $GITHUB_OUTPUT
+        echo -e "missing-items=$MISSING_ITEMS" >> $GITHUB_OUTPUT
+        
+        # Summary
+        if [[ "$SETUP_COMPLETE" == "true" ]]; then
+          echo "✅ Repository setup is complete!"
+        else
+          echo "❌ Repository setup is incomplete"
+          echo -e "Missing items:\n$MISSING_ITEMS"
+          
+          if [[ "${{ inputs.strict }}" == "true" ]]; then
+            echo "::error::Repository setup is incomplete. Run ./setup-repo.sh to complete setup."
+            exit 1
+          else
+            echo "::warning::Repository setup is incomplete. Consider running ./setup-repo.sh to complete setup."
+          fi
+        fi

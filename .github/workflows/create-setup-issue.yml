@@ -1,0 +1,71 @@
+name: Create Setup Issue
+
+on:
+  create:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/create-setup-issue.yml']
+
+# Only run on repositories created from this template, not the template itself
+jobs:
+  create-setup-issue:
+    name: Create Setup Issue
+    runs-on: ubuntu-latest
+    if: github.repository != 'willgriffin/startup-gitops-template'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create setup issue
+        run: |
+          echo "🔧 Creating repository setup issue..."
+          
+          gh issue create \
+            --title "chore: configure repository from template" \
+            --body "$(cat <<'EOF'
+          ## 🚀 Repository Setup Required
+
+          This repository was created from the GitOps template and needs to be configured.
+
+          ### Next Steps
+          Run the setup script to configure this repository:
+
+          ```bash
+          ./setup-repo.sh
+          ```
+
+          The script will prompt you for:
+          - **Domain**: Your primary domain name (e.g., example.com)
+          - **Email**: Administrator email for certificates and notifications
+          - **Cluster Name**: Name for your Kubernetes cluster
+          - **Region**: DigitalOcean region for infrastructure
+          - **Project Name**: Display name for your project
+          - **Admin Name**: Full name for initial admin account
+          - **Keycloak Realm**: Authentication realm name
+          - **GitHub Project**: Whether to create a GitHub project board
+
+          ### What the setup script does:
+          - Replaces template placeholders with your actual values
+          - Updates all Kubernetes manifests and Terraform files
+          - Configures GitHub repository settings and labels
+          - Creates an issue for template cleanup after completion
+
+          ### Alternative: Non-Interactive Mode
+          If you want to run without prompts, set environment variables first:
+          ```bash
+          export SETUP_REPO_DOMAIN="example.com"
+          export SETUP_REPO_EMAIL="admin@example.com"
+          export SETUP_REPO_CLUSTER_NAME="production"
+          export SETUP_REPO_REGION="nyc3"
+          export SETUP_REPO_PROJECT_NAME="My Production Environment"
+          export SETUP_REPO_ADMIN_NAME="John Doe"
+          export SETUP_REPO_KEYCLOAK_REALM="master"
+          ./setup-repo.sh --non-interactive
+          ```
+          EOF
+          )"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

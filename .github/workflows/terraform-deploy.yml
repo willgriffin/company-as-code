@@ -26,8 +26,24 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
 jobs:
+  check-setup:
+    name: Check Repository Setup
+    runs-on: ubuntu-latest
+    outputs:
+      setup-complete: ${{ steps.check.outputs.setup-complete }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Check setup status
+        id: check
+        uses: ./.github/actions/check-setup
+        with:
+          strict: true
+
   terraform-digitalocean:
     name: Terraform DigitalOcean
+    needs: check-setup
     runs-on: ubuntu-latest
     environment: production
     defaults:
