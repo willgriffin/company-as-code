@@ -165,6 +165,13 @@ your-kubernetes-project/
 - **[Terraform Documentation](./terraform/)** - Infrastructure details
 - **[Flux Documentation](./flux/)** - GitOps deployment details
 
+### 🔐 Security Documentation
+
+- **[Security Hardening Guide](./docs/SECURITY_HARDENING.md)** - Comprehensive security hardening for production
+- **[Security Best Practices](./docs/SECURITY_BEST_PRACTICES.md)** - Operational security guidelines
+- **[Compliance Guide](./docs/COMPLIANCE.md)** - SOC 2, GDPR, HIPAA, and PCI DSS compliance
+- **[Security Troubleshooting](./docs/SECURITY_TROUBLESHOOTING.md)** - Diagnose and resolve security issues
+
 ## 🆘 Troubleshooting
 
 ### Common Issues
@@ -184,8 +191,10 @@ your-kubernetes-project/
 
 ### 🔐 **Security First**
 - Automatic TLS certificates
-- OAuth/OIDC integration
+- OAuth/OIDC integration  
 - Network policies and RBAC
+- Pod Security Standards enforcement
+- Comprehensive security documentation
 
 ### ⚡ **Production Ready**  
 - High availability setup with Kong Gateway
