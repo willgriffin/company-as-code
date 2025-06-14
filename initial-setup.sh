@@ -327,15 +327,205 @@ setup_infrastructure() {
         } > "$STATE_FILE"
     }
     
+    # Function to suggest installation command for missing tools
+    suggest_install_command() {
+        local tool="$1"
+        local os_type="$(uname -s)"
+        local os_release=""
+        
+        # Detect Linux distribution if applicable
+        if [[ "$os_type" == "Linux" ]] && [[ -f /etc/os-release ]]; then
+            os_release=$(grep -E "^ID=" /etc/os-release | cut -d'=' -f2 | tr -d '"')
+        fi
+        
+        echo
+        echo -e "${YELLOW}Installation instructions for $tool:${NC}"
+        
+        # Check for common package managers
+        local has_brew=$(command -v brew >/dev/null 2>&1 && echo "true" || echo "false")
+        local has_apt=$(command -v apt-get >/dev/null 2>&1 && echo "true" || echo "false")
+        local has_yum=$(command -v yum >/dev/null 2>&1 && echo "true" || echo "false")
+        local has_dnf=$(command -v dnf >/dev/null 2>&1 && echo "true" || echo "false")
+        local has_pacman=$(command -v pacman >/dev/null 2>&1 && echo "true" || echo "false")
+        local has_snap=$(command -v snap >/dev/null 2>&1 && echo "true" || echo "false")
+        local has_nix=$(command -v nix-env >/dev/null 2>&1 && echo "true" || echo "false")
+        
+        case "$tool" in
+            "doctl")
+                if [[ "$has_brew" == "true" ]]; then
+                    echo "  brew install doctl"
+                fi
+                if [[ "$has_snap" == "true" ]]; then
+                    echo "  sudo snap install doctl"
+                fi
+                if [[ "$has_pacman" == "true" ]]; then
+                    echo "  yay -S doctl-bin  # or another AUR helper"
+                fi
+                echo "  # Direct download:"
+                echo "  curl -sL https://github.com/digitalocean/doctl/releases/latest/download/doctl-$(uname -s)-$(uname -m).tar.gz | tar -xzv"
+                echo "  sudo mv doctl /usr/local/bin"
+                ;;
+                
+            "aws")
+                if [[ "$has_brew" == "true" ]]; then
+                    echo "  brew install awscli"
+                fi
+                if [[ "$has_apt" == "true" ]]; then
+                    echo "  sudo apt-get update && sudo apt-get install awscli"
+                fi
+                if [[ "$has_yum" == "true" ]] || [[ "$has_dnf" == "true" ]]; then
+                    echo "  sudo ${has_dnf:+dnf}${has_yum:+yum} install awscli"
+                fi
+                if [[ "$has_pacman" == "true" ]]; then
+                    echo "  sudo pacman -S aws-cli"
+                fi
+                echo "  # Using Python pip:"
+                echo "  pip3 install awscli --user"
+                ;;
+                
+            "gh")
+                if [[ "$has_brew" == "true" ]]; then
+                    echo "  brew install gh"
+                fi
+                if [[ "$has_apt" == "true" ]]; then
+                    echo "  # Add GitHub CLI repository:"
+                    echo "  curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg"
+                    echo "  echo \"deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null"
+                    echo "  sudo apt update && sudo apt install gh"
+                fi
+                if [[ "$has_yum" == "true" ]] || [[ "$has_dnf" == "true" ]]; then
+                    echo "  sudo dnf install 'dnf-command(config-manager)'"
+                    echo "  sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo"
+                    echo "  sudo dnf install gh"
+                fi
+                if [[ "$has_pacman" == "true" ]]; then
+                    echo "  sudo pacman -S github-cli"
+                fi
+                ;;
+                
+            "jq")
+                if [[ "$has_brew" == "true" ]]; then
+                    echo "  brew install jq"
+                fi
+                if [[ "$has_apt" == "true" ]]; then
+                    echo "  sudo apt-get update && sudo apt-get install jq"
+                fi
+                if [[ "$has_yum" == "true" ]] || [[ "$has_dnf" == "true" ]]; then
+                    echo "  sudo ${has_dnf:+dnf}${has_yum:+yum} install jq"
+                fi
+                if [[ "$has_pacman" == "true" ]]; then
+                    echo "  sudo pacman -S jq"
+                fi
+                ;;
+                
+            "python3")
+                if [[ "$has_brew" == "true" ]]; then
+                    echo "  brew install python@3"
+                fi
+                if [[ "$has_apt" == "true" ]]; then
+                    echo "  sudo apt-get update && sudo apt-get install python3"
+                fi
+                if [[ "$has_yum" == "true" ]] || [[ "$has_dnf" == "true" ]]; then
+                    echo "  sudo ${has_dnf:+dnf}${has_yum:+yum} install python3"
+                fi
+                if [[ "$has_pacman" == "true" ]]; then
+                    echo "  sudo pacman -S python"
+                fi
+                ;;
+        esac
+        
+        # Add nix-shell option if available
+        if [[ "$has_nix" == "true" ]]; then
+            local nix_pkg=""
+            case "$tool" in
+                "doctl") nix_pkg="doctl" ;;
+                "aws") nix_pkg="awscli2" ;;
+                "gh") nix_pkg="gh" ;;
+                "jq") nix_pkg="jq" ;;
+                "python3") nix_pkg="python3" ;;
+            esac
+            if [[ -n "$nix_pkg" ]]; then
+                echo "  # Using Nix:"
+                echo "  nix-shell -p $nix_pkg"
+            fi
+        fi
+        
+        # Add documentation links
+        echo
+        echo "For more information, visit:"
+        case "$tool" in
+            "doctl") echo "  https://docs.digitalocean.com/reference/doctl/how-to/install/" ;;
+            "aws") echo "  https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html" ;;
+            "gh") echo "  https://cli.github.com/manual/installation" ;;
+            "jq") echo "  https://jqlang.github.io/jq/download/" ;;
+            "python3") echo "  https://www.python.org/downloads/" ;;
+        esac
+        echo
+    }
+    
     # Validate required CLI tools
     local required_tools=("doctl" "aws" "gh" "jq" "python3")
+    local missing_tools=()
+    
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" >/dev/null 2>&1; then
             echo -e "${RED}✗ Required tool '$tool' not found${NC}"
-            echo "Please install $tool and try again"
-            return 1
+            suggest_install_command "$tool"
+            missing_tools+=("$tool")
         fi
     done
+    
+    # If any tools are missing, provide batch installation option and exit
+    if [[ ${#missing_tools[@]} -gt 0 ]]; then
+        echo
+        echo -e "${YELLOW}=== Installation Summary ===${NC}"
+        echo "Missing tools: ${missing_tools[*]}"
+        echo
+        
+        # Provide combined installation commands for detected package managers
+        local has_brew=$(command -v brew >/dev/null 2>&1 && echo "true" || echo "false")
+        local has_apt=$(command -v apt-get >/dev/null 2>&1 && echo "true" || echo "false")
+        
+        if [[ "$has_brew" == "true" ]]; then
+            echo "To install all missing tools with Homebrew:"
+            local brew_pkgs=()
+            for tool in "${missing_tools[@]}"; do
+                case "$tool" in
+                    "doctl") brew_pkgs+=("doctl") ;;
+                    "aws") brew_pkgs+=("awscli") ;;
+                    "gh") brew_pkgs+=("gh") ;;
+                    "jq") brew_pkgs+=("jq") ;;
+                    "python3") brew_pkgs+=("python@3") ;;
+                esac
+            done
+            echo -e "${GREEN}  brew install ${brew_pkgs[*]}${NC}"
+            echo
+        fi
+        
+        if [[ "$has_apt" == "true" ]]; then
+            echo "To install available tools with apt:"
+            local apt_pkgs=()
+            local needs_gh_repo=false
+            for tool in "${missing_tools[@]}"; do
+                case "$tool" in
+                    "aws") apt_pkgs+=("awscli") ;;
+                    "gh") needs_gh_repo=true ;;
+                    "jq") apt_pkgs+=("jq") ;;
+                    "python3") apt_pkgs+=("python3") ;;
+                esac
+            done
+            if [[ ${#apt_pkgs[@]} -gt 0 ]]; then
+                echo -e "${GREEN}  sudo apt-get update && sudo apt-get install ${apt_pkgs[*]}${NC}"
+            fi
+            if [[ "$needs_gh_repo" == "true" ]]; then
+                echo "  # Then install GitHub CLI (see instructions above)"
+            fi
+            echo
+        fi
+        
+        echo "After installing the required tools, please run this script again."
+        return 1
+    fi
     
     # Validate required environment variables
     local required_vars=("DIGITALOCEAN_TOKEN" "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY" "ANTHROPIC_API_KEY")
@@ -891,7 +1081,10 @@ EOF
 create_cleanup_issue() {
     echo -e "${BLUE}Creating template cleanup issue...${NC}"
     
-    local issue_body="## Template Cleanup Required
+    # Build issue body using heredoc
+    local issue_body
+    issue_body=$(cat <<'EOF'
+## Template Cleanup Required
 
 This issue was automatically created after repository setup to track cleanup of template artifacts.
 
@@ -900,55 +1093,69 @@ This issue was automatically created after repository setup to track cleanup of 
 - [ ] Test deployment pipeline
 - [ ] Remove template-specific files when ready
 - [ ] Verify all placeholders were replaced correctly
+EOF
+)
 
     # Add project setup info if enabled
     if [[ "${SETUP_REPO_CREATE_PROJECT:-}" == "true" ]]; then
-        issue_body+="
+        issue_body+=$(cat <<'EOF'
+
 - [ ] Review GitHub project board configuration
-- [ ] Test label-to-status workflow automation"
+- [ ] Test label-to-status workflow automation
+EOF
+)
     fi
 
-    issue_body+="
+    issue_body+=$(cat <<'EOF'
+
 
 ### Eject Template Artifacts
 
 When you're ready to remove all template artifacts and convert this to a standalone repository, run:
 
-\`\`\`bash
+```bash
 ./initial-setup.sh --eject
-\`\`\`
+```
 
 This will:
 - Remove the GitHub template workflow
 - Delete template marker files  
 - Remove example configuration files
 - Clean up .gitignore entries
-- Remove this setup script"
+- Remove this setup script
+EOF
+)
 
     # Add project setup cleanup info if enabled
     if [[ "${SETUP_REPO_CREATE_PROJECT:-}" == "true" ]]; then
-        issue_body+="
-- Keep GitHub project and workflow automation (manually delete if not needed)"
+        issue_body+=$(cat <<'EOF'
+
+- Keep GitHub project and workflow automation (manually delete if not needed)
+EOF
+)
     fi
 
-    issue_body+="
+    issue_body+=$(cat <<'EOF'
+
 
 ### Project Workflow
 
 This repository uses a Kanban workflow with the following status labels:
-- \`status:new-issue\` - New, untriaged issues
-- \`status:icebox\` - Valid but not priority
-- \`status:backlog\` - Prioritized and ready
-- \`status:to-do\` - Ready for development
-- \`status:in-progress\` - Being worked on
-- \`status:code-review\` - Pull request open
-- \`status:testing\` - In QA/testing
-- \`status:ready-for-deployment\` - Ready to deploy
-- \`status:deployed\` - Live in production
+- `status:new-issue` - New, untriaged issues
+- `status:icebox` - Valid but not priority
+- `status:backlog` - Prioritized and ready
+- `status:to-do` - Ready for development
+- `status:in-progress` - Being worked on
+- `status:code-review` - Pull request open
+- `status:testing` - In QA/testing
+- `status:ready-for-deployment` - Ready to deploy
+- `status:deployed` - Live in production
 
 See [WORKFLOW.md](./WORKFLOW.md) for detailed workflow documentation.
 
-/cc @claude"
+/cc @claude
+EOF
+)
 
     # Try to create GitHub issue if gh CLI is available
     if command -v gh >/dev/null 2>&1; then
@@ -1181,7 +1388,7 @@ case "${1:-}" in
         echo "  SETUP_REPO_KEYCLOAK_REALM     Keycloak realm (default: $DEFAULT_KEYCLOAK_REALM)"
         echo "  SETUP_REPO_BACKUP_RETENTION   Backup retention (default: $DEFAULT_BACKUP_RETENTION)"
         echo "  SETUP_REPO_SPACES_REGION      Spaces region (default: $DEFAULT_SPACES_REGION)"
-        echo "  SETUP_REPO_LETSENCRYPT_EMAIL  Let's Encrypt email (default: same as SETUP_REPO_EMAIL)"
+        echo "  SETUP_REPO_LETSENCRYPT_EMAIL  Let'\''s Encrypt email (default: same as SETUP_REPO_EMAIL)"
         echo "  SETUP_REPO_CREATE_PROJECT     Setup GitHub project (default: false)"
         ;;
     *)
