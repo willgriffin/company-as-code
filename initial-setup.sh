@@ -231,14 +231,48 @@ setup_infrastructure() {
     
     # Create DigitalOcean Spaces bucket for Terraform state
     echo "  Creating DigitalOcean Spaces bucket..."
-    local bucket_name="${SETUP_REPO_CLUSTER_NAME}-terraform-state"
+    
+    # Generate unique bucket name with random suffix
+    # Format: <cluster-name>-tf-<random-6-chars>
+    # Example: my-cluster-tf-a1b2c3
+    # This ensures globally unique bucket names and avoids conflicts
+    local random_suffix
+    random_suffix=$(openssl rand -hex 3)
+    local bucket_name="${SETUP_REPO_CLUSTER_NAME}-tf-${random_suffix}"
     local spaces_region="${SETUP_REPO_SPACES_REGION:-nyc3}"
     
-    if doctl spaces bucket create "$bucket_name" --region "$spaces_region" >/dev/null 2>&1; then
-        echo -e "${GREEN}✓ Spaces bucket '$bucket_name' created${NC}"
-    else
-        echo -e "${YELLOW}⚠ Spaces bucket may already exist or creation failed${NC}"
+    # Check if bucket exists before creating
+    local bucket_exists=false
+    local max_attempts=5
+    local attempt=1
+    
+    while [[ $attempt -le $max_attempts ]]; do
+        # Check if bucket exists
+        if doctl spaces bucket list | grep -q "^$bucket_name\s"; then
+            echo -e "${YELLOW}⚠ Bucket '$bucket_name' already exists, generating new name...${NC}"
+            random_suffix=$(openssl rand -hex 3)
+            bucket_name="${SETUP_REPO_CLUSTER_NAME}-tf-${random_suffix}"
+            ((attempt++))
+        else
+            # Bucket doesn't exist, try to create it
+            if doctl spaces bucket create "$bucket_name" --region "$spaces_region"; then
+                echo -e "${GREEN}✓ Spaces bucket '$bucket_name' created${NC}"
+                bucket_exists=true
+                break
+            else
+                echo -e "${RED}✗ Failed to create bucket '$bucket_name'${NC}"
+                return 1
+            fi
+        fi
+    done
+    
+    if [[ $bucket_exists == false ]]; then
+        echo -e "${RED}✗ Failed to create unique bucket after $max_attempts attempts${NC}"
+        return 1
     fi
+    
+    # Store the bucket name for later use
+    export SPACES_BUCKET_NAME="$bucket_name"
     
     # Generate Spaces access keys using DigitalOcean API
     echo "  Creating Spaces access keys..."
@@ -365,6 +399,7 @@ print(derive_smtp_password('$smtp_secret_key'))
     # Generated infrastructure secrets
     set_github_secret "DIGITALOCEAN_SPACES_ACCESS_KEY" "$spaces_access_key" || return 1
     set_github_secret "DIGITALOCEAN_SPACES_SECRET_KEY" "$spaces_secret_key" || return 1
+    set_github_secret "SPACES_BUCKET_NAME" "$SPACES_BUCKET_NAME" || return 1
     set_github_secret "AWS_SES_SMTP_USERNAME" "$smtp_access_key" || return 1
     set_github_secret "AWS_SES_SMTP_PASSWORD" "$smtp_password" || return 1
     

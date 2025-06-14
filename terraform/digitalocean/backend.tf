@@ -5,7 +5,7 @@ terraform {
     }
     region                      = "nyc3"
     key                         = "terraform/digitalocean.tfstate"
-    bucket                      = "terraform-state-happyvertical"
+    # bucket is provided via backend-config in CI/CD
     skip_credentials_validation = true
     skip_metadata_api_check     = true
     skip_region_validation      = true
