@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+# Conventional Commits hook
+# https://www.conventionalcommits.org/
+
+commit_regex='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .{1,50}'
+
+if ! grep -qE "$commit_regex" "$1"; then
+    echo "❌ Commit message does not follow Conventional Commits format!"
+    echo ""
+    echo "Format: <type>(<scope>): <subject>"
+    echo ""
+    echo "Types:"
+    echo "  feat:     New feature"
+    echo "  fix:      Bug fix"
+    echo "  docs:     Documentation only changes"
+    echo "  style:    Code style changes (formatting, semicolons, etc)"
+    echo "  refactor: Code change that neither fixes a bug nor adds a feature"
+    echo "  perf:     Performance improvements"
+    echo "  test:     Adding or correcting tests"
+    echo "  build:    Changes to build system or dependencies"
+    echo "  ci:       CI configuration files and scripts"
+    echo "  chore:    Other changes that don't modify src or test files"
+    echo "  revert:   Reverts a previous commit"
+    echo ""
+    echo "Example: feat(auth): add OAuth2 login support"
+    echo ""
+    echo "Your commit message:"
+    echo "$(cat "$1")"
+    exit 1
+fi
+
+# Check message length
+subject=$(head -n1 "$1" | sed 's/^[^:]*: //')
+if [ ${#subject} -gt 72 ]; then
+    echo "❌ Commit subject is too long (${#subject} chars, max 72)"
+    exit 1
+fi
