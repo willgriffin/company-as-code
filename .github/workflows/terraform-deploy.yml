@@ -29,6 +29,7 @@ jobs:
   terraform-digitalocean:
     name: Terraform DigitalOcean
     runs-on: ubuntu-latest
+    environment: production
     defaults:
       run:
         working-directory: terraform/digitalocean
@@ -99,45 +100,11 @@ jobs:
           value: ${{ env.KUBECONFIG_BASE64 }}
           token: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Send deployment notification email
-        if: always() && (github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: email-smtp.us-east-1.amazonaws.com
-          server_port: 587
-          username: ${{ secrets.AWS_SES_SMTP_USERNAME }}
-          password: ${{ secrets.AWS_SES_SMTP_PASSWORD }}
-          subject: 'GitOps Deployment ${{ job.status }}: ${{ github.repository }}'
-          to: ${{ secrets.ADMIN_EMAIL }}
-          from: 'GitOps Deployment <noreply@${{ secrets.DOMAIN }}>'
-          body: |
-            GitOps Infrastructure Deployment Report
-            
-            Repository: ${{ github.repository }}
-            Branch: ${{ github.ref_name }}
-            Commit: ${{ github.sha }}
-            Action: ${{ github.event.inputs.action || 'apply' }}
-            Status: ${{ job.status }}
-            
-            Workflow URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-            
-            DigitalOcean Resources:
-            - Kubernetes Cluster: Deployed
-            - Load Balancers: Configured
-            - DNS Records: Updated
-            
-            Next Steps:
-            - Flux GitOps bootstrap will begin automatically
-            - Applications will be deployed via GitOps
-            - Monitor deployment status in the Actions tab
-            
-            Timestamp: ${{ github.event.created_at }}
-          attachments: |
-            terraform-plan.txt
 
   terraform-aws:
     name: Terraform AWS
     runs-on: ubuntu-latest
+    environment: production
     needs: terraform-digitalocean
     if: github.event.inputs.action != 'destroy'
     defaults:
