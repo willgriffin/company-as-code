@@ -80,6 +80,7 @@ jobs:
         run: |
           # Create backend config for Terraform state
           cat > backend.conf <<EOF
+          bucket = "${{ secrets.SPACES_BUCKET_NAME }}"
           access_key = "${{ secrets.DIGITALOCEAN_SPACES_ACCESS_KEY }}"
           secret_key = "${{ secrets.DIGITALOCEAN_SPACES_SECRET_KEY }}"
           EOF
@@ -158,6 +159,7 @@ jobs:
         run: |
           # Create backend config for Terraform state
           cat > backend.conf <<EOF
+          bucket = "${{ secrets.SPACES_BUCKET_NAME }}"
           access_key = "${{ secrets.DIGITALOCEAN_SPACES_ACCESS_KEY }}"
           secret_key = "${{ secrets.DIGITALOCEAN_SPACES_SECRET_KEY }}"
           EOF
