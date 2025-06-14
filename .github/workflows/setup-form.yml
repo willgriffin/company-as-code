@@ -25,7 +25,7 @@ jobs:
           
           # Create issue for setup-repo.sh execution
           gh issue create \
-            --title "Repository Setup Required" \
+            --title "chore: configure repository from template" \
             --body "$(cat <<'EOF'
           ## 🚀 Repository Setup Required
 

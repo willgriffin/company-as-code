@@ -410,7 +410,7 @@ See [WORKFLOW.md](./WORKFLOW.md) for detailed workflow documentation.
     # Try to create GitHub issue if gh CLI is available
     if command -v gh >/dev/null 2>&1; then
         if gh issue create \
-            --title "Template Cleanup and Eject" \
+            --title "chore: complete template cleanup and ejection" \
             --body "$issue_body" \
             --label "template-cleanup" 2>/dev/null; then
             echo -e "${GREEN}✓ GitHub issue created successfully${NC}"
