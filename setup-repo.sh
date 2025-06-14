@@ -428,7 +428,7 @@ eject_template() {
     
     # Remove template workflow
     echo "  Removing template workflow..."
-    rm -f .github/workflows/setup-form.yml
+    rm -f .github/workflows/create-setup-issue.yml
     
     # Remove label-to-status workflow (optional, user may want to keep)
     if [[ -f .github/workflows/label-to-status.yml ]]; then
