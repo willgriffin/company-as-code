@@ -544,7 +544,9 @@ setup_infrastructure() {
             fi
             echo "  # Note: gh requires repository setup (see instructions above)"
             echo
-        elif [[ "$HAS_YUM" == "true" ]]; then
+        fi
+        
+        if [[ "$HAS_YUM" == "true" ]]; then
             echo "To install available tools with yum:"
             local yum_pkgs=()
             for tool in "${missing_tools[@]}"; do
