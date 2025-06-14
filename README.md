@@ -30,6 +30,39 @@ Deploy a complete, production-ready Kubernetes infrastructure in under 5 minutes
 - **🤖 AI Gateway** - LiteLLM proxy with expense tracking (`ai.{{SETUP_REPO_DOMAIN}}`)
 - **📊 Monitoring** - Prometheus, Grafana, and Jaeger (`monitoring.{{SETUP_REPO_DOMAIN}}`)
 
+## 📋 Prerequisites
+
+Before running the initial setup, ensure you have the following CLI tools installed:
+
+- **`doctl`** - DigitalOcean CLI ([installation guide](https://docs.digitalocean.com/reference/doctl/how-to/install/))
+- **`aws`** - AWS CLI ([installation guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html))
+- **`gh`** - GitHub CLI ([installation guide](https://cli.github.com/manual/installation))
+- **`jq`** - JSON processor ([download](https://jqlang.github.io/jq/download/))
+- **`python3`** - Python 3.x ([download](https://www.python.org/downloads/))
+
+### Quick Installation
+
+**macOS (Homebrew):**
+```bash
+brew install doctl awscli gh jq python@3
+```
+
+**Ubuntu/Debian:**
+```bash
+# Install available packages
+sudo apt-get update && sudo apt-get install awscli jq python3
+
+# Install GitHub CLI
+curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+sudo apt update && sudo apt install gh
+
+# Install doctl via snap
+sudo snap install doctl
+```
+
+**Note**: The setup script will check for these tools and provide platform-specific installation instructions if any are missing.
+
 ## 🚀 Quick Start
 
 ### 1. Use This Template
