@@ -3,7 +3,7 @@ import { TerraformStack, TerraformOutput } from 'cdktf';
 import { DigitaloceanProvider } from '@cdktf/provider-digitalocean/lib/provider';
 import { SpacesBucket } from '@cdktf/provider-digitalocean/lib/spaces-bucket';
 import { SpacesBucketPolicy } from '@cdktf/provider-digitalocean/lib/spaces-bucket-policy';
-import { Config } from '@startup-gitops/shared';
+import { Config } from '../config/schema';
 
 export interface DigitalOceanSpacesStackProps {
   projectName: string;

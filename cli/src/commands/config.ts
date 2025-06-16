@@ -1,6 +1,6 @@
 import { existsSync, writeFileSync, readFileSync } from 'fs';
 import chalk from 'chalk';
-import { validateConfig, Config } from '@startup-gitops/shared';
+import { validateConfig, Config } from '@startup-gitops/platform';
 
 interface ConfigValidateOptions {
   config?: string;

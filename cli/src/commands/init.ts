@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import inquirer from 'inquirer';
 import ora from 'ora';
 import chalk from 'chalk';
-import { Config, validateConfig } from '@startup-gitops/shared';
+import { Config, validateConfig } from '@startup-gitops/platform';
 import { DigitalOceanProvider } from '../providers/digitalocean';
 import { writeFileSync, existsSync } from 'fs';
 import { join } from 'path';

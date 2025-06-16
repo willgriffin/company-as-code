@@ -6,7 +6,7 @@ import { KubernetesNodePool } from '@cdktf/provider-digitalocean/lib/kubernetes-
 import { LoadBalancer } from '@cdktf/provider-digitalocean/lib/loadbalancer';
 import { Domain } from '@cdktf/provider-digitalocean/lib/domain';
 import { Record } from '@cdktf/provider-digitalocean/lib/record';
-import { Config, Environment } from '@startup-gitops/shared';
+import { Config, Environment } from '../config/schema';
 
 export interface DigitalOceanClusterStackProps {
   projectName: string;

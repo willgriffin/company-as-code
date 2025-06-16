@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'fs';
 import { execSync } from 'child_process';
 import ora from 'ora';
 import chalk from 'chalk';
-import { validateConfig, Config } from '@startup-gitops/shared';
+import { validateConfig, Config } from '@startup-gitops/platform';
 import { DigitalOceanProvider } from '../providers/digitalocean';
 import { CDKTFProvider } from '../providers/cdktf';
 

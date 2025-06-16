@@ -7,7 +7,6 @@
   "scripts": {
     "cli": "pnpm --filter @startup-gitops/cli",
     "platform": "pnpm --filter @startup-gitops/platform",
-    "shared": "pnpm --filter @startup-gitops/shared",
     "build": "pnpm run -r build",
     "test": "pnpm run -r test",
     "lint": "pnpm run -r lint",

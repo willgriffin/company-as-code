@@ -5,7 +5,7 @@ import { DigitalOceanClusterStack } from './stacks/digitalocean-cluster';
 import { DigitalOceanSpacesStack } from './stacks/digitalocean-spaces';
 import { AWSSESStack } from './stacks/aws-ses';
 import { GitHubSecretsStack } from './stacks/github-secrets';
-import { Config, validateConfig } from '@startup-gitops/shared';
+import { Config, validateConfig } from './config/schema';
 
 function loadConfig(): Config {
   // Try to load configuration from various locations

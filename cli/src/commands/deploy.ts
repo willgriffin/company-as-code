@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { existsSync, readFileSync } from 'fs';
 import ora from 'ora';
 import chalk from 'chalk';
-import { validateConfig, Config } from '@startup-gitops/shared';
+import { validateConfig, Config } from '@startup-gitops/platform';
 import { CDKTFProvider } from '../providers/cdktf';
 import { DigitalOceanProvider } from '../providers/digitalocean';
 

@@ -2,7 +2,7 @@ import { Construct } from 'constructs';
 import { TerraformStack } from 'cdktf';
 import { GithubProvider } from '@cdktf/provider-github/lib/provider';
 import { ActionsSecret } from '@cdktf/provider-github/lib/actions-secret';
-import { Config } from '@startup-gitops/shared';
+import { Config } from '../config/schema';
 
 export interface GitHubSecretsStackProps {
   projectName: string;

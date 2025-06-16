@@ -7,7 +7,7 @@ import { SesConfigurationSet } from '@cdktf/provider-aws/lib/ses-configuration-s
 import { IamUser } from '@cdktf/provider-aws/lib/iam-user';
 import { IamAccessKey } from '@cdktf/provider-aws/lib/iam-access-key';
 import { IamUserPolicy } from '@cdktf/provider-aws/lib/iam-user-policy';
-import { Config } from '@startup-gitops/shared';
+import { Config } from '../config/schema';
 
 export interface AWSSESStackProps {
   projectName: string;

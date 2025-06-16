@@ -17,9 +17,6 @@
     },
     {
       "path": "./platform"
-    },
-    {
-      "path": "./packages/shared"
     }
   ]
 }
