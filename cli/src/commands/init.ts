@@ -4,7 +4,7 @@ import ora from 'ora';
 import chalk from 'chalk';
 import { Config, validateConfig } from '@startup-gitops/platform';
 import { DigitalOceanProvider } from '../providers/digitalocean';
-import { writeFileSync, existsSync } from 'fs';
+import { writeFileSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 
 interface InitOptions {
@@ -331,6 +331,6 @@ async function loadConfigFile(configPath?: string): Promise<Config> {
     throw new Error(`Configuration file not found: ${path}`);
   }
 
-  const configContent = await import(join(process.cwd(), path));
-  return configContent.default || configContent;
+  const configContent = readFileSync(join(process.cwd(), path), 'utf-8');
+  return JSON.parse(configContent);
 }

@@ -145,27 +145,31 @@ export class CDKTFProvider {
   }
 
   private extractOutputs(terraformOutput: string): Record<string, any> {
-    const outputs: Record<string, any> = {};
-    
-    // Simple extraction - in real implementation, would parse terraform output JSON
-    const lines = terraformOutput.split('\n');
-    let inOutputs = false;
-    
-    for (const line of lines) {
-      if (line.includes('Outputs:')) {
-        inOutputs = true;
-        continue;
-      }
+    try {
+      // Try to parse as JSON first (if cdktf provides JSON output)
+      return JSON.parse(terraformOutput);
+    } catch (error) {
+      // Fallback to parsing text output
+      const outputs: Record<string, any> = {};
+      const lines = terraformOutput.split('\n');
+      let inOutputs = false;
       
-      if (inOutputs && line.includes('=')) {
-        const [key, value] = line.split('=').map(s => s.trim());
-        if (key && value) {
-          outputs[key] = value.replace(/"/g, '');
+      for (const line of lines) {
+        if (line.includes('Outputs:')) {
+          inOutputs = true;
+          continue;
+        }
+        
+        if (inOutputs && line.includes('=')) {
+          const [key, value] = line.split('=').map(s => s.trim());
+          if (key && value) {
+            outputs[key] = value.replace(/"/g, '');
+          }
         }
       }
+      
+      return outputs;
     }
-    
-    return outputs;
   }
 
   async validateConfiguration(): Promise<CDKTFDeploymentResult> {

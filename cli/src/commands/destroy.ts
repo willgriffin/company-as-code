@@ -46,40 +46,11 @@ export async function destroy(options: DestroyOptions) {
 
     // Enhanced confirmation flow
     if (!options.confirm) {
-      const { initialConfirm } = await inquirer.prompt([
-        {
-          type: 'confirm',
-          name: 'initialConfirm',
-          message: chalk.red('Do you want to proceed with destroying the infrastructure?'),
-          default: false
-        }
-      ]);
-
-      if (!initialConfirm) {
+      const confirmed = await runConfirmationFlow(config.project.name);
+      if (!confirmed) {
         console.log(chalk.gray('Operation cancelled.'));
         return;
       }
-
-      // Ask for project name confirmation
-      const { projectNameConfirm } = await inquirer.prompt([
-        {
-          type: 'input',
-          name: 'projectNameConfirm',
-          message: chalk.red(`Type the project name "${config.project.name}" to confirm:`),
-          validate: (input: string) => input === config.project.name || 
-                   `Please type exactly: ${config.project.name}`
-        }
-      ]);
-
-      // Final confirmation
-      const { finalConfirm } = await inquirer.prompt([
-        {
-          type: 'input',
-          name: 'finalConfirm',
-          message: chalk.red('Type "DESTROY" (all caps) to proceed:'),
-          validate: (input: string) => input === 'DESTROY' || 'Please type "DESTROY" in all caps'
-        }
-      ]);
     }
 
     // Check if resources exist before attempting destruction
@@ -250,4 +221,43 @@ async function executeDestruction(config: Config, environments: any[]): Promise<
   console.log(chalk.gray('  • Configuration files remain intact for future deployments'));
   
   console.log(chalk.blue('\n🚀 To redeploy: gitops-cli deploy'));
+}
+
+async function runConfirmationFlow(projectName: string): Promise<boolean> {
+  // Initial confirmation
+  const { initialConfirm } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'initialConfirm',
+      message: chalk.red('Do you want to proceed with destroying the infrastructure?'),
+      default: false
+    }
+  ]);
+
+  if (!initialConfirm) {
+    return false;
+  }
+
+  // Project name confirmation
+  const { projectNameConfirm } = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'projectNameConfirm',
+      message: chalk.red(`Type the project name "${projectName}" to confirm:`),
+      validate: (input: string) => input === projectName || 
+               `Please type exactly: ${projectName}`
+    }
+  ]);
+
+  // Final confirmation
+  const { finalConfirm } = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'finalConfirm',
+      message: chalk.red('Type "DESTROY" (all caps) to proceed:'),
+      validate: (input: string) => input === 'DESTROY' || 'Please type "DESTROY" in all caps'
+    }
+  ]);
+
+  return true;
 }
