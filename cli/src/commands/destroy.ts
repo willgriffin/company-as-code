@@ -259,5 +259,9 @@ async function runConfirmationFlow(projectName: string): Promise<boolean> {
     }
   ]);
 
+  if (finalConfirm !== 'DESTROY') {
+    return false;
+  }
+
   return true;
 }
