@@ -19,7 +19,7 @@ interface ApplicationStatus {
   url?: string;
 }
 
-export async function status(options: StatusOptions) {
+export async function status(options: StatusOptions): Promise<void> {
   console.log(chalk.blue.bold('📊 GitOps Deployment Status'));
   console.log(chalk.gray('Checking infrastructure and application health\n'));
 
@@ -106,7 +106,8 @@ async function checkInfrastructureStatus(config: Config, environment: any): Prom
 
   // Check CDKTF stack status
   try {
-    const cdktf = new CDKTFProvider('../platform');
+    const platformPath = process.env.PLATFORM_PATH || '../platform';
+    const cdktf = new CDKTFProvider(platformPath);
     const stacks = await cdktf.listStacks();
     
     if (stacks.length > 0) {

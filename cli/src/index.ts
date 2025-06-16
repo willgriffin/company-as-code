@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 
+import { config as dotenvConfig } from 'dotenv';
 import { Command } from 'commander';
+
+// Load environment variables from .env file
+dotenvConfig({ path: ['.env.local', '.env'] });
 import { init } from './commands/init';
 import { deploy } from './commands/deploy';
 import { destroy } from './commands/destroy';

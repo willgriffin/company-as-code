@@ -5,13 +5,14 @@ import chalk from 'chalk';
 import { validateConfig, Config } from '@startup-gitops/platform';
 import { CDKTFProvider } from '../providers/cdktf';
 import { DigitalOceanProvider } from '../providers/digitalocean';
+import { validateEnvironment, throwEnvironmentError } from '../utils/environment';
 
 interface DeployOptions {
   environment?: string;
   config?: string;
 }
 
-export async function deploy(options: DeployOptions) {
+export async function deploy(options: DeployOptions): Promise<void> {
   console.log(chalk.blue.bold('🚀 GitOps Infrastructure Deployment'));
   console.log(chalk.gray('Deploying with Terraform CDK\n'));
 
@@ -33,10 +34,11 @@ export async function deploy(options: DeployOptions) {
     console.log(chalk.gray(`  Applications: ${config.applications.join(', ') || 'none'}\n`));
 
     // Validate prerequisites
-    await validatePrerequisites();
+    await validatePrerequisites(config);
 
     // Initialize CDKTF provider
-    const cdktf = new CDKTFProvider('../platform', !!process.env.VERBOSE);
+    const platformPath = process.env.PLATFORM_PATH || '../platform';
+    const cdktf = new CDKTFProvider(platformPath, !!process.env.VERBOSE);
 
     // Validate CDKTF configuration
     const validationResult = await cdktf.validateConfiguration();
@@ -84,7 +86,14 @@ export async function deploy(options: DeployOptions) {
     console.log(chalk.gray('  3. Access your applications using the URLs above'));
     
   } catch (error) {
-    console.error(chalk.red('❌ Deployment failed:'), error instanceof Error ? error.message : error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error(chalk.red('❌ Deployment failed:'), errorMessage);
+    
+    // Add debug context
+    if (process.env.DEBUG) {
+      console.error(chalk.gray('Stack trace:'), error);
+    }
+    
     process.exit(1);
   }
 }
@@ -105,16 +114,25 @@ async function loadConfiguration(configPath?: string): Promise<Config> {
   }
 }
 
-async function validatePrerequisites(): Promise<void> {
+async function validatePrerequisites(config: Config): Promise<void> {
   const spinner = ora('Validating prerequisites...').start();
   
   try {
     // Check environment variables
-    const requiredEnvVars = ['DIGITALOCEAN_TOKEN'];
-    const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+    const envValidation = validateEnvironment(config);
     
-    if (missingVars.length > 0) {
-      throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+    if (!envValidation.valid) {
+      spinner.fail('Environment validation failed');
+      throwEnvironmentError(envValidation);
+    }
+    
+    // Display warnings if any
+    if (envValidation.warnings.length > 0) {
+      spinner.warn('Environment validation completed with warnings');
+      for (const warning of envValidation.warnings) {
+        console.log(chalk.yellow(`⚠️  ${warning}`));
+      }
+      spinner.start('Continuing with deployment...');
     }
 
     // Test DigitalOcean API access

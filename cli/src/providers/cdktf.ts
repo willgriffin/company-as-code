@@ -1,6 +1,6 @@
 import { execSync, spawn } from 'child_process';
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import ora from 'ora';
 import chalk from 'chalk';
 
@@ -14,8 +14,17 @@ export class CDKTFProvider {
   private platformPath: string;
   private verbose: boolean;
 
-  constructor(platformPath = '../platform', verbose = false) {
-    this.platformPath = platformPath;
+  constructor(platformPath: string = '../platform', verbose: boolean = false) {
+    // Add path validation
+    if (!existsSync(platformPath)) {
+      throw new Error(`Platform path does not exist: ${platformPath}`);
+    }
+    
+    if (!existsSync(join(platformPath, 'cdktf.json'))) {
+      throw new Error(`Invalid CDKTF project: missing cdktf.json in ${platformPath}`);
+    }
+    
+    this.platformPath = resolve(platformPath);
     this.verbose = verbose;
   }
 

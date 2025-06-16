@@ -6,6 +6,7 @@ import chalk from 'chalk';
 import { validateConfig, Config } from '@startup-gitops/platform';
 import { CDKTFProvider } from '../providers/cdktf';
 import { DigitalOceanProvider } from '../providers/digitalocean';
+import { validateEnvironment, throwEnvironmentError } from '../utils/environment';
 
 interface DestroyOptions {
   environment?: string;
@@ -13,7 +14,7 @@ interface DestroyOptions {
   confirm?: boolean;
 }
 
-export async function destroy(options: DestroyOptions) {
+export async function destroy(options: DestroyOptions): Promise<void> {
   console.log(chalk.red.bold('🚨 Infrastructure Destruction'));
   console.log(chalk.yellow('This will permanently delete all infrastructure and data!\n'));
 
@@ -53,6 +54,12 @@ export async function destroy(options: DestroyOptions) {
       }
     }
 
+    // Validate environment variables
+    const envValidation = validateEnvironment(config);
+    if (!envValidation.valid) {
+      throwEnvironmentError(envValidation);
+    }
+    
     // Check if resources exist before attempting destruction
     await validateResourcesExist(config, environments);
 
@@ -130,7 +137,8 @@ async function validateResourcesExist(config: Config, environments: any[]): Prom
     }
 
     // Check if CDKTF stacks exist
-    const cdktf = new CDKTFProvider('../platform');
+    const platformPath = process.env.PLATFORM_PATH || '../platform';
+    const cdktf = new CDKTFProvider(platformPath);
     const stacks = await cdktf.listStacks();
     
     if (stacks.length === 0) {
@@ -159,7 +167,8 @@ async function executeDestruction(config: Config, environments: any[]): Promise<
   // Step 2: Destroy infrastructure with CDKTF
   const infraSpinner = ora('Destroying infrastructure with Terraform...').start();
   try {
-    const cdktf = new CDKTFProvider('../platform', true); // verbose mode
+    const platformPath = process.env.PLATFORM_PATH || '../platform';
+    const cdktf = new CDKTFProvider(platformPath, true); // verbose mode
     
     for (const env of environments) {
       const stackName = `${config.project.name}-${env.name}`;

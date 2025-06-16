@@ -12,7 +12,7 @@ interface InitOptions {
   config?: string;
 }
 
-export async function init(options: InitOptions) {
+export async function init(options: InitOptions): Promise<void> {
   console.log(chalk.blue.bold('🚀 GitOps Template Initialization'));
   console.log(chalk.gray('Setting up your GitOps deployment with Terraform CDK\n'));
 

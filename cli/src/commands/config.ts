@@ -10,7 +10,7 @@ interface ConfigInitOptions {
   output?: string;
 }
 
-async function validate(options: ConfigValidateOptions) {
+async function validate(options: ConfigValidateOptions): Promise<void> {
   const configPath = options.config || 'gitops.config.json';
   
   try {
@@ -39,7 +39,7 @@ async function validate(options: ConfigValidateOptions) {
   }
 }
 
-async function init(options: ConfigInitOptions) {
+async function init(options: ConfigInitOptions): Promise<void> {
   const outputPath = options.output || 'gitops.config.json';
   
   if (existsSync(outputPath)) {
