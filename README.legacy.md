@@ -1,7 +1,5 @@
 # Startup GitOps Template
 
-> **🚧 MAJOR REFACTORING IN PROGRESS**: This repository is being refactored to use Terraform CDK with TypeScript. The legacy bash-based version remains available on the `main` branch. See [Issue #78](https://github.com/willgriffin/startup-gitops-template/issues/78) for details on the modernization effort.
-
 🚀 **One-click Kubernetes deployment template** for complete infrastructure with GitOps on [DigitalOcean](https://digitalocean.pxf.io/3evZdB).
 
 [![Use Template](https://img.shields.io/badge/Use-Template-green?style=for-the-badge&logo=github)](../../generate)

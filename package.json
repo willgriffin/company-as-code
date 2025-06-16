@@ -1,0 +1,26 @@
+{
+  "name": "@startup-gitops/monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@9.x",
+  "description": "GitOps template with Terraform CDK and modern TypeScript tooling",
+  "scripts": {
+    "cli": "pnpm --filter @startup-gitops/cli",
+    "platform": "pnpm --filter @startup-gitops/platform",
+    "shared": "pnpm --filter @startup-gitops/shared",
+    "build": "pnpm run -r build",
+    "test": "pnpm run -r test",
+    "lint": "pnpm run -r lint",
+    "dev": "pnpm run -r dev"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "tsx": "^4.0.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}
