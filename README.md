@@ -1,228 +1,354 @@
-# GitOps Infrastructure Template
+# Startup GitOps Template
 
-A modern, production-ready infrastructure template for deploying Kubernetes applications on [DigitalOcean](https://digitalocean.pxf.io/3evZdB) using GitOps principles with Flux, TypeScript, and Terraform CDK.
+A comprehensive GitHub template repository for deploying production-ready Kubernetes infrastructure on [DigitalOcean](https://digitalocean.pxf.io/3evZdB) using GitOps principles with Flux v2.
 
 ## 🚀 Features
 
-- **TypeScript-based Infrastructure as Code** using Terraform CDK (CDKTF)
+- **One-click deployment** using GitHub's template repository feature
 - **GitOps workflow** with Flux v2 for continuous deployment
-- **Production-ready Kubernetes** clusters on DigitalOcean
+- **Infrastructure as Code** using Terraform (with CDKTF support)
+- **Production-ready Kubernetes** on DigitalOcean
 - **Integrated applications** (optional):
   - 🔐 **Keycloak** - Identity and Access Management
-  - 💬 **Mattermost** - Team collaboration platform
-  - ☁️ **Nextcloud** - File storage and productivity suite
+  - 💬 **Mattermost** - Team collaboration
+  - ☁️ **Nextcloud** - File storage and productivity
   - 📧 **Mailu** - Full-featured email server
 - **Enterprise features**:
-  - 🔒 Automatic SSL/TLS with cert-manager and Let's Encrypt
-  - 📊 Monitoring with Prometheus and Grafana (optional)
-  - 💾 Automated backups with Velero (optional)
+  - 🔒 Automatic SSL/TLS with cert-manager
+  - 🔑 External Secrets Operator for secret management
   - 🌐 DNS management with External DNS
-  - 🛡️ OAuth2 proxy for authentication
+  - 🛡️ OAuth2 proxy integration
+  - 🐘 PostgreSQL clusters with CloudNativePG
+  - 🚀 Redis caching with Redis Operator
 
 ## 📋 Prerequisites
 
-- **Node.js** 22+ and **pnpm** 9+
-- **[DigitalOcean account](https://digitalocean.pxf.io/3evZdB)** with API token
-- **GitHub account** for GitOps repository
-- **Domain name** with DNS pointing to DigitalOcean
-- **AWS account** (optional, for email features)
+- **[DigitalOcean account](https://digitalocean.pxf.io/3evZdB)** with [API token](https://digitalocean.pxf.io/je2Ggv)
+- **GitHub account** with personal access token
+- **Domain name** configured with DigitalOcean DNS
+- **AWS account** (optional, for email with SES)
 
 ## 🛠️ Quick Start
 
-### 1. Clone and Setup
+### Option A: Automated Setup (Recommended)
+
+#### 1. Use This Template
+
+Click the "Use this template" button on GitHub to create your own repository from this template.
+
+#### 2. Clone and Run Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/your-gitops-repo.git
-cd your-gitops-repo
+# Clone your new repository
+git clone https://github.com/yourusername/your-repo-name.git
+cd your-repo-name
 
-# Install dependencies
-pnpm install
-
-# Build the project
-pnpm build
+# Run the interactive setup script
+./setup.sh
 ```
 
-### 2. Configure Environment
+The setup script will:
+- Check for required tools (doctl, aws-cli, gh, jq)
+- Guide you through authentication for DigitalOcean, AWS, and GitHub
+- Create DigitalOcean Spaces bucket for Terraform state
+- Set up AWS SES credentials (if email features enabled)
+- Configure GitHub repository secrets automatically
+- Create workflow labels and optional project board
+- Generate a cleanup issue for template artifacts
 
-Create a `.env` file from the example:
+#### 3. Deploy Infrastructure
+
+After setup completes:
+```bash
+# Deploy using CDKTF
+cd platform
+npm install
+npx cdktf deploy
+```
+
+### Option B: Manual Setup
+
+#### 1. Use This Template
+
+Click the "Use this template" button on GitHub to create your own repository from this template.
+
+#### 2. Configure Repository Secrets
+
+Manually add these secrets to your GitHub repository:
+
+```
+DIGITALOCEAN_TOKEN       # Your DigitalOcean API token
+SPACES_ACCESS_KEY_ID     # DigitalOcean Spaces access key
+SPACES_SECRET_ACCESS_KEY # DigitalOcean Spaces secret key
+SPACES_BUCKET_NAME       # Bucket name for Terraform state
+DOMAIN                   # Your domain (e.g., example.com)
+ADMIN_EMAIL             # Admin email address
+AWS_ACCESS_KEY_ID       # AWS IAM access key (optional, for SES)
+AWS_SECRET_ACCESS_KEY   # AWS IAM secret key (optional, for SES)
+AWS_SES_SMTP_USERNAME   # SES SMTP username (optional)
+AWS_SES_SMTP_PASSWORD   # SES SMTP password (optional)
+```
+
+#### 3. Configure Your Deployment
+
+1. Create your configuration file:
+   ```bash
+   cp config.json.example config.json
+   ```
+
+2. Edit `config.json` with your settings:
+   ```json
+   {
+     "project": {
+       "name": "my-startup",
+       "domain": "example.com",
+       "email": "admin@example.com"
+     },
+     "environments": [{
+       "name": "production",
+       "cluster": {
+         "region": "nyc3",
+         "nodeSize": "s-2vcpu-4gb",
+         "nodeCount": 3
+       },
+       "domain": "example.com"
+     }],
+     "applications": ["keycloak", "mattermost"]
+   }
+   ```
+
+#### 4. Deploy Infrastructure
+
+Run the CDKTF deployment:
+```bash
+cd platform
+npm install
+npx cdktf deploy
+```
+
+### Setup Script Options
 
 ```bash
-cp .env.example .env
-```
+./setup.sh [OPTIONS]
 
-Edit `.env` with your credentials:
+OPTIONS:
+  --config PATH        Configuration file path (default: config.json)
+  --dry-run           Preview actions without executing
+  --skip-github       Skip GitHub secrets and project setup
+  --skip-project      Skip GitHub project board setup only
+  --no-interactive    Fail if credentials missing (CI mode)
+  --yes               Auto-approve confirmation prompts
+  --verbose           Show detailed command output
+  --eject             Remove template artifacts (after setup)
+  --help              Show help message
 
-```env
-# Required
-DIGITALOCEAN_TOKEN=dop_v1_your_token_here
-
-# Optional (for email features)
-AWS_ACCESS_KEY_ID=your_aws_key
-AWS_SECRET_ACCESS_KEY=your_aws_secret
-```
-
-### 3. Initialize Configuration
-
-Run the interactive setup:
-
-```bash
-pnpm cli init --interactive
-```
-
-This will guide you through:
-- Project naming and domain setup
-- Cluster region and size selection
-- Application selection
-- Feature configuration
-
-### 4. Deploy Infrastructure
-
-```bash
-# Deploy everything
-pnpm cli deploy
-
-# Or deploy specific environment
-pnpm cli deploy --environment production
+EXAMPLES:
+  ./setup.sh                     # Interactive setup with prompts
+  ./setup.sh --dry-run           # Preview what would be done
+  ./setup.sh --yes               # Auto-approve all prompts
+  ./setup.sh --eject             # Remove template files
 ```
 
 ## 📁 Project Structure
 
 ```
 .
-├── cli/                    # CLI tool for managing deployments
-│   ├── src/
-│   │   ├── commands/      # CLI commands (init, deploy, status, destroy)
-│   │   ├── providers/     # Cloud provider integrations
-│   │   └── utils/         # Utility functions
-│   └── package.json
-│
-├── platform/              # CDKTF infrastructure definitions
-│   ├── src/
-│   │   ├── stacks/       # Terraform CDK stacks
-│   │   ├── constructs/   # Reusable CDKTF constructs
-│   │   └── config/       # Configuration schemas
-│   ├── cdktf.json        # CDKTF configuration
-│   └── package.json
-│
-├── flux/                  # GitOps manifests
+├── .github/
+│   ├── workflows/         # CI/CD pipelines
+│   └── actions/          # Custom GitHub Actions
+├── flux/
 │   ├── clusters/         # Cluster-specific configurations
+│   │   └── production/   # Production cluster manifests
 │   └── infrastructure/   # Core infrastructure components
-│
-└── docs/                 # Additional documentation
+├── terraform/            # Infrastructure as Code
+│   ├── modules/         # Reusable Terraform modules
+│   └── environments/    # Environment-specific configs
+├── platform/            # CDKTF infrastructure (TypeScript)
+│   ├── src/
+│   │   ├── stacks/     # Terraform CDK stacks
+│   │   └── main.ts     # CDKTF entry point
+│   └── cdktf.json      # CDKTF configuration
+├── scripts/             # Automation scripts
+│   ├── setup.sh        # Initial setup
+│   ├── deploy.sh       # Deployment automation
+│   └── destroy.sh      # Teardown script
+├── docs/               # Documentation
+└── config.yaml         # Main configuration file
 ```
 
-## 🔧 CLI Commands
+## 🔧 Configuration
 
-### Initialize a new project
-```bash
-pnpm cli init [options]
-  --interactive    Run interactive setup wizard
-  --config <path>  Load from existing config file
+### Main Configuration (`config.yaml`)
+
+```yaml
+# Basic Settings
+domain: example.com
+email: admin@example.com
+cluster_name: production-cluster
+region: nyc3
+
+# Cluster Configuration
+node_size: s-2vcpu-4gb
+node_count: 3
+min_nodes: 2
+max_nodes: 5
+
+# Applications (optional)
+applications:
+  - keycloak      # Identity management
+  - mattermost    # Team chat
+  - nextcloud     # File storage
+  - mailu         # Email server
+
+# Features
+features:
+  monitoring: true    # Prometheus & Grafana
+  backup: true       # Velero backups
+  ssl: true          # Let's Encrypt
 ```
 
-### Deploy infrastructure
-```bash
-pnpm cli deploy [options]
-  --environment <name>  Deploy specific environment
-  --config <path>       Use custom config file
-```
+### Secret Management
 
-### Check deployment status
-```bash
-pnpm cli status [options]
-  --environment <name>  Check specific environment
-  --detailed           Show detailed component status
-```
+Secrets are managed using External Secrets Operator (ESO) with GitHub as the secret store:
 
-### Destroy infrastructure
-```bash
-pnpm cli destroy [options]
-  --environment <name>  Destroy specific environment
-  --confirm            Skip confirmation prompts
-```
+1. **GitHub Repository Secrets** store sensitive values
+2. **External Secrets Operator** syncs secrets from GitHub to Kubernetes
+3. **SecretStore** resources define the connection to GitHub
+4. **ExternalSecret** resources specify which secrets to sync
 
-### Validate configuration
-```bash
-pnpm cli config validate [options]
-  --config <path>  Path to config file
+Example ExternalSecret:
+```yaml
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: app-secrets
+spec:
+  secretStoreRef:
+    name: github-secret-store
+  target:
+    name: app-secrets
+  data:
+    - secretKey: database-password
+      remoteRef:
+        key: DATABASE_PASSWORD
 ```
 
 ## 🏗️ Architecture
 
 ### Technology Stack
 
-- **Infrastructure as Code**: Terraform CDK with TypeScript
-- **Container Orchestration**: Kubernetes (DigitalOcean Kubernetes)
+- **Kubernetes**: DigitalOcean Kubernetes (DOKS)
 - **GitOps**: Flux v2 for continuous deployment
-- **Ingress**: Traefik with automatic SSL
-- **DNS**: External DNS for automatic record management
-- **Secrets**: SOPS with Age encryption
-- **Databases**: CloudNativePG (PostgreSQL operator)
+- **Infrastructure**: Terraform with optional CDKTF
+- **Ingress**: Traefik proxy
+- **Certificates**: cert-manager with Let's Encrypt
+- **DNS**: External DNS with DigitalOcean
+- **Secrets**: External Secrets Operator with GitHub backend
+- **Databases**: CloudNativePG operator
 - **Caching**: Redis operator
+- **Identity**: Keycloak with custom operator
 
-### Configuration Schema
+### Deployment Flow
 
-The project uses Zod for runtime configuration validation. Example configuration:
+1. **GitHub Actions** triggers on push to main
+2. **Terraform** provisions infrastructure
+3. **Flux** is bootstrapped to the cluster
+4. **External Secrets Operator** is deployed
+5. **Flux** syncs manifests from Git repository
+6. **ESO** syncs secrets from GitHub to Kubernetes
+7. **Applications** are deployed with secrets available
 
-#### Cluster Configuration Options:
-- **nodeCount**: Initial number of nodes (required)
-- **minNodes**: Minimum nodes for autoscaling (optional)
-- **maxNodes**: Maximum nodes for autoscaling (optional)
-- **haControlPlane**: Enable high availability control plane (boolean, default: false)
+## 📚 Documentation
 
-```json
-{
-  "project": {
-    "name": "my-startup",
-    "domain": "example.com",
-    "email": "admin@example.com"
-  },
-  "environments": [
-    {
-      "name": "production",
-      "cluster": {
-        "region": "nyc3",
-        "nodeSize": "s-2vcpu-4gb",
-        "nodeCount": 3,
-        "minNodes": 2,
-        "maxNodes": 5,
-        "haControlPlane": true
-      },
-      "domain": "example.com"
-    }
-  ],
-  "features": {
-    "email": true,
-    "monitoring": true,
-    "backup": true,
-    "ssl": true
-  },
-  "applications": ["keycloak", "mattermost", "nextcloud"]
-}
-```
+- [Secret Management](docs/SECRETS.md) - Using External Secrets Operator
+- [Application Setup](docs/APPLICATIONS.md) - Configuring applications
+- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and solutions
+- [Workflow](WORKFLOW.md) - Development workflow and issue management
 
 ## 🔐 Security
 
-- **Secrets encryption** at rest using SOPS and Age
-- **Network policies** for pod-to-pod communication
-- **RBAC** for Kubernetes access control
-- **Automatic TLS** certificates from Let's Encrypt
-- **OAuth2 proxy** for application authentication
+- Secrets stored in GitHub repository secrets
+- External Secrets Operator syncs secrets securely
+- TLS certificates auto-provisioned via Let's Encrypt
+- Network policies for pod isolation
+- RBAC configured for least privilege
+- Regular security updates via Flux
+
+## 🚀 Advanced Usage
+
+### Using CDKTF
+
+To use TypeScript-based infrastructure:
+
+```bash
+cd platform
+npm install
+npm run deploy
+```
+
+### Custom Applications
+
+Add custom applications by creating Flux Kustomizations:
+
+```yaml
+# flux/clusters/production/apps/my-app.yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: my-app
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./apps/my-app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+```
+
+### Adding External Secrets
+
+Create an ExternalSecret to sync from GitHub:
+
+```yaml
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: my-app-secrets
+  namespace: my-app
+spec:
+  secretStoreRef:
+    name: github-secret-store
+    kind: SecretStore
+  target:
+    name: my-app-secrets
+  data:
+    - secretKey: api-key
+      remoteRef:
+        key: MY_APP_API_KEY
+```
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details.
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
-- Built with [Terraform CDK](https://developer.hashicorp.com/terraform/cdktf)
 - Powered by [DigitalOcean Kubernetes](https://digitalocean.pxf.io/3evZdB)
 - GitOps by [Flux](https://fluxcd.io/)
+- Infrastructure by [Terraform](https://terraform.io/)
+- Secrets by [External Secrets Operator](https://external-secrets.io/)
 
 ---
 
