@@ -2,12 +2,13 @@ import { Construct } from 'constructs';
 import { TerraformStack, TerraformOutput } from 'cdktf';
 import { KubernetesProvider } from '@cdktf/provider-kubernetes/lib/provider';
 import { ConfigMapV1 } from '@cdktf/provider-kubernetes/lib/config-map-v1';
-import { Null } from '@cdktf/provider-null/lib/provider';
+import { NullProvider } from '@cdktf/provider-null/lib/provider';
 import { Resource } from '@cdktf/provider-null/lib/resource';
 import { Config, Environment } from '../config/schema';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { glob } from 'glob';
 import path from 'path';
+import * as yaml from 'js-yaml';
 
 export interface FluxConfigurationStackProps {
   projectName: string;
@@ -30,11 +31,20 @@ export class FluxConfigurationStack extends TerraformStack {
     this.kubeconfig = kubeconfig;
 
     // Null provider for executing local commands
-    new Null(this, 'null');
+    new NullProvider(this, 'null');
+
+    // Parse kubeconfig to extract connection details
+    const kubeconfigYaml = yaml.load(kubeconfig) as any;
+    const cluster = kubeconfigYaml.clusters[0].cluster;
+    const user = kubeconfigYaml.users[0].user;
 
     // Kubernetes provider for creating ConfigMaps
     new KubernetesProvider(this, 'kubernetes', {
-      configPath: kubeconfig
+      host: cluster.server,
+      clusterCaCertificate: Buffer.from(cluster['certificate-authority-data'], 'base64').toString(),
+      token: user.token || undefined,
+      clientCertificate: user['client-certificate-data'] ? Buffer.from(user['client-certificate-data'], 'base64').toString() : undefined,
+      clientKey: user['client-key-data'] ? Buffer.from(user['client-key-data'], 'base64').toString() : undefined
     });
 
     // Step 1: One-time static configuration
@@ -115,7 +125,7 @@ export class FluxConfigurationStack extends TerraformStack {
         config_hash: this.generateConfigHash(),
         always_run: Date.now().toString() // Force run on every apply for now
       },
-      provisioner: [{
+      provisioners: [{
         type: 'local-exec',
         command: this.generateReplacementScript(replacements)
       }]

@@ -12,22 +12,24 @@
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
-    "cdktf": "^0.19.0",
+    "@cdktf/provider-aws": "^20.0.0",
+    "@cdktf/provider-digitalocean": "^13.0.0",
+    "@cdktf/provider-github": "^15.0.0",
+    "@cdktf/provider-kubernetes": "^12.0.0",
+    "@cdktf/provider-null": "^11.0.0",
+    "@types/js-yaml": "^4.0.9",
+    "cdktf": "^0.21.0",
     "constructs": "^10.0.0",
-    "@cdktf/provider-digitalocean": "^11.0.0",
-    "@cdktf/provider-aws": "^19.0.0",
-    "@cdktf/provider-github": "^11.0.0",
-    "@cdktf/provider-kubernetes": "^10.0.0",
-    "@cdktf/provider-null": "^10.0.0",
-    "zod": "^3.0.0",
-    "glob": "^10.0.0"
+    "glob": "^10.0.0",
+    "js-yaml": "^4.1.0",
+    "zod": "^3.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "typescript": "^5.0.0",
-    "vitest": "^1.0.0",
-    "eslint": "^8.0.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0"
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
   }
 }

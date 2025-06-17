@@ -37,7 +37,7 @@ export interface ClusterInfo {
 
 // CLI types
 export interface CLIContext {
-  config?: Config;
+  config?: import('../config/schema').Config;
   verbose?: boolean;
   dryRun?: boolean;
 }

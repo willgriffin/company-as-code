@@ -51,7 +51,8 @@ function loadConfig(): Config {
       cluster: {
         region: 'nyc3',
         nodeSize: 's-2vcpu-4gb',
-        nodeCount: 3
+        nodeCount: 3,
+        haControlPlane: false
       },
       domain: 'example.com'
     }],
@@ -100,7 +101,7 @@ const fluxStacks = clusterStacks.map((clusterStack, index) => {
     projectName: config.project.name,
     environment: env,
     config,
-    kubeconfig: clusterStack.cluster.kubeConfig
+    kubeconfig: clusterStack.cluster.kubeConfig.get(0).rawConfig
   });
 });
 
@@ -109,7 +110,7 @@ if (process.env.GITHUB_REPOSITORY) {
   const primaryCluster = clusterStacks[0];
   
   const secrets = GitHubSecretsStack.createSecretsMap({
-    kubeconfig: primaryCluster.cluster.kubeConfig,
+    kubeconfig: primaryCluster.cluster.kubeConfig.get(0).rawConfig,
     digitalOceanToken: process.env.DIGITALOCEAN_TOKEN!,
     spacesAccessKey: process.env.SPACES_ACCESS_KEY_ID!,
     spacesSecretKey: process.env.SPACES_SECRET_ACCESS_KEY!,
