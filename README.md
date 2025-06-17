@@ -1,260 +1,229 @@
-# Startup GitOps Template
+# GitOps Infrastructure Template
 
-🚀 **One-click Kubernetes deployment template** for complete infrastructure with GitOps on [DigitalOcean](https://digitalocean.pxf.io/3evZdB).
+A modern, production-ready infrastructure template for deploying Kubernetes applications on [DigitalOcean](https://digitalocean.pxf.io/3evZdB) using GitOps principles with Flux, TypeScript, and Terraform CDK.
 
-[![Use Template](https://img.shields.io/badge/Use-Template-green?style=for-the-badge&logo=github)](../../generate)
-[![Deploy Infrastructure](https://img.shields.io/badge/Deploy-Infrastructure-blue?style=for-the-badge&logo=digitalocean)](./.github/workflows/terraform-deploy.yml)
+## 🚀 Features
 
-> **Note**: Links to DigitalOcean are affiliate links that help support the maintenance of this template.
-
-## 🌟 What This Template Provides
-
-Deploy a complete, production-ready Kubernetes infrastructure in under 5 minutes:
-
-### 🏗️ **Infrastructure**
-- **[DigitalOcean](https://digitalocean.pxf.io/3evZdB) Kubernetes Cluster** - Managed Kubernetes with auto-scaling
-- **Kong Gateway** - API Gateway with OIDC authentication and rate limiting
-- **GitOps with Flux v2** - Automated deployments from Git
-- **External Secrets** - Secure secret management with Kubernetes Secret Store
-- **Automatic DNS** - DigitalOcean DNS integration with external-dns
-- **TLS Certificates** - Automatic cert-manager with Let's Encrypt
-- **Object Storage** - DigitalOcean Spaces integration for all applications
-- **Backup/Restore** - Velero backup system with disaster recovery
-
-### 🚀 **Applications**
-- **🔐 Keycloak** - Identity and access management (`auth.{{SETUP_REPO_DOMAIN}}`)
-- **💬 Mattermost** - Team chat and collaboration (`chat.{{SETUP_REPO_DOMAIN}}`)  
-- **☁️ Nextcloud** - Cloud storage and office suite (`cloud.{{SETUP_REPO_DOMAIN}}`)
-- **📧 Mailu** - Complete email server (`mail.{{SETUP_REPO_DOMAIN}}`)
-- **📮 Postal** - Advanced mail processing with RabbitMQ (`postal.{{SETUP_REPO_DOMAIN}}`)
-- **🤖 AI Gateway** - LiteLLM proxy with expense tracking (`ai.{{SETUP_REPO_DOMAIN}}`)
-- **📊 Monitoring** - Prometheus, Grafana, and Jaeger (`monitoring.{{SETUP_REPO_DOMAIN}}`)
+- **TypeScript-based Infrastructure as Code** using Terraform CDK (CDKTF)
+- **GitOps workflow** with Flux v2 for continuous deployment
+- **Production-ready Kubernetes** clusters on DigitalOcean
+- **Integrated applications** (optional):
+  - 🔐 **Keycloak** - Identity and Access Management
+  - 💬 **Mattermost** - Team collaboration platform
+  - ☁️ **Nextcloud** - File storage and productivity suite
+  - 📧 **Mailu** - Full-featured email server
+- **Enterprise features**:
+  - 🔒 Automatic SSL/TLS with cert-manager and Let's Encrypt
+  - 📊 Monitoring with Prometheus and Grafana (optional)
+  - 💾 Automated backups with Velero (optional)
+  - 🌐 DNS management with External DNS
+  - 🛡️ OAuth2 proxy for authentication
 
 ## 📋 Prerequisites
 
-Before running the initial setup, ensure you have the following CLI tools installed:
+- **Node.js** 22+ and **pnpm** 9+
+- **[DigitalOcean account](https://digitalocean.pxf.io/3evZdB)** with API token
+- **GitHub account** for GitOps repository
+- **Domain name** with DNS pointing to DigitalOcean
+- **AWS account** (optional, for email features)
 
-- **`doctl`** - DigitalOcean CLI ([installation guide](https://docs.digitalocean.com/reference/doctl/how-to/install/))
-- **`aws`** - AWS CLI ([installation guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html))
-- **`gh`** - GitHub CLI ([installation guide](https://cli.github.com/manual/installation))
-- **`jq`** - JSON processor ([download](https://jqlang.github.io/jq/download/))
-- **`python3`** - Python 3.x ([download](https://www.python.org/downloads/))
+## 🛠️ Quick Start
 
-### Quick Installation
-
-**macOS (Homebrew):**
-```bash
-brew install doctl awscli gh jq python@3
-```
-
-**Ubuntu/Debian:**
-```bash
-# Install available packages
-sudo apt-get update && sudo apt-get install awscli jq python3
-
-# Install GitHub CLI
-curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-sudo apt update && sudo apt install gh
-
-# Install doctl via snap
-sudo snap install doctl
-```
-
-**Note**: The setup script will check for these tools and provide platform-specific installation instructions if any are missing.
-
-## 🚀 Quick Start
-
-### 1. Use This Template
-
-Click the **"Use this template"** button above to create your own repository.
-
-📝 **Configuration Form**: GitHub will collect your basic configuration:
-- Your domain name
-- Project name and cluster details
-- Admin email address
-- DigitalOcean region preferences
-
-✨ **Automatic Setup**: Your repository will be automatically configured and ready for deployment!
-
-### 2. Set Up Required Secrets
-
-In your new repository, go to **Settings → Secrets and variables → Actions** and add:
-
-- **`DIGITALOCEAN_TOKEN`** - Your DigitalOcean API token ([https://cloud.digitalocean.com/account/api/tokens](https://digitalocean.pxf.io/je2Ggv))
-
-> **Note**: Spaces access keys for Terraform state storage are automatically created during deployment. No manual setup required!
-
-**Note**: The template uses GitHub's built-in `GITHUB_TOKEN`. If you encounter permission issues, check **Settings → Actions → General → Workflow permissions** and select "Read and write permissions".
-
-### 3. Configure Your Deployment
+### 1. Clone and Setup
 
 ```bash
-# Clone your new repository
-git clone https://github.com/yourusername/your-repo-name.git
-cd your-repo-name
+# Clone the repository
+git clone https://github.com/yourusername/your-gitops-repo.git
+cd your-gitops-repo
 
-# Copy and customize configuration
-cp config.yaml.example config.yaml
-# Edit config.yaml with your domain and preferences
+# Install dependencies
+pnpm install
+
+# Build the project
+pnpm build
 ```
 
-**Important**: Set up your domain in DigitalOcean DNS before deploying.
+### 2. Configure Environment
 
-### 4. Deploy! 🚀
+Create a `.env` file from the example:
 
 ```bash
-# Commit your configuration
-git add config.yaml
-git commit -m "feat: configure deployment settings"
-git push
+cp .env.example .env
 ```
 
-That's it! GitHub Actions will automatically deploy your entire infrastructure. Monitor progress in the **Actions** tab.
+Edit `.env` with your credentials:
 
-## 📋 Configuration Options
+```env
+# Required
+DIGITALOCEAN_TOKEN=dop_v1_your_token_here
 
-Edit `config.yaml` to customize your deployment:
-
-```yaml
-# Domain setup
-domain:
-  primary: "yourdomain.com"    # Your domain (required)
-
-# Cluster configuration  
-cluster:
-  name: "cumulus"             # Cluster name
-  region: "nyc3"              # DigitalOcean region
-  node_size: "s-1vcpu-2gb"    # Node size
-  min_nodes: 2                # Min nodes
-  max_nodes: 3                # Max nodes
-
-# Enable/disable services
-services:
-  keycloak:
-    enabled: true             # Identity management
-  mattermost:
-    enabled: true             # Team chat
-  nextcloud:
-    enabled: true             # Cloud storage
-  mailu:
-    enabled: true             # Email server
+# Optional (for email features)
+AWS_ACCESS_KEY_ID=your_aws_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret
 ```
 
-## 🎛️ Management
+### 3. Initialize Configuration
 
-### Manual Deployment Trigger
-Go to **Actions → Deploy Kubernetes Cluster → Run workflow**
+Run the interactive setup:
 
-### Destroy Infrastructure  
-Go to **Actions → Deploy Kubernetes Cluster → Run workflow** and check "Destroy cluster"
-
-### Monitor Deployment
-- **GitHub Actions**: Check the Actions tab for deployment progress
-- **Kubernetes**: Access your cluster using the generated kubeconfig
-
-## 🔧 How It Works
-
-This template uses modern DevOps practices for reliable, automated infrastructure:
-
-### GitOps with Flux v2
-- **Infrastructure-managed** - Flux bootstrap handled by Terraform
-- **Automatic reconciliation** - Changes in Git automatically deployed to cluster
-- **Health checks** - Automatic rollback on deployment failures
-
-### Architecture
-```
-GitHub Repository (GitOps Source)
-        ↓
-   GitHub Actions (CI/CD)
-        ↓  
-   Terraform (Infrastructure)
-        ↓
-   DigitalOcean Kubernetes
-        ↓
-   Flux (GitOps Controller)
-        ↓
-   Applications (Deployed automatically)
+```bash
+pnpm cli init --interactive
 ```
 
-## 📁 Repository Structure
+This will guide you through:
+- Project naming and domain setup
+- Cluster region and size selection
+- Application selection
+- Feature configuration
+
+### 4. Deploy Infrastructure
+
+```bash
+# Deploy everything
+pnpm cli deploy
+
+# Or deploy specific environment
+pnpm cli deploy --environment production
+```
+
+## 📁 Project Structure
 
 ```
-your-kubernetes-project/
-├── config.yaml              # 📝 Your deployment configuration
-├── terraform/                # 🏗️ Infrastructure as Code
-│   └── digitalocean/         # DigitalOcean Kubernetes cluster
-├── flux/                     # 🔄 GitOps configurations  
-│   └── clusters/my-cluster/     # Cluster-specific deployments
-├── .github/                  # 🚀 GitHub Actions workflows
-│   ├── workflows/            # Deployment automation
-│   └── actions/              # Reusable validation steps
-└── scripts/                  # 🛠️ Utility scripts
+.
+├── cli/                    # CLI tool for managing deployments
+│   ├── src/
+│   │   ├── commands/      # CLI commands (init, deploy, status, destroy)
+│   │   ├── providers/     # Cloud provider integrations
+│   │   └── utils/         # Utility functions
+│   └── package.json
+│
+├── platform/              # CDKTF infrastructure definitions
+│   ├── src/
+│   │   ├── stacks/       # Terraform CDK stacks
+│   │   ├── constructs/   # Reusable CDKTF constructs
+│   │   └── config/       # Configuration schemas
+│   ├── cdktf.json        # CDKTF configuration
+│   └── package.json
+│
+├── flux/                  # GitOps manifests
+│   ├── clusters/         # Cluster-specific configurations
+│   └── infrastructure/   # Core infrastructure components
+│
+└── docs/                 # Additional documentation
 ```
 
-## 📚 Documentation
+## 🔧 CLI Commands
 
-- **[Template Setup Guide](./TEMPLATE_SETUP.md)** - Detailed setup instructions
-- **[Terraform Documentation](./terraform/)** - Infrastructure details
-- **[Flux Documentation](./flux/)** - GitOps deployment details
+### Initialize a new project
+```bash
+pnpm cli init [options]
+  --interactive    Run interactive setup wizard
+  --config <path>  Load from existing config file
+```
 
-## 🔐 Security Documentation
+### Deploy infrastructure
+```bash
+pnpm cli deploy [options]
+  --environment <name>  Deploy specific environment
+  --config <path>       Use custom config file
+```
 
-- **[Security Hardening Guide](./docs/SECURITY_HARDENING.md)** - Comprehensive security hardening for production
-- **[Security Best Practices](./docs/SECURITY_BEST_PRACTICES.md)** - Operational security guidelines
-- **[Compliance Guide](./docs/COMPLIANCE.md)** - SOC 2, GDPR, HIPAA, and PCI DSS compliance
-- **[Security Troubleshooting](./docs/SECURITY_TROUBLESHOOTING.md)** - Diagnose and resolve security issues
+### Check deployment status
+```bash
+pnpm cli status [options]
+  --environment <name>  Check specific environment
+  --detailed           Show detailed component status
+```
 
-## 🆘 Troubleshooting
+### Destroy infrastructure
+```bash
+pnpm cli destroy [options]
+  --environment <name>  Destroy specific environment
+  --confirm            Skip confirmation prompts
+```
 
-### Common Issues
+### Validate configuration
+```bash
+pnpm cli config validate [options]
+  --config <path>  Path to config file
+```
 
-**❌ Configuration validation failed**
-- Update placeholder values in `config.yaml`
-- Ensure domain is set up in DigitalOcean DNS
+## 🏗️ Architecture
 
-**❌ Missing GitHub secrets**  
-- Add `DIGITALOCEAN_TOKEN` and `GITHUB_TOKEN` in repository settings
+### Technology Stack
 
-**⏳ Deployment taking too long**
-- Applications can take 10-15 minutes to fully deploy
-- Monitor progress in Actions tab and check pod status
+- **Infrastructure as Code**: Terraform CDK with TypeScript
+- **Container Orchestration**: Kubernetes (DigitalOcean Kubernetes)
+- **GitOps**: Flux v2 for continuous deployment
+- **Ingress**: Traefik with automatic SSL
+- **DNS**: External DNS for automatic record management
+- **Secrets**: SOPS with Age encryption
+- **Databases**: CloudNativePG (PostgreSQL operator)
+- **Caching**: Redis operator
 
-## 🌟 Features
+### Configuration Schema
 
-### 🔐 **Security First**
-- Automatic TLS certificates
-- OAuth/OIDC integration  
-- Network policies and RBAC
-- Pod Security Standards enforcement
-- SOPS encryption for secrets management
+The project uses Zod for runtime configuration validation. Example configuration:
 
-### ⚡ **Production Ready**  
-- High availability setup with Kong Gateway
-- Auto-scaling nodes with load balancing
-- Comprehensive monitoring (Prometheus, Grafana, Jaeger)
-- AI usage tracking and expense monitoring
-- Automatic TLS certificates and DNS management
-- Backup strategies and disaster recovery
+#### Cluster Configuration Options:
+- **nodeCount**: Initial number of nodes (required)
+- **minNodes**: Minimum nodes for autoscaling (optional)
+- **maxNodes**: Maximum nodes for autoscaling (optional)
+- **haControlPlane**: Enable high availability control plane (boolean, default: false)
 
-### 🛠️ **Developer Friendly**
-- One-command deployment
-- GitOps workflow
-- Infrastructure as Code
-- Conventional commits
+```json
+{
+  "project": {
+    "name": "my-startup",
+    "domain": "example.com",
+    "email": "admin@example.com"
+  },
+  "environments": [
+    {
+      "name": "production",
+      "cluster": {
+        "region": "nyc3",
+        "nodeSize": "s-2vcpu-4gb",
+        "nodeCount": 3,
+        "minNodes": 2,
+        "maxNodes": 5,
+        "haControlPlane": true
+      },
+      "domain": "example.com"
+    }
+  ],
+  "features": {
+    "email": true,
+    "monitoring": true,
+    "backup": true,
+    "ssl": true
+  },
+  "applications": ["keycloak", "mattermost", "nextcloud"]
+}
+```
 
-## 📄 License
+## 🔐 Security
 
-MIT License - see [LICENSE](LICENSE) for details.
+- **Secrets encryption** at rest using SOPS and Age
+- **Network policies** for pod-to-pod communication
+- **RBAC** for Kubernetes access control
+- **Automatic TLS** certificates from Let's Encrypt
+- **OAuth2 proxy** for application authentication
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details.
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-Built with:
-- [Terraform](https://terraform.io) - Infrastructure as Code
-- [Flux](https://fluxcd.io) - GitOps toolkit  
-- [Kubernetes](https://kubernetes.io) - Container orchestration
-- [DigitalOcean](https://digitalocean.pxf.io/3evZdB) - Cloud infrastructure
+- Built with [Terraform CDK](https://developer.hashicorp.com/terraform/cdktf)
+- Powered by [DigitalOcean Kubernetes](https://digitalocean.pxf.io/3evZdB)
+- GitOps by [Flux](https://fluxcd.io/)
 
 ---
 
-⭐ **Star this repository** if you find it useful!
+**Note**: Links to DigitalOcean are affiliate links that help support the maintenance of this template.

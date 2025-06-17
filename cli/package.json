@@ -1,0 +1,33 @@
+{
+  "name": "@startup-gitops/cli",
+  "version": "1.0.0",
+  "description": "Management CLI for GitOps deployments",
+  "main": "dist/index.js",
+  "bin": {
+    "gitops-cli": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "vitest",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "commander": "^11.0.0",
+    "inquirer": "^9.0.0",
+    "ora": "^7.0.0",
+    "chalk": "^5.0.0",
+    "dotenv": "^16.0.0",
+    "@startup-gitops/platform": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^9.0.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0",
+    "tsx": "^4.0.0",
+    "vitest": "^1.0.0",
+    "eslint": "^8.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0"
+  }
+}
