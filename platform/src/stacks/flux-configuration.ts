@@ -52,18 +52,60 @@ export class FluxConfigurationStack extends TerraformStack {
 
   private configureStaticManifests(): void {
     // Define the static replacements to perform
+    const clusterName = `${this.config.project.name}-${this.environment.name}`;
+    const domain = this.config.project.domain;
+    const region = this.environment.cluster.region;
+    
     const replacements = {
-      'example.com': this.config.project.domain,
+      // Basic patterns
+      'example.com': domain,
       'example-project': this.config.project.name,
-      'example-cluster': `${this.config.project.name}-${this.environment.name}`,
-      'my-cluster': `${this.config.project.name}-${this.environment.name}`,
+      'example-cluster': clusterName,
+      'my-cluster': clusterName,
       'admin@example.com': this.config.project.email,
-      'nyc3.digitaloceanspaces.com': `${this.environment.cluster.region}.digitaloceanspaces.com`,
-      'https://auth.example.com': `https://auth.${this.config.project.domain}`,
-      'cloud.example.com': `cloud.${this.config.project.domain}`,
-      'chat.example.com': `chat.${this.config.project.domain}`,
-      'mail.example.com': `mail.${this.config.project.domain}`,
-      'files.example.com': `files.${this.config.project.domain}`,
+      
+      // Regional patterns
+      'nyc3.digitaloceanspaces.com': `${region}.digitaloceanspaces.com`,
+      'example-cluster-backup.nyc3.digitaloceanspaces.com': `${clusterName}-backup.${region}.digitaloceanspaces.com`,
+      
+      // Application subdomains
+      'api.example.com': `api.${domain}`,
+      'auth.example.com': `auth.${domain}`,
+      'chat.example.com': `chat.${domain}`,
+      'cloud.example.com': `cloud.${domain}`,
+      'mail.example.com': `mail.${domain}`,
+      'files.example.com': `files.${domain}`,
+      'ai.example.com': `ai.${domain}`,
+      'grafana.example.com': `grafana.${domain}`,
+      'prometheus.example.com': `prometheus.${domain}`,
+      'alertmanager.example.com': `alertmanager.${domain}`,
+      'jaeger.example.com': `jaeger.${domain}`,
+      'postal.example.com': `postal.${domain}`,
+      'webmail.example.com': `webmail.${domain}`,
+      'mailadmin.example.com': `mailadmin.${domain}`,
+      'imap.example.com': `imap.${domain}`,
+      'smtp.example.com': `smtp.${domain}`,
+      'routes.example.com': `routes.${domain}`,
+      'track.example.com': `track.${domain}`,
+      'rp.example.com': `rp.${domain}`,
+      
+      // Resource naming patterns
+      'example-cluster-grafana-secret': `${clusterName}-grafana-secret`,
+      'example-cluster-kong-gateway': `${clusterName}-kong-gateway`,
+      'example-cluster-kong-proxy': `${clusterName}-kong-proxy`,
+      'example-cluster-backup': `${clusterName}-backup`,
+      'example-cluster-nextcloud': `${clusterName}-nextcloud`,
+      'example-cluster-mailu': `${clusterName}-mailu`,
+      'example-cluster-postal-smtp': `${clusterName}-postal-smtp`,
+      
+      // Special patterns
+      'sk-example-cluster-changeme': `sk-${clusterName}-${this.generateRandomSuffix()}`,
+      
+      // URL patterns with protocol
+      'https://auth.example.com': `https://auth.${domain}`,
+      'https://cloud.example.com': `https://cloud.${domain}`,
+      'https://chat.example.com': `https://chat.${domain}`,
+      'https://mail.example.com': `https://mail.${domain}`,
     };
 
     // Create a null resource that performs the one-time replacement
@@ -105,12 +147,30 @@ export class FluxConfigurationStack extends TerraformStack {
     script += `  done\n`;
     script += `fi\n\n`;
 
-    // Perform replacements
+    // Perform replacements (sort by length descending to handle overlapping patterns)
     script += `echo "Applying static configuration replacements..."\n`;
-    for (const [from, to] of Object.entries(replacements)) {
-      script += `find "$FLUX_DIR" -name "*.yaml" -o -name "*.yml" | xargs sed -i 's|${from}|${to}|g'\n`;
+    const sortedReplacements = Object.entries(replacements)
+      .sort(([a], [b]) => b.length - a.length); // Longer patterns first
+    
+    for (const [from, to] of sortedReplacements) {
+      // Escape special characters for sed
+      const escapedFrom = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escapedTo = to.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/&/g, '\\&');
+      script += `find "$FLUX_DIR" -name "*.yaml" -o -name "*.yml" | xargs sed -i 's|${escapedFrom}|${escapedTo}|g'\n`;
     }
 
+    // Verification step
+    script += `echo "Verifying replacement completeness..."\n`;
+    script += `REMAINING_EXAMPLES=$(find "$FLUX_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example" | wc -l)\n`;
+    script += `if [ "$REMAINING_EXAMPLES" -gt 0 ]; then\n`;
+    script += `  echo "Warning: $REMAINING_EXAMPLES files still contain 'example' patterns:"\n`;
+    script += `  find "$FLUX_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example"\n`;
+    script += `  echo "Specific patterns found:"\n`;
+    script += `  find "$FLUX_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -o '[a-zA-Z0-9.-]*example[a-zA-Z0-9.-]*' | sort | uniq\n`;
+    script += `else\n`;
+    script += `  echo "✓ All example patterns successfully replaced"\n`;
+    script += `fi\n\n`;
+    
     script += `echo "Static manifest configuration complete"\n`;
     
     return script;
@@ -127,6 +187,11 @@ export class FluxConfigurationStack extends TerraformStack {
     });
     
     return Buffer.from(configString).toString('base64').substring(0, 16);
+  }
+
+  private generateRandomSuffix(): string {
+    // Generate a random suffix for secret keys and similar resources
+    return Math.random().toString(36).substring(2, 10);
   }
 
   private createInfrastructureConfigMap(): void {
