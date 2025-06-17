@@ -214,6 +214,55 @@ async function promptForConfig(): Promise<Config> {
       }
     },
     {
+      type: 'confirm',
+      name: 'enableAutoscaling',
+      message: 'Enable cluster autoscaling?',
+      default: (answers: any) => answers.environment === 'production',
+      when: (answers: any) => answers.nodeCount > 1
+    },
+    {
+      type: 'number',
+      name: 'minNodes',
+      message: 'Minimum number of nodes:',
+      default: (answers: any) => Math.max(1, answers.nodeCount - 1),
+      when: (answers: any) => answers.enableAutoscaling,
+      validate: (input: number, answers: any) => {
+        if (input < 1) {
+          return 'Minimum nodes must be at least 1';
+        }
+        if (input > answers.nodeCount) {
+          return 'Minimum nodes cannot exceed initial node count';
+        }
+        return true;
+      }
+    },
+    {
+      type: 'number',
+      name: 'maxNodes',
+      message: 'Maximum number of nodes:',
+      default: (answers: any) => Math.min(10, answers.nodeCount + 2),
+      when: (answers: any) => answers.enableAutoscaling,
+      validate: (input: number, answers: any) => {
+        if (input < answers.nodeCount) {
+          return 'Maximum nodes must be at least equal to initial node count';
+        }
+        if (input > 100) {
+          return 'Maximum nodes cannot exceed 100';
+        }
+        if (answers.minNodes && input < answers.minNodes) {
+          return 'Maximum nodes must be greater than or equal to minimum nodes';
+        }
+        return true;
+      }
+    },
+    {
+      type: 'confirm',
+      name: 'haControlPlane',
+      message: 'Enable High Availability control plane (recommended for production)?',
+      default: (answers: any) => answers.environment === 'production' && answers.nodeCount >= 3,
+      when: (answers: any) => answers.nodeCount >= 3
+    },
+    {
       type: 'checkbox',
       name: 'applications',
       message: 'Select applications to deploy:',
@@ -229,7 +278,7 @@ async function promptForConfig(): Promise<Config> {
       name: 'enableEmail',
       message: 'Enable email functionality (AWS SES integration)?',
       default: false,
-      when: (answers) => answers.applications.includes('mailu') || answers.applications.length > 0
+      when: (answers: any) => answers.applications.includes('mailu') || answers.applications.length > 0
     },
     {
       type: 'confirm',
@@ -247,8 +296,8 @@ async function promptForConfig(): Promise<Config> {
       type: 'confirm',
       name: 'highAvailability',
       message: 'Enable high availability features (for production)?',
-      default: (answers) => answers.environment === 'production' && answers.nodeCount >= 3,
-      when: (answers) => answers.environment === 'production'
+      default: (answers: any) => answers.environment === 'production' && answers.nodeCount >= 3,
+      when: (answers: any) => answers.environment === 'production'
     }
   ]);
 
@@ -258,7 +307,12 @@ async function promptForConfig(): Promise<Config> {
     cluster: {
       region: answers.region,
       nodeSize: answers.nodeSize,
-      nodeCount: answers.nodeCount
+      nodeCount: answers.nodeCount,
+      ...(answers.enableAutoscaling && {
+        minNodes: answers.minNodes,
+        maxNodes: answers.maxNodes
+      }),
+      haControlPlane: answers.haControlPlane || false
     },
     domain: answers.projectDomain
   }];
@@ -299,7 +353,8 @@ async function promptForConfig(): Promise<Config> {
         cluster: {
           region: stagingRegion,
           nodeSize: stagingNodeSize,
-          nodeCount: Math.max(1, answers.nodeCount - 1)
+          nodeCount: Math.max(1, answers.nodeCount - 1),
+          haControlPlane: false // Staging typically doesn't need HA control plane
         },
         domain: `staging.${answers.projectDomain}`
       });

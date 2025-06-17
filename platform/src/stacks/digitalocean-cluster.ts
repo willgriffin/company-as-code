@@ -40,9 +40,9 @@ export class DigitalOceanClusterStack extends TerraformStack {
         name: `${clusterName}-default-pool`,
         size: environment.cluster.nodeSize,
         nodeCount: environment.cluster.nodeCount,
-        autoScale: true,
-        minNodes: Math.max(1, environment.cluster.nodeCount - 1),
-        maxNodes: environment.cluster.nodeCount + 2,
+        autoScale: environment.cluster.minNodes !== undefined || environment.cluster.maxNodes !== undefined,
+        minNodes: environment.cluster.minNodes || Math.max(1, environment.cluster.nodeCount - 1),
+        maxNodes: environment.cluster.maxNodes || environment.cluster.nodeCount + 2,
       },
       tags: [
         projectName,
@@ -53,7 +53,7 @@ export class DigitalOceanClusterStack extends TerraformStack {
         startTime: '04:00',
         day: 'sunday'
       },
-      ha: environment.name === 'production'
+      ha: environment.cluster.haControlPlane || false
     });
 
     // Additional node pool for applications (if more than 2 nodes)
@@ -63,9 +63,9 @@ export class DigitalOceanClusterStack extends TerraformStack {
         name: `${clusterName}-app-pool`,
         size: environment.cluster.nodeSize,
         nodeCount: Math.max(1, environment.cluster.nodeCount - 1),
-        autoScale: true,
-        minNodes: 1,
-        maxNodes: environment.cluster.nodeCount,
+        autoScale: environment.cluster.minNodes !== undefined || environment.cluster.maxNodes !== undefined,
+        minNodes: environment.cluster.minNodes ? Math.max(1, environment.cluster.minNodes - 1) : 1,
+        maxNodes: environment.cluster.maxNodes || environment.cluster.nodeCount,
         tags: [
           projectName,
           environment.name,

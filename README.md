@@ -165,6 +165,12 @@ pnpm cli config validate [options]
 
 The project uses Zod for runtime configuration validation. Example configuration:
 
+#### Cluster Configuration Options:
+- **nodeCount**: Initial number of nodes (required)
+- **minNodes**: Minimum nodes for autoscaling (optional)
+- **maxNodes**: Maximum nodes for autoscaling (optional)
+- **haControlPlane**: Enable high availability control plane (boolean, default: false)
+
 ```json
 {
   "project": {
@@ -178,8 +184,12 @@ The project uses Zod for runtime configuration validation. Example configuration
       "cluster": {
         "region": "nyc3",
         "nodeSize": "s-2vcpu-4gb",
-        "nodeCount": 3
-      }
+        "nodeCount": 3,
+        "minNodes": 2,
+        "maxNodes": 5,
+        "haControlPlane": true
+      },
+      "domain": "example.com"
     }
   ],
   "features": {
