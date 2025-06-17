@@ -5,22 +5,36 @@ import { DigitalOceanClusterStack } from './stacks/digitalocean-cluster';
 import { DigitalOceanSpacesStack } from './stacks/digitalocean-spaces';
 import { AWSSESStack } from './stacks/aws-ses';
 import { GitHubSecretsStack } from './stacks/github-secrets';
+import { FluxConfigurationStack } from './stacks/flux-configuration';
 import { Config, validateConfig } from './config/schema';
 
 function loadConfig(): Config {
   // Try to load configuration from various locations
   const configPaths = [
-    'gitops.config.json',
-    '../gitops.config.json',
-    '../../gitops.config.json',
+    'config.json',
+    'config.js',
+    'config.ts',
+    '../config.json',
+    '../config.js',
+    '../config.ts',
+    '../../config.json',
+    '../../config.js',
+    '../../config.ts',
     process.env.GITOPS_CONFIG_PATH
   ].filter(Boolean);
 
   for (const configPath of configPaths) {
     if (configPath && existsSync(configPath)) {
-      const configContent = readFileSync(configPath, 'utf-8');
-      const rawConfig = JSON.parse(configContent);
-      return validateConfig(rawConfig);
+      if (configPath.endsWith('.json')) {
+        const configContent = readFileSync(configPath, 'utf-8');
+        const rawConfig = JSON.parse(configContent);
+        return validateConfig(rawConfig);
+      } else if (configPath.endsWith('.js') || configPath.endsWith('.ts')) {
+        // For JS/TS files, we expect a default export or module.exports
+        delete require.cache[require.resolve(join(process.cwd(), configPath))];
+        const rawConfig = require(join(process.cwd(), configPath));
+        return validateConfig(rawConfig.default || rawConfig);
+      }
     }
   }
 
@@ -37,7 +51,8 @@ function loadConfig(): Config {
       cluster: {
         region: 'nyc3',
         nodeSize: 's-2vcpu-4gb',
-        nodeCount: 3
+        nodeCount: 3,
+        haControlPlane: false
       },
       domain: 'example.com'
     }],
@@ -79,12 +94,23 @@ const clusterStacks = config.environments.map(env => {
   });
 });
 
+// Create Flux configuration stacks for each environment
+const fluxStacks = clusterStacks.map((clusterStack, index) => {
+  const env = config.environments[index];
+  return new FluxConfigurationStack(app, `${config.project.name}-${env.name}-flux`, {
+    projectName: config.project.name,
+    environment: env,
+    config,
+    kubeconfig: clusterStack.cluster.kubeConfig.get(0).rawConfig
+  });
+});
+
 // Create GitHub secrets stack if repository is configured
 if (process.env.GITHUB_REPOSITORY) {
   const primaryCluster = clusterStacks[0];
   
   const secrets = GitHubSecretsStack.createSecretsMap({
-    kubeconfig: primaryCluster.cluster.kubeConfig,
+    kubeconfig: primaryCluster.cluster.kubeConfig.get(0).rawConfig,
     digitalOceanToken: process.env.DIGITALOCEAN_TOKEN!,
     spacesAccessKey: process.env.SPACES_ACCESS_KEY_ID!,
     spacesSecretKey: process.env.SPACES_SECRET_ACCESS_KEY!,

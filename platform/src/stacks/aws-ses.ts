@@ -1,8 +1,8 @@
 import { Construct } from 'constructs';
 import { TerraformStack, TerraformOutput } from 'cdktf';
 import { AwsProvider } from '@cdktf/provider-aws/lib/provider';
-import { SesEmailIdentity } from '@cdktf/provider-aws/lib/ses-email-identity';
-import { SesEmailIdentityDkimAttributes } from '@cdktf/provider-aws/lib/ses-email-identity-dkim-attributes';
+import { SesDomainIdentity } from '@cdktf/provider-aws/lib/ses-domain-identity';
+import { SesDomainDkim } from '@cdktf/provider-aws/lib/ses-domain-dkim';
 import { SesConfigurationSet } from '@cdktf/provider-aws/lib/ses-configuration-set';
 import { IamUser } from '@cdktf/provider-aws/lib/iam-user';
 import { IamAccessKey } from '@cdktf/provider-aws/lib/iam-access-key';
@@ -16,7 +16,8 @@ export interface AWSSESStackProps {
 }
 
 export class AWSSESStack extends TerraformStack {
-  public readonly sesEmailIdentity: SesEmailIdentity;
+  public readonly sesDomainIdentity: SesDomainIdentity;
+  public readonly sesDomainDkim: SesDomainDkim;
   public readonly sesUser: IamUser;
   public readonly accessKey: IamAccessKey;
 
@@ -37,16 +38,14 @@ export class AWSSESStack extends TerraformStack {
       name: `${projectName}-email-config`,
     });
 
-    // Email identity for domain
-    this.sesEmailIdentity = new SesEmailIdentity(this, 'domain-identity', {
-      email: config.project.domain,
-      configurationSetName: configSet.name,
+    // Domain identity for SES
+    this.sesDomainIdentity = new SesDomainIdentity(this, 'domain-identity', {
+      domain: config.project.domain,
     });
 
-    // DKIM attributes
-    new SesEmailIdentityDkimAttributes(this, 'dkim-attributes', {
-      emailIdentity: this.sesEmailIdentity.email,
-      signingEnabled: true,
+    // DKIM configuration
+    this.sesDomainDkim = new SesDomainDkim(this, 'domain-dkim', {
+      domain: this.sesDomainIdentity.domain,
     });
 
     // IAM user for SMTP
@@ -90,8 +89,13 @@ export class AWSSESStack extends TerraformStack {
 
     // Outputs
     new TerraformOutput(this, 'ses_domain_identity', {
-      value: this.sesEmailIdentity.email,
+      value: this.sesDomainIdentity.domain,
       description: 'SES verified domain identity'
+    });
+
+    new TerraformOutput(this, 'ses_dkim_tokens', {
+      value: this.sesDomainDkim.dkimTokens,
+      description: 'DKIM tokens for DNS configuration'
     });
 
     new TerraformOutput(this, 'ses_smtp_username', {

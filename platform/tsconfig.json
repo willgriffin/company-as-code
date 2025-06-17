@@ -5,10 +5,5 @@
     "outDir": "dist",
     "rootDir": "src"
   },
-  "include": ["src/**/*"],
-  "references": [
-    {
-      "path": "../packages/shared"
-    }
-  ]
+  "include": ["src/**/*"]
 }

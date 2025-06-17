@@ -76,6 +76,11 @@ spec:
         kind: HelmRepository
         name: mattermost
         namespace: mattermost
+  valuesFrom:
+    - kind: ConfigMap
+      name: infrastructure-config
+      valuesKey: values.yaml
+      targetPath: infraConfig
   values:
     # Image configuration
     image:
@@ -96,14 +101,8 @@ spec:
       externalPort: 8065
       internalPort: 8065
     
-    # Resource configuration
-    resources:
-      requests:
-        cpu: 500m
-        memory: 1Gi
-      limits:
-        cpu: 2000m
-        memory: 2Gi
+    # Resource configuration (uses infrastructure ConfigMap)
+    resources: "${infraConfig.resourceProfiles.medium}"
     
     # Security context
     securityContext:
@@ -111,17 +110,17 @@ spec:
       runAsGroup: 2000
       fsGroup: 2000
     
-    # Persistence for file uploads
+    # Persistence for file uploads (uses infrastructure ConfigMap)
     persistence:
       data:
         enabled: true
-        size: 50Gi
-        storageClass: do-block-storage
+        size: "${infraConfig.storage.bulk.size}"
+        storageClass: "${infraConfig.storage.bulk.storageClass}"
         accessMode: ReadWriteOnce
       plugins:
         enabled: true
-        size: 1Gi
-        storageClass: do-block-storage
+        size: "${infraConfig.storage.fast.size}"
+        storageClass: "${infraConfig.storage.fast.storageClass}"
         accessMode: ReadWriteOnce
     
     # External database configuration

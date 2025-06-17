@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 import ora from 'ora';
 import chalk from 'chalk';
 import { validateConfig, Config } from '@startup-gitops/platform';
@@ -99,16 +100,26 @@ export async function deploy(options: DeployOptions): Promise<void> {
 }
 
 async function loadConfiguration(configPath?: string): Promise<Config> {
-  const path = configPath || 'gitops.config.json';
+  const defaultPaths = ['config.json', 'config.js', 'config.ts'];
+  const path = configPath || defaultPaths.find(p => existsSync(p)) || defaultPaths[0];
   
   if (!existsSync(path)) {
-    throw new Error(`Configuration file not found: ${path}\nRun 'gitops-cli init' to create one.`);
+    throw new Error(`Configuration file not found: ${path}\nCreate one from: config.json.example`);
   }
 
   try {
-    const configContent = readFileSync(path, 'utf-8');
-    const rawConfig = JSON.parse(configContent);
-    return validateConfig(rawConfig);
+    if (path.endsWith('.json')) {
+      const configContent = readFileSync(path, 'utf-8');
+      const rawConfig = JSON.parse(configContent);
+      return validateConfig(rawConfig);
+    } else if (path.endsWith('.js') || path.endsWith('.ts')) {
+      // For JS/TS files, we expect a default export or module.exports
+      delete require.cache[require.resolve(join(process.cwd(), path))];
+      const rawConfig = require(join(process.cwd(), path));
+      return validateConfig(rawConfig.default || rawConfig);
+    } else {
+      throw new Error(`Unsupported configuration file format: ${path}`);
+    }
   } catch (error) {
     throw new Error(`Invalid configuration file: ${error instanceof Error ? error.message : error}`);
   }

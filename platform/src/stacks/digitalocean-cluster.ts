@@ -3,7 +3,7 @@ import { TerraformStack, TerraformOutput } from 'cdktf';
 import { DigitaloceanProvider } from '@cdktf/provider-digitalocean/lib/provider';
 import { KubernetesCluster } from '@cdktf/provider-digitalocean/lib/kubernetes-cluster';
 import { KubernetesNodePool } from '@cdktf/provider-digitalocean/lib/kubernetes-node-pool';
-import { LoadBalancer } from '@cdktf/provider-digitalocean/lib/loadbalancer';
+import { Loadbalancer } from '@cdktf/provider-digitalocean/lib/loadbalancer';
 import { Domain } from '@cdktf/provider-digitalocean/lib/domain';
 import { Record } from '@cdktf/provider-digitalocean/lib/record';
 import { Config, Environment } from '../config/schema';
@@ -16,8 +16,8 @@ export interface DigitalOceanClusterStackProps {
 
 export class DigitalOceanClusterStack extends TerraformStack {
   public readonly cluster: KubernetesCluster;
-  public readonly nodePool: KubernetesNodePool;
-  public readonly loadBalancer: LoadBalancer;
+  public readonly nodePool?: KubernetesNodePool;
+  public readonly loadBalancer: Loadbalancer;
   public readonly domain: Domain;
 
   constructor(scope: Construct, id: string, props: DigitalOceanClusterStackProps) {
@@ -75,7 +75,7 @@ export class DigitalOceanClusterStack extends TerraformStack {
           'node-type': 'application',
           'environment': environment.name
         },
-        taints: [{
+        taint: [{
           key: 'workload-type',
           value: 'application',
           effect: 'NoSchedule'
@@ -84,9 +84,9 @@ export class DigitalOceanClusterStack extends TerraformStack {
     }
 
     // Load balancer for ingress
-    this.loadBalancer = new LoadBalancer(this, 'ingress-lb', {
+    this.loadBalancer = new Loadbalancer(this, 'ingress-lb', {
       name: `${clusterName}-ingress`,
-      type: 'lb',
+      type: 'regional',
       region: environment.cluster.region,
       size: 'lb-small',
       algorithm: 'round_robin',
