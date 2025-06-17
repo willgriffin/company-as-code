@@ -63,6 +63,7 @@ interface SetupOptions {
   verbose?: boolean;
   interactive?: boolean;
   assumeYes?: boolean;
+  eject?: boolean;
 }
 
 class SetupError extends Error {
@@ -585,8 +586,174 @@ class GitOpsSetup {
     this.logSuccess('GitHub project setup complete');
   }
 
+  private async createCleanupIssue(): Promise<void> {
+    this.logStep('Creating Template Cleanup Issue');
+
+    if (this.options.skipGithub) {
+      this.logWarning('GitHub setup skipped, not creating cleanup issue');
+      return;
+    }
+
+    const issueBody = `## Template Cleanup Required
+
+This issue was automatically created after repository setup to track cleanup of template artifacts.
+
+### Cleanup Tasks
+- [ ] Review generated configuration files  
+- [ ] Test deployment pipeline
+- [ ] Remove template-specific files when ready
+- [ ] Verify all placeholders were replaced correctly
+
+### Template Files to Remove (when ready)
+- [ ] \`setup.ts\` - Setup script (keep if you want to re-run setup)
+- [ ] \`setup.sh\` - Setup wrapper script  
+- [ ] \`config.*.example\` - Example configuration files
+- [ ] \`initial-setup.sh\` - Legacy setup script (if present)
+- [ ] Template documentation that's no longer needed
+
+### Generated Configuration to Review
+- [ ] \`flux/\` - Kubernetes manifests (verify all placeholders replaced)
+- [ ] \`platform/\` - CDKTF infrastructure code
+- [ ] GitHub repository secrets (verify all are set correctly)
+- [ ] DNS records (set up domain verification as instructed)
+
+### Optional Cleanup
+- [ ] Remove \`.github/workflows/create-setup-issue.yml\` (this workflow)
+- [ ] Update README.md to reflect your project instead of template
+- [ ] Remove any unused applications from \`flux/applications/\`
+- [ ] Clean up .gitignore entries if needed
+
+${this.options.skipProject ? '' : '- [ ] Keep GitHub project and workflow automation (manually delete if not needed)'}
+
+### Eject Template (Advanced)
+When you're completely done with template features:
+\`\`\`bash
+npx tsx setup.ts --eject
+\`\`\`
+
+This will remove all template-specific files automatically.
+
+---
+*This issue was created automatically by the GitOps template setup process.*`;
+
+    try {
+      this.exec(`gh issue create --title "chore: complete template cleanup and ejection" --body "${issueBody.replace(/"/g, '\\"')}" --label "template-cleanup"`, true);
+      this.logSuccess('Created template cleanup issue');
+    } catch (error) {
+      this.logWarning(`Could not create GitHub issue: ${error}`);
+      this.logWarning('You may need to authenticate with: gh auth login');
+    }
+  }
+
+  private async ejectTemplate(): Promise<void> {
+    this.logStep('Template Ejection Mode');
+    
+    this.log(`${colors.yellow}${colors.bold}⚠️ This will remove template-specific files from your repository${colors.reset}\n`);
+    
+    const filesToRemove = [
+      'setup.ts',
+      'setup.sh', 
+      'config.json.example',
+      'config.js.example',
+      'config.ts.example',
+      'initial-setup.sh',
+      '.github/workflows/create-setup-issue.yml',
+      'HYBRID-WORKFLOW.md'
+    ];
+
+    const optionalFiles = [
+      'README.md',
+      'WORKFLOW.md',
+      'docs/workflow-requirements.md'
+    ];
+
+    this.log(`${colors.bold}${colors.blue}Files to be removed:${colors.reset}`);
+    for (const file of filesToRemove) {
+      if (existsSync(file)) {
+        this.log(`  • ${file} ${colors.green}(exists)${colors.reset}`);
+      } else {
+        this.log(`  • ${file} ${colors.yellow}(not found)${colors.reset}`);
+      }
+    }
+
+    this.log(`\n${colors.bold}${colors.blue}Optional files (you may want to update):${colors.reset}`);
+    for (const file of optionalFiles) {
+      if (existsSync(file)) {
+        this.log(`  • ${file} ${colors.blue}(update to reflect your project)${colors.reset}`);
+      }
+    }
+
+    // Interactive confirmation unless --yes flag
+    if (!this.options.assumeYes) {
+      this.log(`\n${colors.yellow}${colors.bold}Are you sure you want to eject the template?${colors.reset}`);
+      this.log(`This will permanently remove template files. Type 'eject' to confirm:`);
+      
+      try {
+        const { execSync } = await import('child_process');
+        const response = execSync('read -p "> " response && echo $response', { 
+          encoding: 'utf-8', 
+          stdio: ['inherit', 'pipe', 'inherit'],
+          shell: '/bin/bash'
+        }).trim().toLowerCase();
+
+        if (response !== 'eject') {
+          this.log(`${colors.yellow}Ejection cancelled${colors.reset}`);
+          return;
+        }
+      } catch (error) {
+        this.logWarning('Unable to prompt for confirmation, proceeding...');
+      }
+    }
+
+    // Remove files
+    this.log(`\n${colors.blue}Removing template files...${colors.reset}`);
+    let removedCount = 0;
+    
+    for (const file of filesToRemove) {
+      if (existsSync(file)) {
+        if (!this.options.dryRun) {
+          try {
+            this.exec(`rm -f "${file}"`, true);
+            this.logSuccess(`Removed ${file}`);
+            removedCount++;
+          } catch (error) {
+            this.logError(`Failed to remove ${file}: ${error}`);
+          }
+        } else {
+          this.log(`${colors.yellow}[DRY-RUN] Would remove: ${file}${colors.reset}`);
+          removedCount++;
+        }
+      }
+    }
+
+    // Create final ejection commit
+    if (!this.options.dryRun && removedCount > 0) {
+      try {
+        this.exec('git add -A', true);
+        this.exec('git commit -m "chore: eject GitOps template artifacts\n\nRemoved template-specific files after successful setup.\nRepository is now ready for independent development."', true);
+        this.logSuccess('Created ejection commit');
+      } catch (error) {
+        this.logWarning(`Could not create git commit: ${error}`);
+      }
+    }
+
+    this.logStep('Ejection Complete');
+    this.logSuccess(`Template ejection complete! ${removedCount} files removed.`);
+    this.log(`\n${colors.yellow}Final steps:${colors.reset}`);
+    this.log('1. Update README.md to reflect your project');
+    this.log('2. Remove any unused applications from flux/applications/');
+    this.log('3. Customize the infrastructure as needed');
+    this.log('\nYour repository is now fully independent from the template!');
+  }
+
   public async run(): Promise<void> {
     try {
+      // Handle eject mode separately
+      if (this.options.eject) {
+        await this.ejectTemplate();
+        return;
+      }
+
       this.log(`${colors.bold}${colors.blue}GitOps Template Setup${colors.reset}`);
       this.log(`Project: ${this.config.project.name}`);
       this.log(`Domain: ${this.config.project.domain}`);
@@ -622,6 +789,9 @@ class GitOpsSetup {
 
       // Step 6: Setup GitHub project (optional)
       await this.setupGitHubProject();
+
+      // Step 7: Create cleanup issue for template ejection
+      await this.createCleanupIssue();
 
       this.logStep('Setup Complete');
       this.logSuccess('All prerequisites have been configured');
@@ -695,6 +865,7 @@ OPTIONS:
   --skip-project      Skip GitHub project setup only
   --no-interactive    Skip automatic login prompts (fail if not authenticated)
   --yes               Skip confirmation dialog (auto-approve)
+  --eject             Remove template artifacts (advanced)
   --verbose           Show detailed command output
   --help              Show this help message
 
@@ -705,6 +876,7 @@ EXAMPLES:
   npx tsx setup.ts --no-interactive    # Fail if credentials missing (CI mode)
   npx tsx setup.ts --skip-github       # Skip all GitHub setup
   npx tsx setup.ts --config config.ts  # Use TypeScript config file
+  npx tsx setup.ts --eject             # Remove template files (after setup complete)
 
 This script sets up prerequisites for CDKTF deployment:
 - DigitalOcean Spaces bucket for Terraform state
@@ -741,6 +913,9 @@ async function main(): Promise<void> {
       case '--yes':
         options.assumeYes = true;
         break;
+      case '--eject':
+        options.eject = true;
+        break;
       case '--verbose':
         options.verbose = true;
         break;
@@ -756,7 +931,8 @@ async function main(): Promise<void> {
   }
 
   try {
-    const config = loadConfig(options.config);
+    // For eject mode, we don't need a valid config
+    const config = options.eject ? {} as Config : loadConfig(options.config);
     const setup = new GitOpsSetup(config, options);
     await setup.run();
   } catch (error) {
