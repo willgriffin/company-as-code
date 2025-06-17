@@ -21,7 +21,7 @@ A modern, production-ready infrastructure template for deploying Kubernetes appl
 
 ## 📋 Prerequisites
 
-- **Node.js** 18+ and **pnpm** 8+
+- **Node.js** 22+ and **pnpm** 9+
 - **[DigitalOcean account](https://digitalocean.pxf.io/3evZdB)** with API token
 - **GitHub account** for GitOps repository
 - **Domain name** with DNS pointing to DigitalOcean
