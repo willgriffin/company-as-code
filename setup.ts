@@ -1,0 +1,554 @@
+#!/usr/bin/env -S npx tsx
+
+/**
+ * Setup script for GitOps template prerequisites
+ * 
+ * This script handles the foundational setup that CDKTF doesn't cover:
+ * - DigitalOcean Spaces bucket for Terraform state
+ * - AWS SES credentials and IAM user setup
+ * - GitHub secrets management
+ * - Optional GitHub project board setup
+ * 
+ * Run this BEFORE deploying infrastructure with CDKTF.
+ */
+
+import { readFileSync, existsSync } from 'fs';
+import { execSync } from 'child_process';
+import { createHash, createHmac } from 'crypto';
+
+// Colors for console output
+const colors = {
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  blue: '\x1b[34m',
+  yellow: '\x1b[33m',
+  reset: '\x1b[0m',
+  bold: '\x1b[1m'
+};
+
+interface Config {
+  project: {
+    name: string;
+    domain: string;
+    email: string;
+    description?: string;
+  };
+  environments: Array<{
+    name: 'staging' | 'production';
+    cluster: {
+      region: string;
+      nodeSize: string;
+      nodeCount: number;
+      minNodes?: number;
+      maxNodes?: number;
+      haControlPlane?: boolean;
+      version?: string;
+    };
+    domain: string;
+  }>;
+  features: {
+    email: boolean;
+    monitoring: boolean;
+    backup: boolean;
+    ssl: boolean;
+  };
+  applications: Array<'keycloak' | 'mattermost' | 'nextcloud' | 'mailu'>;
+}
+
+interface SetupOptions {
+  config?: string;
+  dryRun?: boolean;
+  skipGithub?: boolean;
+  skipProject?: boolean;
+  verbose?: boolean;
+}
+
+class SetupError extends Error {
+  constructor(message: string, public code?: string) {
+    super(message);
+    this.name = 'SetupError';
+  }
+}
+
+class GitOpsSetup {
+  private config: Config;
+  private options: SetupOptions;
+
+  constructor(config: Config, options: SetupOptions = {}) {
+    this.config = config;
+    this.options = options;
+  }
+
+  private log(message: string, color = colors.reset): void {
+    console.log(`${color}${message}${colors.reset}`);
+  }
+
+  private logStep(step: string): void {
+    this.log(`\n${colors.blue}${colors.bold}=== ${step} ===${colors.reset}`);
+  }
+
+  private logSuccess(message: string): void {
+    this.log(`${colors.green}✓ ${message}${colors.reset}`);
+  }
+
+  private logWarning(message: string): void {
+    this.log(`${colors.yellow}⚠ ${message}${colors.reset}`);
+  }
+
+  private logError(message: string): void {
+    this.log(`${colors.red}✗ ${message}${colors.reset}`);
+  }
+
+  private exec(command: string, silent = false): string {
+    if (this.options.verbose && !silent) {
+      this.log(`${colors.blue}Running: ${command}${colors.reset}`);
+    }
+    
+    if (this.options.dryRun) {
+      this.log(`${colors.yellow}[DRY-RUN] Would execute: ${command}${colors.reset}`);
+      return '';
+    }
+
+    try {
+      return execSync(command, { 
+        encoding: 'utf-8',
+        stdio: silent ? 'pipe' : 'inherit'
+      }).trim();
+    } catch (error: any) {
+      throw new SetupError(`Command failed: ${command}\n${error.message}`, 'EXEC_FAILED');
+    }
+  }
+
+  private checkPrerequisites(): void {
+    this.logStep('Checking Prerequisites');
+
+    const tools = [
+      { name: 'doctl', command: 'doctl version', package: 'doctl' },
+      { name: 'aws', command: 'aws --version', package: 'awscli' },
+      { name: 'gh', command: 'gh --version', package: 'github-cli' },
+      { name: 'jq', command: 'jq --version', package: 'jq' }
+    ];
+
+    for (const tool of tools) {
+      try {
+        this.exec(tool.command, true);
+        this.logSuccess(`${tool.name} is available`);
+      } catch {
+        throw new SetupError(
+          `${tool.name} is not installed. Install with: nix-shell -p ${tool.package}`, 
+          'MISSING_TOOL'
+        );
+      }
+    }
+
+    // Check authentication
+    try {
+      this.exec('doctl account get', true);
+      this.logSuccess('DigitalOcean authenticated');
+    } catch {
+      throw new SetupError(
+        'DigitalOcean not authenticated. Run: doctl auth init',
+        'AUTH_FAILED'
+      );
+    }
+
+    try {
+      this.exec('aws sts get-caller-identity', true);
+      this.logSuccess('AWS authenticated');
+    } catch {
+      throw new SetupError(
+        'AWS not authenticated. Run: aws configure',
+        'AUTH_FAILED'
+      );
+    }
+
+    try {
+      this.exec('gh auth status', true);
+      this.logSuccess('GitHub authenticated');
+    } catch {
+      throw new SetupError(
+        'GitHub not authenticated. Run: gh auth login',
+        'AUTH_FAILED'
+      );
+    }
+  }
+
+  private async setupSpacesBucket(): Promise<{ accessKey: string; secretKey: string; bucketName: string }> {
+    this.logStep('Setting up DigitalOcean Spaces for Terraform State');
+
+    const bucketName = `${this.config.project.name}-terraform-state`;
+    const region = this.config.environments[0].cluster.region;
+
+    // Check if bucket already exists
+    try {
+      this.exec(`doctl spaces ls | grep -q "${bucketName}"`, true);
+      this.logSuccess(`Spaces bucket "${bucketName}" already exists`);
+    } catch {
+      // Create bucket
+      this.log(`Creating Spaces bucket: ${bucketName}`);
+      this.exec(`doctl spaces create ${bucketName} --region ${region}`);
+      this.logSuccess(`Created Spaces bucket: ${bucketName}`);
+    }
+
+    // Generate Spaces access keys
+    const keyName = `${this.config.project.name}-terraform-state`;
+    let accessKey: string;
+    let secretKey: string;
+
+    try {
+      // Check if key already exists
+      const existingKeys = this.exec('doctl spaces keys list --format Name --no-header', true);
+      if (existingKeys.includes(keyName)) {
+        this.logWarning(`Spaces key "${keyName}" already exists. Using existing key.`);
+        // Note: We can't retrieve existing secret key, user needs to provide it
+        throw new SetupError(
+          `Spaces key "${keyName}" exists but secret key cannot be retrieved. Delete and recreate, or provide manually.`,
+          'KEY_EXISTS'
+        );
+      }
+
+      // Create new key
+      this.log(`Creating Spaces access key: ${keyName}`);
+      const keyOutput = this.exec(`doctl spaces keys create ${keyName} --format AccessKey,SecretKey --no-header`, true);
+      const [newAccessKey, newSecretKey] = keyOutput.split('\t');
+      accessKey = newAccessKey.trim();
+      secretKey = newSecretKey.trim();
+      
+      this.logSuccess(`Created Spaces access key: ${accessKey}`);
+    } catch (error) {
+      if (error instanceof SetupError && error.code === 'KEY_EXISTS') {
+        throw error;
+      }
+      throw new SetupError(`Failed to create Spaces access key: ${error}`, 'SPACES_KEY_FAILED');
+    }
+
+    return { accessKey, secretKey, bucketName };
+  }
+
+  private generateSesSmtpPassword(secretKey: string): string {
+    const message = 'SendRawEmail';
+    const versionInBytes = Buffer.from([0x04]);
+    const signatureInBytes = Buffer.concat([versionInBytes, Buffer.from(secretKey, 'utf-8')]);
+    
+    const hmac = createHmac('sha256', signatureInBytes);
+    hmac.update(message);
+    
+    return hmac.digest('base64');
+  }
+
+  private async setupSesCredentials(): Promise<{ username: string; password: string }> {
+    this.logStep('Setting up AWS SES SMTP Credentials');
+
+    if (!this.config.features.email) {
+      this.logWarning('Email feature disabled, skipping SES setup');
+      return { username: '', password: '' };
+    }
+
+    const domain = this.config.project.domain;
+    const userName = `${this.config.project.name}-ses-smtp`;
+    const policyName = `${this.config.project.name}-ses-policy`;
+
+    // Create IAM policy for SES
+    const policyDocument = {
+      Version: '2012-10-17',
+      Statement: [
+        {
+          Effect: 'Allow',
+          Action: [
+            'ses:SendEmail',
+            'ses:SendRawEmail'
+          ],
+          Resource: `arn:aws:ses:*:*:identity/${domain}`
+        }
+      ]
+    };
+
+    this.log(`Creating IAM policy: ${policyName}`);
+    try {
+      this.exec(`aws iam create-policy --policy-name ${policyName} --policy-document '${JSON.stringify(policyDocument)}'`, true);
+      this.logSuccess(`Created IAM policy: ${policyName}`);
+    } catch {
+      this.logWarning(`IAM policy ${policyName} may already exist`);
+    }
+
+    // Create IAM user
+    this.log(`Creating IAM user: ${userName}`);
+    try {
+      this.exec(`aws iam create-user --user-name ${userName}`, true);
+      this.logSuccess(`Created IAM user: ${userName}`);
+    } catch {
+      this.logWarning(`IAM user ${userName} may already exist`);
+    }
+
+    // Attach policy to user
+    const accountId = this.exec('aws sts get-caller-identity --query Account --output text', true);
+    const policyArn = `arn:aws:iam::${accountId}:policy/${policyName}`;
+    
+    try {
+      this.exec(`aws iam attach-user-policy --user-name ${userName} --policy-arn ${policyArn}`, true);
+      this.logSuccess(`Attached policy to user: ${userName}`);
+    } catch {
+      this.logWarning(`Policy may already be attached to ${userName}`);
+    }
+
+    // Create access keys
+    this.log(`Creating access keys for: ${userName}`);
+    let accessKey: string;
+    let secretKey: string;
+
+    try {
+      const keyOutput = this.exec(`aws iam create-access-key --user-name ${userName} --query 'AccessKey.[AccessKeyId,SecretAccessKey]' --output text`, true);
+      [accessKey, secretKey] = keyOutput.split('\t');
+      
+      this.logSuccess(`Created access keys for: ${userName}`);
+    } catch {
+      throw new SetupError(`Failed to create access keys for ${userName}`, 'SES_KEY_FAILED');
+    }
+
+    // Generate SMTP password
+    const smtpPassword = this.generateSesSmtpPassword(secretKey);
+
+    this.log(`\n${colors.yellow}SES Setup Complete:${colors.reset}`);
+    this.log(`Domain: ${domain}`);
+    this.log(`SMTP Username: ${accessKey}`);
+    this.log(`Access Key: ${accessKey}`);
+    this.log(`Secret Key: ${secretKey}`);
+    this.log(`SMTP Password: ${smtpPassword}`);
+
+    this.log(`\n${colors.yellow}Next steps for SES:${colors.reset}`);
+    this.log(`1. Verify domain in AWS SES console`);
+    this.log(`2. Set up DKIM records`);
+    this.log(`3. Request production access if needed`);
+
+    return { username: accessKey, password: smtpPassword };
+  }
+
+  private async setGitHubSecrets(secrets: Record<string, string>): Promise<void> {
+    this.logStep('Setting GitHub Repository Secrets');
+
+    if (this.options.skipGithub) {
+      this.logWarning('Skipping GitHub secrets setup');
+      return;
+    }
+
+    // Get repository info
+    const repoInfo = this.exec('gh repo view --json owner,name', true);
+    const { owner, name } = JSON.parse(repoInfo);
+    const repo = `${owner.login}/${name}`;
+
+    this.log(`Setting secrets for repository: ${repo}`);
+
+    for (const [key, value] of Object.entries(secrets)) {
+      if (!value) {
+        this.logWarning(`Skipping empty secret: ${key}`);
+        continue;
+      }
+
+      try {
+        this.exec(`gh secret set ${key} --body "${value}"`, true);
+        this.logSuccess(`Set secret: ${key}`);
+      } catch (error) {
+        this.logError(`Failed to set secret ${key}: ${error}`);
+      }
+    }
+  }
+
+  private async setupGitHubProject(): Promise<void> {
+    this.logStep('Setting up GitHub Project (Optional)');
+
+    if (this.options.skipProject) {
+      this.logWarning('Skipping GitHub project setup');
+      return;
+    }
+
+    // Create workflow labels
+    const labels = [
+      { name: 'status:new-issue', color: 'f9f9f9', description: 'New issue that needs triage' },
+      { name: 'status:backlog', color: 'eeeeee', description: 'Issue is in backlog' },
+      { name: 'status:ready', color: 'yellow', description: 'Issue is ready to be worked on' },
+      { name: 'status:in-progress', color: 'blue', description: 'Issue is currently being worked on' },
+      { name: 'status:blocked', color: 'red', description: 'Issue is blocked' },
+      { name: 'status:done', color: 'green', description: 'Issue has been completed' },
+      { name: 'type:feature', color: 'blue', description: 'New feature request' },
+      { name: 'type:bug', color: 'red', description: 'Bug report' },
+      { name: 'type:enhancement', color: 'yellow', description: 'Enhancement to existing feature' },
+      { name: 'type:documentation', color: 'purple', description: 'Documentation update' }
+    ];
+
+    this.log('Creating workflow labels...');
+    for (const label of labels) {
+      try {
+        this.exec(`gh label create "${label.name}" --color ${label.color} --description "${label.description}"`, true);
+        this.logSuccess(`Created label: ${label.name}`);
+      } catch {
+        this.logWarning(`Label ${label.name} may already exist`);
+      }
+    }
+
+    this.logSuccess('GitHub project setup complete');
+  }
+
+  public async run(): Promise<void> {
+    try {
+      this.log(`${colors.bold}${colors.blue}GitOps Template Setup${colors.reset}`);
+      this.log(`Project: ${this.config.project.name}`);
+      this.log(`Domain: ${this.config.project.domain}`);
+      this.log(`Environment: ${this.config.environments[0].name}\n`);
+
+      // Step 1: Check prerequisites
+      this.checkPrerequisites();
+
+      // Step 2: Setup Spaces bucket for Terraform state
+      const spacesConfig = await this.setupSpacesBucket();
+
+      // Step 3: Setup SES credentials (if email enabled)
+      const sesConfig = await this.setupSesCredentials();
+
+      // Step 4: Set GitHub secrets
+      const secrets: Record<string, string> = {
+        DIGITALOCEAN_TOKEN: process.env.DIGITALOCEAN_TOKEN || '',
+        SPACES_ACCESS_KEY_ID: spacesConfig.accessKey,
+        SPACES_SECRET_ACCESS_KEY: spacesConfig.secretKey,
+        SPACES_BUCKET_NAME: spacesConfig.bucketName,
+        AWS_ACCESS_KEY_ID: sesConfig.username,
+        AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || '',
+        AWS_SES_SMTP_USERNAME: sesConfig.username,
+        AWS_SES_SMTP_PASSWORD: sesConfig.password,
+        ADMIN_EMAIL: this.config.project.email,
+        DOMAIN: this.config.project.domain
+      };
+
+      await this.setGitHubSecrets(secrets);
+
+      // Step 5: Setup GitHub project (optional)
+      await this.setupGitHubProject();
+
+      this.logStep('Setup Complete');
+      this.logSuccess('All prerequisites have been configured');
+      this.log(`\n${colors.yellow}Next steps:${colors.reset}`);
+      this.log('1. Run: npx tsx platform/src/main.ts (or use CDKTF CLI)');
+      this.log('2. Wait for infrastructure deployment to complete');
+      this.log('3. Access your applications at the configured domains');
+
+    } catch (error) {
+      if (error instanceof SetupError) {
+        this.logError(`Setup failed: ${error.message}`);
+        if (error.code) {
+          this.logError(`Error code: ${error.code}`);
+        }
+      } else {
+        this.logError(`Unexpected error: ${error}`);
+      }
+      process.exit(1);
+    }
+  }
+}
+
+// CLI handling
+function loadConfig(configPath = 'infrastructure.config.json'): Config {
+  const paths = [
+    configPath,
+    'infrastructure.config.json',
+    'config.json',
+    '../infrastructure.config.json',
+    '../config.json',
+    process.env.GITOPS_CONFIG_PATH
+  ].filter(Boolean);
+
+  for (const path of paths) {
+    if (path && existsSync(path)) {
+      try {
+        const content = readFileSync(path, 'utf-8');
+        return JSON.parse(content);
+      } catch (error) {
+        throw new SetupError(`Invalid configuration file ${path}: ${error}`, 'CONFIG_INVALID');
+      }
+    }
+  }
+
+  throw new SetupError(
+    'Configuration file not found. Expected infrastructure.config.json or config.json.\nCreate one with: gitops-cli init',
+    'CONFIG_NOT_FOUND'
+  );
+}
+
+function showHelp(): void {
+  console.log(`
+GitOps Template Setup Script
+
+USAGE:
+  npx tsx setup.ts [OPTIONS]
+
+OPTIONS:
+  --config PATH        Configuration file path (default: infrastructure.config.json)
+  --dry-run           Show what would be done without executing
+  --skip-github       Skip GitHub secrets and project setup
+  --skip-project      Skip GitHub project setup only
+  --verbose           Show detailed command output
+  --help              Show this help message
+
+EXAMPLES:
+  npx tsx setup.ts                     # Run with default config
+  npx tsx setup.ts --dry-run           # Preview what would be done
+  npx tsx setup.ts --skip-github       # Skip all GitHub setup
+  npx tsx setup.ts --config my.json    # Use custom config file
+
+This script sets up prerequisites for CDKTF deployment:
+- DigitalOcean Spaces bucket for Terraform state
+- AWS SES credentials (if email enabled)
+- GitHub repository secrets
+- Optional GitHub project labels and workflow
+`);
+}
+
+// Main execution
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const options: SetupOptions = {};
+
+  for (let i = 0; i < args.length; i++) {
+    switch (args[i]) {
+      case '--config':
+        options.config = args[++i];
+        break;
+      case '--dry-run':
+        options.dryRun = true;
+        break;
+      case '--skip-github':
+        options.skipGithub = true;
+        break;
+      case '--skip-project':
+        options.skipProject = true;
+        break;
+      case '--verbose':
+        options.verbose = true;
+        break;
+      case '--help':
+        showHelp();
+        process.exit(0);
+        break;
+      default:
+        console.error(`Unknown option: ${args[i]}`);
+        showHelp();
+        process.exit(1);
+    }
+  }
+
+  try {
+    const config = loadConfig(options.config);
+    const setup = new GitOpsSetup(config, options);
+    await setup.run();
+  } catch (error) {
+    if (error instanceof SetupError) {
+      console.error(`${colors.red}Error: ${error.message}${colors.reset}`);
+      process.exit(1);
+    } else {
+      console.error(`${colors.red}Unexpected error: ${error}${colors.reset}`);
+      process.exit(1);
+    }
+  }
+}
+
+if (require.main === module) {
+  main().catch(console.error);
+}

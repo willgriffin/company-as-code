@@ -99,7 +99,8 @@ export async function deploy(options: DeployOptions): Promise<void> {
 }
 
 async function loadConfiguration(configPath?: string): Promise<Config> {
-  const path = configPath || 'gitops.config.json';
+  const defaultPaths = ['infrastructure.config.json', 'config.json', 'gitops.config.json'];
+  const path = configPath || defaultPaths.find(p => existsSync(p)) || defaultPaths[0];
   
   if (!existsSync(path)) {
     throw new Error(`Configuration file not found: ${path}\nRun 'gitops-cli init' to create one.`);

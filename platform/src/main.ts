@@ -5,13 +5,20 @@ import { DigitalOceanClusterStack } from './stacks/digitalocean-cluster';
 import { DigitalOceanSpacesStack } from './stacks/digitalocean-spaces';
 import { AWSSESStack } from './stacks/aws-ses';
 import { GitHubSecretsStack } from './stacks/github-secrets';
+import { FluxConfigurationStack } from './stacks/flux-configuration';
 import { Config, validateConfig } from './config/schema';
 
 function loadConfig(): Config {
   // Try to load configuration from various locations
   const configPaths = [
+    'infrastructure.config.json',
+    'config.json',
     'gitops.config.json',
+    '../infrastructure.config.json',
+    '../config.json',
     '../gitops.config.json',
+    '../../infrastructure.config.json',
+    '../../config.json',
     '../../gitops.config.json',
     process.env.GITOPS_CONFIG_PATH
   ].filter(Boolean);
@@ -76,6 +83,17 @@ const clusterStacks = config.environments.map(env => {
     projectName: config.project.name,
     environment: env,
     config
+  });
+});
+
+// Create Flux configuration stacks for each environment
+const fluxStacks = clusterStacks.map((clusterStack, index) => {
+  const env = config.environments[index];
+  return new FluxConfigurationStack(app, `${config.project.name}-${env.name}-flux`, {
+    projectName: config.project.name,
+    environment: env,
+    config,
+    kubeconfig: clusterStack.cluster.kubeConfig
   });
 });
 
