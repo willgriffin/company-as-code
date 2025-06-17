@@ -61,6 +61,7 @@ interface SetupOptions {
   skipGithub?: boolean;
   skipProject?: boolean;
   verbose?: boolean;
+  interactive?: boolean;
 }
 
 class SetupError extends Error {
@@ -76,7 +77,7 @@ class GitOpsSetup {
 
   constructor(config: Config, options: SetupOptions = {}) {
     this.config = config;
-    this.options = options;
+    this.options = { interactive: true, ...options }; // Default to interactive mode
   }
 
   private log(message: string, color = colors.reset): void {
@@ -141,35 +142,89 @@ class GitOpsSetup {
       }
     }
 
-    // Check authentication
+    // Check and setup authentication
+    this.checkAuthentication();
+  }
+
+  private checkAuthentication(): void {
+    this.logStep('Checking Authentication');
+
+    // Check DigitalOcean authentication
     try {
       this.exec('doctl account get', true);
       this.logSuccess('DigitalOcean authenticated');
     } catch {
-      throw new SetupError(
-        'DigitalOcean not authenticated. Run: doctl auth init',
-        'AUTH_FAILED'
-      );
+      if (this.options.interactive && !this.options.dryRun) {
+        this.log(`${colors.yellow}DigitalOcean not authenticated. Running login...${colors.reset}`);
+        this.log('You will need your DigitalOcean API token from:');
+        this.log('https://cloud.digitalocean.com/account/api/tokens');
+        this.exec('doctl auth init');
+        this.logSuccess('DigitalOcean authentication complete');
+      } else {
+        throw new SetupError(
+          'DigitalOcean not authenticated. Run: doctl auth init',
+          'AUTH_FAILED'
+        );
+      }
     }
 
+    // Check AWS authentication
     try {
       this.exec('aws sts get-caller-identity', true);
       this.logSuccess('AWS authenticated');
     } catch {
-      throw new SetupError(
-        'AWS not authenticated. Run: aws configure',
-        'AUTH_FAILED'
-      );
+      if (this.options.interactive && !this.options.dryRun) {
+        this.log(`${colors.yellow}AWS not authenticated. Running configuration...${colors.reset}`);
+        this.log('You will need your AWS Access Key ID and Secret Access Key');
+        this.log('For SES setup, make sure you have appropriate IAM permissions');
+        this.exec('aws configure');
+        
+        // Verify authentication worked
+        try {
+          this.exec('aws sts get-caller-identity', true);
+          this.logSuccess('AWS authentication complete');
+        } catch {
+          throw new SetupError(
+            'AWS authentication failed after configuration. Please check your credentials.',
+            'AUTH_FAILED'
+          );
+        }
+      } else {
+        throw new SetupError(
+          'AWS not authenticated. Run: aws configure',
+          'AUTH_FAILED'
+        );
+      }
     }
 
+    // Check GitHub authentication  
     try {
       this.exec('gh auth status', true);
       this.logSuccess('GitHub authenticated');
     } catch {
-      throw new SetupError(
-        'GitHub not authenticated. Run: gh auth login',
-        'AUTH_FAILED'
-      );
+      if (this.options.interactive && !this.options.dryRun && !this.options.skipGithub) {
+        this.log(`${colors.yellow}GitHub not authenticated. Running login...${colors.reset}`);
+        this.log('This will open your web browser for GitHub authentication');
+        this.exec('gh auth login');
+        
+        // Verify authentication worked
+        try {
+          this.exec('gh auth status', true);
+          this.logSuccess('GitHub authentication complete');
+        } catch {
+          throw new SetupError(
+            'GitHub authentication failed after login. Please try again.',
+            'AUTH_FAILED'
+          );
+        }
+      } else if (this.options.skipGithub) {
+        this.logWarning('GitHub authentication skipped (--skip-github flag)');
+      } else {
+        throw new SetupError(
+          'GitHub not authenticated. Run: gh auth login',
+          'AUTH_FAILED'
+        );
+      }
     }
   }
 
@@ -493,20 +548,29 @@ OPTIONS:
   --dry-run           Show what would be done without executing
   --skip-github       Skip GitHub secrets and project setup
   --skip-project      Skip GitHub project setup only
+  --no-interactive    Skip automatic login prompts (fail if not authenticated)
   --verbose           Show detailed command output
   --help              Show this help message
 
 EXAMPLES:
-  npx tsx setup.ts                     # Run with default config.json
+  npx tsx setup.ts                     # Run with automatic login prompts
   npx tsx setup.ts --dry-run           # Preview what would be done
+  npx tsx setup.ts --no-interactive    # Fail if credentials missing (CI mode)
   npx tsx setup.ts --skip-github       # Skip all GitHub setup
   npx tsx setup.ts --config config.ts  # Use TypeScript config file
 
 This script sets up prerequisites for CDKTF deployment:
 - DigitalOcean Spaces bucket for Terraform state
-- AWS SES credentials (if email enabled)
+- AWS SES credentials (if email enabled)  
 - GitHub repository secrets
 - Optional GitHub project labels and workflow
+
+AUTHENTICATION:
+The script will automatically prompt for login if credentials are missing.
+You will need:
+- DigitalOcean API token: https://cloud.digitalocean.com/account/api/tokens
+- AWS Access Keys: https://console.aws.amazon.com/iam/home#/security_credentials
+- GitHub account for repository access (gh auth login will guide you)
 `);
 }
 
@@ -528,6 +592,9 @@ async function main(): Promise<void> {
         break;
       case '--skip-project':
         options.skipProject = true;
+        break;
+      case '--no-interactive':
+        options.interactive = false;
         break;
       case '--verbose':
         options.verbose = true;
