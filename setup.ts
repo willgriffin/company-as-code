@@ -62,6 +62,7 @@ interface SetupOptions {
   skipProject?: boolean;
   verbose?: boolean;
   interactive?: boolean;
+  assumeYes?: boolean;
 }
 
 class SetupError extends Error {
@@ -156,8 +157,7 @@ class GitOpsSetup {
     } catch {
       if (this.options.interactive && !this.options.dryRun) {
         this.log(`${colors.yellow}DigitalOcean not authenticated. Running login...${colors.reset}`);
-        this.log('You will need your DigitalOcean API token from:');
-        this.log('https://cloud.digitalocean.com/account/api/tokens');
+        this.log(`${colors.blue}Get your API token from: https://cloud.digitalocean.com/account/api/tokens${colors.reset}`);
         this.exec('doctl auth init');
         this.logSuccess('DigitalOcean authentication complete');
       } else {
@@ -175,8 +175,8 @@ class GitOpsSetup {
     } catch {
       if (this.options.interactive && !this.options.dryRun) {
         this.log(`${colors.yellow}AWS not authenticated. Running configuration...${colors.reset}`);
+        this.log(`${colors.blue}Get your AWS Access Keys from: https://console.aws.amazon.com/iam/home#/security_credentials${colors.reset}`);
         this.log('You will need your AWS Access Key ID and Secret Access Key');
-        this.log('For SES setup, make sure you have appropriate IAM permissions');
         this.exec('aws configure');
         
         // Verify authentication worked
@@ -204,7 +204,7 @@ class GitOpsSetup {
     } catch {
       if (this.options.interactive && !this.options.dryRun && !this.options.skipGithub) {
         this.log(`${colors.yellow}GitHub not authenticated. Running login...${colors.reset}`);
-        this.log('This will open your web browser for GitHub authentication');
+        this.log(`${colors.blue}This will open your web browser for GitHub authentication${colors.reset}`);
         this.exec('gh auth login');
         
         // Verify authentication worked
@@ -225,6 +225,148 @@ class GitOpsSetup {
           'AUTH_FAILED'
         );
       }
+    }
+  }
+
+  private async showConfirmationDialog(): Promise<void> {
+    this.logStep('Account Verification & Confirmation');
+
+    if (this.options.dryRun) {
+      this.log(`${colors.yellow}[DRY-RUN] Skipping confirmation dialog${colors.reset}`);
+      return;
+    }
+
+    // Gather account information
+    const accountInfo = await this.gatherAccountInfo();
+
+    // Display comprehensive confirmation
+    this.log(`${colors.yellow}${colors.bold}⚠️  IMPORTANT: Please verify the accounts and resources to be created${colors.reset}\n`);
+    
+    this.log(`${colors.bold}${colors.blue}Project Configuration:${colors.reset}`);
+    this.log(`  Name: ${this.config.project.name}`);
+    this.log(`  Domain: ${this.config.project.domain}`);
+    this.log(`  Email: ${this.config.project.email}`);
+    this.log(`  Environment: ${this.config.environments[0].name}\n`);
+
+    this.log(`${colors.bold}${colors.blue}Account Details:${colors.reset}`);
+    this.log(`  ${colors.bold}DigitalOcean:${colors.reset} ${accountInfo.digitalOcean.email} (${accountInfo.digitalOcean.uuid})`);
+    this.log(`  ${colors.bold}AWS:${colors.reset} ${accountInfo.aws.account} (${accountInfo.aws.user})`);
+    if (!this.options.skipGithub) {
+      this.log(`  ${colors.bold}GitHub:${colors.reset} ${accountInfo.github.user} (${accountInfo.github.account})`);
+    }
+    this.log('');
+
+    this.log(`${colors.bold}${colors.blue}Resources to be Created:${colors.reset}`);
+    this.log(`  ${colors.bold}DigitalOcean Spaces:${colors.reset}`);
+    this.log(`    • Bucket: ${this.config.project.name}-terraform-state (${this.config.environments[0].cluster.region})`);
+    this.log(`    • Access Key: ${this.config.project.name}-terraform-state`);
+    
+    if (this.config.features.email) {
+      this.log(`  ${colors.bold}AWS SES:${colors.reset}`);
+      this.log(`    • IAM User: ${this.config.project.name}-ses-smtp`);
+      this.log(`    • IAM Policy: ${this.config.project.name}-ses-policy`);
+      this.log(`    • Domain: ${this.config.project.domain} (verification required)`);
+    }
+
+    if (!this.options.skipGithub) {
+      this.log(`  ${colors.bold}GitHub Repository:${colors.reset} ${accountInfo.github.repo}`);
+      this.log(`    • Repository secrets (credentials and configuration)`);
+      if (!this.options.skipProject) {
+        this.log(`    • Workflow labels and project setup`);
+      }
+    }
+    this.log('');
+
+    this.log(`${colors.bold}${colors.blue}Estimated Costs:${colors.reset}`);
+    this.log(`  • DigitalOcean Spaces: ~$5/month (250GB storage + transfers)`);
+    if (this.config.features.email) {
+      this.log(`  • AWS SES: $0 (free tier: 62,000 emails/month)`);
+    }
+    this.log(`  • GitHub: $0 (using existing repository)`);
+    this.log('');
+
+    // Interactive confirmation
+    if (this.options.interactive && !this.options.assumeYes) {
+      await this.promptForConfirmation();
+    } else if (this.options.assumeYes) {
+      this.logSuccess('Auto-confirming with --yes flag');
+    }
+  }
+
+  private async gatherAccountInfo(): Promise<any> {
+    const accountInfo: any = {};
+
+    try {
+      // DigitalOcean account info
+      const doAccount = this.exec('doctl account get --format Email,UUID --no-header', true).split('\t');
+      accountInfo.digitalOcean = {
+        email: doAccount[0]?.trim() || 'Unknown',
+        uuid: doAccount[1]?.trim() || 'Unknown'
+      };
+    } catch {
+      accountInfo.digitalOcean = { email: 'Unknown', uuid: 'Unknown' };
+    }
+
+    try {
+      // AWS account info
+      const awsAccount = this.exec('aws sts get-caller-identity --query "[Account,Arn]" --output text', true).split('\t');
+      const account = awsAccount[0]?.trim() || 'Unknown';
+      const arn = awsAccount[1]?.trim() || 'Unknown';
+      const user = arn.includes('user/') ? arn.split('user/')[1] : 
+                   arn.includes('role/') ? arn.split('role/')[1] : 'Unknown';
+      
+      accountInfo.aws = {
+        account: account,
+        user: user,
+        arn: arn
+      };
+    } catch {
+      accountInfo.aws = { account: 'Unknown', user: 'Unknown', arn: 'Unknown' };
+    }
+
+    if (!this.options.skipGithub) {
+      try {
+        // GitHub account info
+        const ghUser = this.exec('gh api user --jq .login', true).trim();
+        const repoInfo = this.exec('gh repo view --json owner,name', true);
+        const repo = JSON.parse(repoInfo);
+        const repoName = `${repo.owner.login}/${repo.name}`;
+        
+        accountInfo.github = {
+          user: ghUser,
+          account: repo.owner.login,
+          repo: repoName
+        };
+      } catch {
+        accountInfo.github = { user: 'Unknown', account: 'Unknown', repo: 'Unknown' };
+      }
+    }
+
+    return accountInfo;
+  }
+
+  private async promptForConfirmation(): Promise<void> {
+    const { execSync } = await import('child_process');
+    
+    this.log(`${colors.yellow}${colors.bold}Do you want to proceed with creating these resources?${colors.reset}`);
+    this.log(`Type 'yes' to continue, 'no' to abort:`);
+    
+    try {
+      const response = execSync('read -p "> " response && echo $response', { 
+        encoding: 'utf-8', 
+        stdio: ['inherit', 'pipe', 'inherit'],
+        shell: '/bin/bash'
+      }).trim().toLowerCase();
+
+      if (response !== 'yes' && response !== 'y') {
+        this.log(`${colors.yellow}Setup aborted by user${colors.reset}`);
+        process.exit(0);
+      }
+      
+      this.logSuccess('Confirmation received, proceeding with setup...');
+    } catch (error) {
+      // Fallback for environments where interactive input doesn't work
+      this.logWarning('Unable to prompt for confirmation, proceeding...');
     }
   }
 
@@ -453,13 +595,16 @@ class GitOpsSetup {
       // Step 1: Check prerequisites
       this.checkPrerequisites();
 
-      // Step 2: Setup Spaces bucket for Terraform state
+      // Step 2: Show confirmation dialog with account details
+      await this.showConfirmationDialog();
+
+      // Step 3: Setup Spaces bucket for Terraform state
       const spacesConfig = await this.setupSpacesBucket();
 
-      // Step 3: Setup SES credentials (if email enabled)
+      // Step 4: Setup SES credentials (if email enabled)
       const sesConfig = await this.setupSesCredentials();
 
-      // Step 4: Set GitHub secrets
+      // Step 5: Set GitHub secrets
       const secrets: Record<string, string> = {
         DIGITALOCEAN_TOKEN: process.env.DIGITALOCEAN_TOKEN || '',
         SPACES_ACCESS_KEY_ID: spacesConfig.accessKey,
@@ -475,7 +620,7 @@ class GitOpsSetup {
 
       await this.setGitHubSecrets(secrets);
 
-      // Step 5: Setup GitHub project (optional)
+      // Step 6: Setup GitHub project (optional)
       await this.setupGitHubProject();
 
       this.logStep('Setup Complete');
@@ -549,12 +694,14 @@ OPTIONS:
   --skip-github       Skip GitHub secrets and project setup
   --skip-project      Skip GitHub project setup only
   --no-interactive    Skip automatic login prompts (fail if not authenticated)
+  --yes               Skip confirmation dialog (auto-approve)
   --verbose           Show detailed command output
   --help              Show this help message
 
 EXAMPLES:
-  npx tsx setup.ts                     # Run with automatic login prompts
+  npx tsx setup.ts                     # Run with automatic login prompts and confirmation
   npx tsx setup.ts --dry-run           # Preview what would be done
+  npx tsx setup.ts --yes               # Auto-approve confirmation dialog
   npx tsx setup.ts --no-interactive    # Fail if credentials missing (CI mode)
   npx tsx setup.ts --skip-github       # Skip all GitHub setup
   npx tsx setup.ts --config config.ts  # Use TypeScript config file
@@ -565,12 +712,7 @@ This script sets up prerequisites for CDKTF deployment:
 - GitHub repository secrets
 - Optional GitHub project labels and workflow
 
-AUTHENTICATION:
 The script will automatically prompt for login if credentials are missing.
-You will need:
-- DigitalOcean API token: https://cloud.digitalocean.com/account/api/tokens
-- AWS Access Keys: https://console.aws.amazon.com/iam/home#/security_credentials
-- GitHub account for repository access (gh auth login will guide you)
 `);
 }
 
@@ -595,6 +737,9 @@ async function main(): Promise<void> {
         break;
       case '--no-interactive':
         options.interactive = false;
+        break;
+      case '--yes':
+        options.assumeYes = true;
         break;
       case '--verbose':
         options.verbose = true;
