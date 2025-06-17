@@ -445,21 +445,30 @@ class GitOpsSetup {
 }
 
 // CLI handling
-function loadConfig(configPath = 'infrastructure.config.json'): Config {
+function loadConfig(configPath = 'config.json'): Config {
   const paths = [
     configPath,
-    'infrastructure.config.json',
     'config.json',
-    '../infrastructure.config.json',
+    'config.js',
+    'config.ts',
     '../config.json',
+    '../config.js',
+    '../config.ts',
     process.env.GITOPS_CONFIG_PATH
   ].filter(Boolean);
 
   for (const path of paths) {
     if (path && existsSync(path)) {
       try {
-        const content = readFileSync(path, 'utf-8');
-        return JSON.parse(content);
+        if (path.endsWith('.json')) {
+          const content = readFileSync(path, 'utf-8');
+          return JSON.parse(content);
+        } else if (path.endsWith('.js') || path.endsWith('.ts')) {
+          // For JS/TS files, we expect a default export or module.exports
+          delete require.cache[require.resolve(path)];
+          const rawConfig = require(path);
+          return rawConfig.default || rawConfig;
+        }
       } catch (error) {
         throw new SetupError(`Invalid configuration file ${path}: ${error}`, 'CONFIG_INVALID');
       }
@@ -467,7 +476,7 @@ function loadConfig(configPath = 'infrastructure.config.json'): Config {
   }
 
   throw new SetupError(
-    'Configuration file not found. Expected infrastructure.config.json or config.json.\nCreate one with: gitops-cli init',
+    'Configuration file not found. Expected config.json, config.js, or config.ts.',
     'CONFIG_NOT_FOUND'
   );
 }
@@ -480,7 +489,7 @@ USAGE:
   npx tsx setup.ts [OPTIONS]
 
 OPTIONS:
-  --config PATH        Configuration file path (default: infrastructure.config.json)
+  --config PATH        Configuration file path (default: config.json)
   --dry-run           Show what would be done without executing
   --skip-github       Skip GitHub secrets and project setup
   --skip-project      Skip GitHub project setup only
@@ -488,10 +497,10 @@ OPTIONS:
   --help              Show this help message
 
 EXAMPLES:
-  npx tsx setup.ts                     # Run with default config
+  npx tsx setup.ts                     # Run with default config.json
   npx tsx setup.ts --dry-run           # Preview what would be done
   npx tsx setup.ts --skip-github       # Skip all GitHub setup
-  npx tsx setup.ts --config my.json    # Use custom config file
+  npx tsx setup.ts --config config.ts  # Use TypeScript config file
 
 This script sets up prerequisites for CDKTF deployment:
 - DigitalOcean Spaces bucket for Terraform state

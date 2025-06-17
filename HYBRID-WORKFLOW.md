@@ -100,8 +100,13 @@ spec:
 
 ### Prerequisites Setup (Optional)
 ```bash
-# 1. Create configuration
-cp infrastructure.config.json.example infrastructure.config.json
+# 1. Create configuration (choose your preferred format)
+cp config.json.example config.json        # JSON format
+# OR
+cp config.js.example config.js            # JavaScript format  
+# OR
+cp config.ts.example config.ts            # TypeScript format (with type safety)
+
 # Edit with your settings
 
 # 2. Run prerequisites (creates secrets, state bucket, etc.)

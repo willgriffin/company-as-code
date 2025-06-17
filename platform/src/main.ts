@@ -11,23 +11,30 @@ import { Config, validateConfig } from './config/schema';
 function loadConfig(): Config {
   // Try to load configuration from various locations
   const configPaths = [
-    'infrastructure.config.json',
     'config.json',
-    'gitops.config.json',
-    '../infrastructure.config.json',
+    'config.js',
+    'config.ts',
     '../config.json',
-    '../gitops.config.json',
-    '../../infrastructure.config.json',
+    '../config.js',
+    '../config.ts',
     '../../config.json',
-    '../../gitops.config.json',
+    '../../config.js',
+    '../../config.ts',
     process.env.GITOPS_CONFIG_PATH
   ].filter(Boolean);
 
   for (const configPath of configPaths) {
     if (configPath && existsSync(configPath)) {
-      const configContent = readFileSync(configPath, 'utf-8');
-      const rawConfig = JSON.parse(configContent);
-      return validateConfig(rawConfig);
+      if (configPath.endsWith('.json')) {
+        const configContent = readFileSync(configPath, 'utf-8');
+        const rawConfig = JSON.parse(configContent);
+        return validateConfig(rawConfig);
+      } else if (configPath.endsWith('.js') || configPath.endsWith('.ts')) {
+        // For JS/TS files, we expect a default export or module.exports
+        delete require.cache[require.resolve(join(process.cwd(), configPath))];
+        const rawConfig = require(join(process.cwd(), configPath));
+        return validateConfig(rawConfig.default || rawConfig);
+      }
     }
   }
 
