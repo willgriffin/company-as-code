@@ -855,15 +855,17 @@ async function createConfigInteractively(): Promise<Config> {
   console.log(`${colors.bold}${colors.blue}Configuration Setup${colors.reset}`);
   console.log('Let\'s create your infrastructure configuration.\n');
 
-  // Environment variable defaults
+  // Environment variable defaults (SETUP_* vars take precedence)
   const envDefaults = {
-    projectName: process.env.PROJECT_NAME,
-    domain: process.env.DOMAIN,
-    email: process.env.EMAIL,
-    region: process.env.DO_REGION || 'nyc3',
-    nodeSize: process.env.NODE_SIZE || 's-2vcpu-4gb',
-    nodeCount: process.env.NODE_COUNT ? parseInt(process.env.NODE_COUNT) : 3,
-    environment: process.env.ENVIRONMENT || 'production'
+    projectName: process.env.SETUP_PROJECT_NAME || process.env.PROJECT_NAME,
+    domain: process.env.SETUP_DOMAIN || process.env.DOMAIN,
+    email: process.env.SETUP_EMAIL || process.env.EMAIL,
+    description: process.env.SETUP_DESCRIPTION,
+    region: process.env.SETUP_REGION || process.env.DO_REGION || 'nyc3',
+    nodeSize: process.env.SETUP_NODE_SIZE || process.env.NODE_SIZE || 's-2vcpu-4gb',
+    nodeCount: process.env.SETUP_NODE_COUNT ? parseInt(process.env.SETUP_NODE_COUNT) : 
+               process.env.NODE_COUNT ? parseInt(process.env.NODE_COUNT) : 3,
+    environment: process.env.SETUP_ENVIRONMENT || process.env.ENVIRONMENT || 'production'
   };
 
   const readline = require('readline').createInterface({
@@ -874,7 +876,7 @@ async function createConfigInteractively(): Promise<Config> {
   const prompt = (question: string, defaultValue?: string): Promise<string> => {
     return new Promise(resolve => {
       const defaultDisplay = defaultValue ? ` (${defaultValue})` : '';
-      readline.question(`${question}${defaultDisplay}: `, (answer) => {
+      readline.question(`${question}${defaultDisplay}: `, (answer: string) => {
         resolve(answer.trim() || defaultValue || '');
       });
     });
@@ -898,7 +900,7 @@ async function createConfigInteractively(): Promise<Config> {
 
     const description = await prompt(
       'Project description (optional)', 
-      `GitOps infrastructure for ${projectName}`
+      envDefaults.description || `GitOps infrastructure for ${projectName}`
     );
 
     const environment = await prompt(
@@ -985,9 +987,19 @@ EXAMPLES:
 
 This script sets up prerequisites for CDKTF deployment:
 - DigitalOcean Spaces bucket for Terraform state
-- AWS SES credentials (if email enabled)  
+- AWS SES credentials for email functionality
 - GitHub repository secrets
 - Optional GitHub project labels and workflow
+
+ENVIRONMENT VARIABLES (for defaults):
+  SETUP_PROJECT_NAME     Project name (overrides PROJECT_NAME)
+  SETUP_DOMAIN           Primary domain (overrides DOMAIN)
+  SETUP_EMAIL            Admin email (overrides EMAIL)
+  SETUP_DESCRIPTION      Project description
+  SETUP_REGION           DigitalOcean region (overrides DO_REGION)
+  SETUP_NODE_SIZE        Kubernetes node size (overrides NODE_SIZE)
+  SETUP_NODE_COUNT       Number of nodes (overrides NODE_COUNT)
+  SETUP_ENVIRONMENT      Environment name (overrides ENVIRONMENT)
 
 The script will automatically prompt for login if credentials are missing.
 `);
