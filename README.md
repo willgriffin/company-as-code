@@ -76,18 +76,19 @@ export SETUP_ENVIRONMENT="production"
 
 **Copy-Paste Example (replace with your values):**
 ```bash
-# Quick setup - replace these values with your own
-export SETUP_PROJECT_NAME="acme-corp"
-export SETUP_DOMAIN="acme.com"
-export SETUP_EMAIL="devops@acme.com"
-export SETUP_DESCRIPTION="ACME Corp production infrastructure"
-export SETUP_REGION="nyc1"
-export SETUP_NODE_SIZE="s-4vcpu-8gb"
-export SETUP_NODE_COUNT="5"
-export SETUP_ENVIRONMENT="production"
-
-# Deploy everything automatically
-./setup.sh --yes --no-interactive && cd platform && npm install && npx cdktf deploy
+# Quick setup - replace these values with your own and run as one command
+SETUP_PROJECT_NAME="acme-corp" \
+SETUP_DOMAIN="acme.com" \
+SETUP_EMAIL="devops@acme.com" \
+SETUP_DESCRIPTION="ACME Corp production infrastructure" \
+SETUP_REGION="nyc1" \
+SETUP_NODE_SIZE="s-4vcpu-8gb" \
+SETUP_NODE_COUNT="5" \
+SETUP_ENVIRONMENT="production" \
+./setup.sh --yes --no-interactive && \
+cd platform && \
+npm install && \
+npx cdktf deploy
 ```
 
 **Available Environment Variables:**
