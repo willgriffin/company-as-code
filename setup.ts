@@ -945,8 +945,10 @@ async function createConfigInteractively(): Promise<Config> {
     // Save config
     const configPath = 'platform/config.json';
     if (!existsSync('platform')) {
-      console.log(`${colors.red}Platform directory not found. Run this from the repository root.${colors.reset}`);
-      process.exit(1);
+      throw new SetupError(
+        'Platform directory not found. Run this from the repository root.',
+        'PLATFORM_NOT_FOUND'
+      );
     }
 
     writeFileSync(configPath, JSON.stringify(config, null, 2));

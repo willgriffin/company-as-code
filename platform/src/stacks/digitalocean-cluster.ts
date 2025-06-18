@@ -123,18 +123,7 @@ export class DigitalOceanClusterStack extends TerraformStack {
       ipAddress: this.loadBalancer.ip
     });
 
-    // DNS records for applications (all applications deployed via Flux)
-    const appSubdomains = ['auth', 'chat', 'files', 'mail'];
-
-    appSubdomains.forEach(subdomain => {
-      new Record(this, `record-${subdomain}`, {
-        domain: this.domain.name,
-        type: 'A',
-        name: subdomain,
-        value: this.loadBalancer.ip,
-        ttl: 300
-      });
-    });
+    // Application DNS records are managed by external-dns based on ingress annotations
 
     // Wildcard record for additional services
     new Record(this, 'wildcard-record', {
