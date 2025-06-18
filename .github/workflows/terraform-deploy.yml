@@ -135,7 +135,15 @@ jobs:
           fi
           
           # Get the kubeconfig from the cluster stack output
-          PROJECT_NAME="${{ secrets.PROJECT_NAME || 'my-company' }}"
+          # Validate PROJECT_NAME secret is set to avoid misconfiguration
+          if [[ -z "${{ secrets.PROJECT_NAME }}" ]]; then
+            echo "Error: PROJECT_NAME secret is not set" >&2
+            echo "This secret is required to determine the correct CDKTF stack name" >&2
+            echo "Please set the PROJECT_NAME secret in your repository settings" >&2
+            exit 1
+          fi
+          
+          PROJECT_NAME="${{ secrets.PROJECT_NAME }}"
           STACK_NAME="${PROJECT_NAME}-production"
           
           # Validate stack exists in output

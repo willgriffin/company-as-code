@@ -9,27 +9,11 @@ if [ ! -r tool-versions.txt ]; then
     echo "Error: tool-versions.txt is missing or not readable."
     exit 1
 fi
-AGE_VERSION=$(grep "^age=" tool-versions.txt | cut -d'=' -f2)
-SOPS_VERSION=$(grep "^sops=" tool-versions.txt | cut -d'=' -f2)
 YQ_VERSION=$(grep "^yq=" tool-versions.txt | cut -d'=' -f2)
 FLUX_VERSION=$(grep "^flux=" tool-versions.txt | cut -d'=' -f2)
 GOMPLATE_VERSION=$(grep "^gomplate=" tool-versions.txt | cut -d'=' -f2)
 DOCTL_VERSION=$(grep "^doctl=" tool-versions.txt | cut -d'=' -f2)
 
-# Install Age
-echo "Installing Age v${AGE_VERSION}..."
-mkdir -p /tmp/age
-curl -Lo /tmp/age.tar.gz "https://github.com/FiloSottile/age/releases/download/v${AGE_VERSION}/age-v${AGE_VERSION}-linux-amd64.tar.gz"
-tar -xzf /tmp/age.tar.gz --strip-components=1 -C /tmp/age
-sudo mv /tmp/age/age /usr/local/bin/
-sudo mv /tmp/age/age-keygen /usr/local/bin/
-rm -rf /tmp/age.tar.gz /tmp/age
-
-# Install SOPS
-echo "Installing SOPS v${SOPS_VERSION}..."
-curl -Lo /tmp/sops "https://github.com/mozilla/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.amd64"
-sudo mv /tmp/sops /usr/local/bin/sops
-sudo chmod +x /usr/local/bin/sops
 
 # Install yq
 echo "Installing yq v${YQ_VERSION}..."
@@ -56,8 +40,6 @@ rm -f doctl-*
 echo "All tools installed successfully!"
 echo "Verifying installations..."
 
-age --version
-sops --version
 yq --version
 flux version --client
 gomplate --version
@@ -66,3 +48,14 @@ kubectl version --client
 doctl version
 
 echo "GitOps environment setup complete!"
+
+# Install Node.js dependencies for development
+if [ -f "package.json" ]; then
+    npm install
+fi
+
+if [ -f "platform/package.json" ]; then
+    cd platform && npm install && cd ..
+fi
+
+echo "Development environment ready!"
