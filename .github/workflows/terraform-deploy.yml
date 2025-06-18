@@ -16,14 +16,17 @@ on:
     branches:
       - main
     paths:
-      - 'terraform/**'
+      - 'platform/**'
       - '.github/workflows/terraform-deploy.yml'
 
 env:
-  TF_VERSION: '1.7.0'
+  TF_VERSION: '1.12.1'
+  NODE_VERSION: '22'
   DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  TERRAFORM_STATE_BUCKET: ${{ secrets.TERRAFORM_STATE_BUCKET }}
+  TERRAFORM_STATE_REGION: ${{ secrets.TERRAFORM_STATE_REGION }}
 
 jobs:
   check-setup:
@@ -41,86 +44,123 @@ jobs:
         with:
           strict: true
           digitalocean-token: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          digitalocean-spaces-access-key: ${{ secrets.DIGITALOCEAN_SPACES_ACCESS_KEY }}
-          digitalocean-spaces-secret-key: ${{ secrets.DIGITALOCEAN_SPACES_SECRET_KEY }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-ses-smtp-username: ${{ secrets.AWS_SES_SMTP_USERNAME }}
-          aws-ses-smtp-password: ${{ secrets.AWS_SES_SMTP_PASSWORD }}
+          ses-smtp-username: ${{ secrets.SES_SMTP_USERNAME }}
+          ses-smtp-password: ${{ secrets.SES_SMTP_PASSWORD }}
+          terraform-state-bucket: ${{ secrets.TERRAFORM_STATE_BUCKET }}
+          terraform-state-region: ${{ secrets.TERRAFORM_STATE_REGION }}
           admin-email: ${{ secrets.ADMIN_EMAIL }}
           domain: ${{ secrets.DOMAIN }}
-          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           kubeconfig: ${{ secrets.KUBECONFIG }}
 
-  terraform-digitalocean:
-    name: Terraform DigitalOcean
+  deploy-infrastructure:
+    name: Deploy Infrastructure with CDKTF
     needs: check-setup
     runs-on: ubuntu-latest
     environment: production
     defaults:
       run:
-        working-directory: terraform/digitalocean
+        working-directory: platform
     
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: 'platform/pnpm-lock.yaml'
+      
+      - name: Install PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+      
+      - name: Install dependencies
+        run: pnpm install
       
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
       
-      - name: Get GitHub info
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.TERRAFORM_STATE_REGION }}
+      
+      - name: Get GitHub repository info
         id: github
         run: |
           echo "owner=${GITHUB_REPOSITORY_OWNER}" >> $GITHUB_OUTPUT
           echo "repo=${GITHUB_REPOSITORY#*/}" >> $GITHUB_OUTPUT
       
-      - name: Create Spaces credentials
+      - name: Set GitHub repository environment
         run: |
-          # Create backend config for Terraform state
-          cat > backend.conf <<EOF
-          bucket = "${{ secrets.SPACES_BUCKET_NAME }}"
-          access_key = "${{ secrets.DIGITALOCEAN_SPACES_ACCESS_KEY }}"
-          secret_key = "${{ secrets.DIGITALOCEAN_SPACES_SECRET_KEY }}"
-          EOF
+          echo "GITHUB_REPOSITORY=${{ github.repository }}" >> $GITHUB_ENV
       
-      - name: Terraform Init
-        run: |
-          terraform init -backend-config=backend.conf
+      - name: CDKTF Get
+        run: npx cdktf get
       
-      - name: Terraform Plan
+      - name: CDKTF Plan
         if: github.event.inputs.action == 'plan' || github.event.inputs.action == ''
-        run: |
-          terraform plan \
-            -var="do_token=${{ secrets.DIGITALOCEAN_TOKEN }}" \
-            -var="github_owner=${{ steps.github.outputs.owner }}" \
-            -var="github_repo=${{ steps.github.outputs.repo }}" \
-            -out=tfplan
+        run: npx cdktf plan
       
-      - name: Terraform Apply
+      - name: CDKTF Deploy
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        run: |
-          terraform apply -auto-approve \
-            -var="do_token=${{ secrets.DIGITALOCEAN_TOKEN }}" \
-            -var="github_owner=${{ steps.github.outputs.owner }}" \
-            -var="github_repo=${{ steps.github.outputs.repo }}"
+        run: npx cdktf deploy --auto-approve
       
-      - name: Terraform Destroy
+      - name: CDKTF Destroy
         if: github.event.inputs.action == 'destroy'
-        run: |
-          terraform destroy -auto-approve \
-            -var="do_token=${{ secrets.DIGITALOCEAN_TOKEN }}" \
-            -var="github_owner=${{ steps.github.outputs.owner }}" \
-            -var="github_repo=${{ steps.github.outputs.repo }}"
+        run: npx cdktf destroy --auto-approve
       
-      - name: Save Kubeconfig
+      - name: Get kubeconfig from CDKTF output
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
-          terraform output -raw kubeconfig > kubeconfig.yaml
-          echo "KUBECONFIG_BASE64=$(base64 -w 0 kubeconfig.yaml)" >> $GITHUB_ENV
+          # Extract kubeconfig from CDKTF output
+          if ! npx cdktf output > cdktf-output.json; then
+            echo "Error: Failed to get CDKTF output"
+            exit 1
+          fi
+          
+          # Validate output file exists and is not empty
+          if [[ ! -s cdktf-output.json ]]; then
+            echo "Error: CDKTF output file is empty or missing"
+            exit 1
+          fi
+          
+          # Get the kubeconfig from the cluster stack output
+          PROJECT_NAME="${{ secrets.PROJECT_NAME || 'my-company' }}"
+          STACK_NAME="${PROJECT_NAME}-production"
+          
+          # Validate stack exists in output
+          if ! jq -e --arg stack "$STACK_NAME" 'has($stack)' cdktf-output.json > /dev/null; then
+            echo "Error: Stack '$STACK_NAME' not found in CDKTF output"
+            echo "Available stacks:"
+            jq -r 'keys[]' cdktf-output.json
+            exit 1
+          fi
+          
+          # Extract kubeconfig with validation
+          KUBECONFIG_CONTENT=$(jq -r --arg stack "$STACK_NAME" '.[$stack].kubeconfig' cdktf-output.json)
+          
+          # Validate kubeconfig content
+          if [[ "$KUBECONFIG_CONTENT" == "null" || -z "$KUBECONFIG_CONTENT" ]]; then
+            echo "Error: Kubeconfig not found in stack output"
+            echo "Available outputs for stack '$STACK_NAME':"
+            jq -r --arg stack "$STACK_NAME" '.[$stack] | keys[]' cdktf-output.json
+            exit 1
+          fi
+          
+          # Encode for GitHub secret
+          echo "KUBECONFIG_BASE64=$(echo "$KUBECONFIG_CONTENT" | base64 -w 0)" >> $GITHUB_ENV
       
-      - name: Update Kubeconfig Secret
+      - name: Update kubeconfig secret
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         uses: hmanzur/actions-set-secret@v2.0.0
         with:
@@ -128,48 +168,156 @@ jobs:
           value: ${{ env.KUBECONFIG_BASE64 }}
           token: ${{ secrets.GITHUB_TOKEN }}
       
-
-  terraform-aws:
-    name: Terraform AWS
-    runs-on: ubuntu-latest
-    environment: production
-    needs: terraform-digitalocean
-    if: github.event.inputs.action != 'destroy'
-    defaults:
-      run:
-        working-directory: terraform/aws
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Verify cluster connectivity
+        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        run: |
+          echo "${{ env.KUBECONFIG_BASE64 }}" | base64 -d > kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
+          kubectl cluster-info
+          kubectl get nodes
       
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - name: Wait for Flux reconciliation
+        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        run: |
+          echo "${{ env.KUBECONFIG_BASE64 }}" | base64 -d > kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
+          
+          echo "Waiting for Flux to be ready..."
+          if ! kubectl wait --for=condition=available --timeout=300s deployment/source-controller -n flux-system; then
+            echo "Error: Flux source-controller failed to become available"
+            kubectl describe deployment/source-controller -n flux-system
+            exit 1
+          fi
+          
+          if ! kubectl wait --for=condition=available --timeout=300s deployment/kustomize-controller -n flux-system; then
+            echo "Error: Flux kustomize-controller failed to become available"
+            kubectl describe deployment/kustomize-controller -n flux-system
+            exit 1
+          fi
+          
+          echo "Forcing Flux reconciliation..."
+          if ! kubectl annotate gitrepository flux-system -n flux-system reconcile.fluxcd.io/requestedAt="$(date +%s)" --overwrite; then
+            echo "Warning: Failed to trigger Flux reconciliation, continuing anyway"
+          fi
+          
+          echo "Waiting for infrastructure to be ready..."
+          if ! timeout 600 bash -c 'until kubectl wait --for=condition=Ready kustomization/infrastructure -n flux-system --timeout=30s; do echo "Waiting for infrastructure..."; sleep 10; done'; then
+            echo "Error: Infrastructure kustomization failed to become ready"
+            kubectl describe kustomization/infrastructure -n flux-system
+            kubectl get events -n flux-system --sort-by='.metadata.creationTimestamp'
+            exit 1
+          fi
+          
+          echo "Waiting for applications to be ready..."
+          if ! timeout 600 bash -c 'until kubectl wait --for=condition=Ready kustomization/applications -n flux-system --timeout=30s; do echo "Waiting for applications..."; sleep 10; done'; then
+            echo "Error: Applications kustomization failed to become ready"
+            kubectl describe kustomization/applications -n flux-system
+            kubectl get events -n flux-system --sort-by='.metadata.creationTimestamp'
+            exit 1
+          fi
+      
+      - name: Get deployment status
+        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        id: status
+        run: |
+          echo "${{ env.KUBECONFIG_BASE64 }}" | base64 -d > kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
+          
+          echo "=== Flux Status ==="
+          kubectl get gitrepository,kustomization -n flux-system
+          
+          echo "=== External Secrets Status ==="
+          kubectl get externalsecrets -A
+          
+          echo "=== Infrastructure Status ==="
+          kubectl get pods -n kong-system --no-headers | wc -l > /tmp/kong_pods || echo "0" > /tmp/kong_pods
+          kubectl get pods -n keycloak --no-headers | wc -l > /tmp/keycloak_pods || echo "0" > /tmp/keycloak_pods
+          kubectl get pods -n external-secrets-system --no-headers | wc -l > /tmp/external_secrets_pods || echo "0" > /tmp/external_secrets_pods
+          
+          echo "=== Application Status ==="
+          kubectl get pods -n nextcloud --no-headers | wc -l > /tmp/nextcloud_pods || echo "0" > /tmp/nextcloud_pods
+          kubectl get pods -n mattermost --no-headers | wc -l > /tmp/mattermost_pods || echo "0" > /tmp/mattermost_pods
+          kubectl get pods -n mailu --no-headers | wc -l > /tmp/mailu_pods || echo "0" > /tmp/mailu_pods
+          
+          # Get Kong Gateway LoadBalancer IP
+          KONG_IP=$(kubectl get svc -n kong-system kong-gateway-proxy -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+          echo "kong_ip=$KONG_IP" >> $GITHUB_OUTPUT
+          
+          echo "=== Services ==="
+          kubectl get svc -A | grep LoadBalancer || echo "No LoadBalancer services found"
+      
+      - name: Send deployment success notification
+        if: success() && (github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+        uses: dawidd6/action-send-mail@v3
         with:
-          terraform_version: ${{ env.TF_VERSION }}
+          server_address: email-smtp.us-east-1.amazonaws.com
+          server_port: 587
+          username: ${{ secrets.SES_SMTP_USERNAME }}
+          password: ${{ secrets.SES_SMTP_PASSWORD }}
+          subject: '✅ CDKTF Deployment Complete: ${{ github.repository }}'
+          to: ${{ secrets.ADMIN_EMAIL }}
+          from: 'GitOps Deployment <noreply@${{ secrets.DOMAIN }}>'
+          body: |
+            🎉 Your CDKTF infrastructure deployment has completed successfully!
+            
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            
+            🌐 Application URLs (configure DNS to point to Kong Gateway IP):
+            - Keycloak (Auth): https://auth.${{ secrets.DOMAIN }}
+            - Nextcloud (Files): https://cloud.${{ secrets.DOMAIN }}
+            - Mattermost (Chat): https://chat.${{ secrets.DOMAIN }}
+            - Mailu (Email): https://webmail.${{ secrets.DOMAIN }}
+            
+            🚀 Infrastructure Details:
+            - Kong Gateway IP: ${{ steps.status.outputs.kong_ip }}
+            - Flux Status: GitOps reconciliation complete
+            - External Secrets: Dynamic secret injection active
+            - TLS Certificates: Automatic via cert-manager
+            
+            📋 Next Steps:
+            1. Update DNS records to point to Kong Gateway IP: ${{ steps.status.outputs.kong_ip }}
+            2. Wait for TLS certificates to be issued automatically
+            3. Access applications using the URLs above
+            4. Configure additional settings via Keycloak admin
+            
+            Workflow URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            Happy GitOps! 🚀
       
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Send deployment failure notification  
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-      
-      - name: Create Spaces credentials
-        run: |
-          # Create backend config for Terraform state
-          cat > backend.conf <<EOF
-          bucket = "${{ secrets.SPACES_BUCKET_NAME }}"
-          access_key = "${{ secrets.DIGITALOCEAN_SPACES_ACCESS_KEY }}"
-          secret_key = "${{ secrets.DIGITALOCEAN_SPACES_SECRET_KEY }}"
-          EOF
-      
-      - name: Terraform Init
-        run: |
-          terraform init -backend-config=backend.conf
-      
-      - name: Terraform Apply
-        run: |
-          terraform apply -auto-approve \
-            -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
-            -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          server_address: email-smtp.us-east-1.amazonaws.com
+          server_port: 587
+          username: ${{ secrets.SES_SMTP_USERNAME }}
+          password: ${{ secrets.SES_SMTP_PASSWORD }}
+          subject: '❌ CDKTF Deployment Failed: ${{ github.repository }}'
+          to: ${{ secrets.ADMIN_EMAIL }}
+          from: 'GitOps Deployment <noreply@${{ secrets.DOMAIN }}>'
+          body: |
+            ❌ Your CDKTF infrastructure deployment has failed.
+            
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            
+            🔍 Troubleshooting:
+            1. Check the workflow logs for detailed error messages
+            2. Verify your repository secrets are correctly configured
+            3. Ensure AWS credentials have proper permissions for S3 state storage
+            4. Check DigitalOcean resources and quota limits
+            5. Verify CDKTF configuration in platform/config.json
+            
+            📋 Common Issues:
+            - AWS S3 bucket permissions for Terraform state
+            - Insufficient DigitalOcean credits or quota limits
+            - Invalid SES configuration
+            - CDKTF dependencies or Node.js version issues
+            - Network connectivity to cloud providers
+            
+            Workflow URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            Please review the logs and try again.
