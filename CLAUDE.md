@@ -11,9 +11,10 @@ The repository follows Infrastructure as Code principles using Terraform and Git
 ## Architecture & Key Components
 
 ### Infrastructure as Code (IaC)
-- **Terraform** (v1.12.1) - Primary infrastructure provisioning with DigitalOcean provider
+- **CDKTF** (Terraform CDK) - TypeScript-based infrastructure provisioning with type safety
 - **DigitalOcean** - Cloud platform (Kubernetes clusters, DNS, Spaces storage)
-- **Backend**: Terraform state stored in DigitalOcean Spaces (S3-compatible)
+- **AWS S3** - Terraform state storage with versioning and encryption
+- **Backend**: Terraform state stored in AWS S3 bucket (created by setup.ts)
 
 ### GitOps & Continuous Deployment
 - **Flux v2** (v2.3.0) - GitOps operator for Kubernetes continuous deployment
@@ -23,71 +24,81 @@ The repository follows Infrastructure as Code principles using Terraform and Git
 ### Container Orchestration & Applications
 - **Kubernetes** (v1.31.0) - Container orchestration platform
 - **Applications deployed**:
-  - **Nextcloud** (v28-apache) - Cloud storage platform
-  - **Mattermost** (v9.2) - Team collaboration
-  - **Keycloak** (v26.0.7) - Identity and access management
-  - **Mailu** (v1.5.0) - Email server suite
+  - **Nextcloud** - Cloud storage with DigitalOcean Spaces primary storage
+  - **Mattermost** - Team collaboration with OIDC integration
+  - **Keycloak** - Identity and access management via operator
+  - **Mailu/Postal** - Email server suites with OAuth2 proxy
+  - **AI Gateway** - Infrastructure for AI services
 
 ### Kubernetes Operators
-- **CloudNativePG** - PostgreSQL operator for database clusters
-- **Redis Operator** - Redis cluster management for caching
-- **Keycloak Operator** - Identity management automation
+- **CloudNativePG** - High-availability PostgreSQL clusters (3 replicas)
+- **Redis Operator** - Distributed Redis cluster management for caching
+- **Keycloak Operator** - Identity management automation with realm configuration
+- **External Secrets Operator** - Dynamic secret injection from external stores
 
 ### Networking & Security
-- **Traefik** - Cloud-native reverse proxy and ingress controller
+- **Kong Gateway** - Enterprise API gateway with Gateway API, OIDC, and advanced routing
 - **cert-manager** - Automatic TLS certificate management with Let's Encrypt
 - **External DNS** - Automatic DNS record management with DigitalOcean
 - **OAuth2 Proxy** - Authentication proxy for OIDC/OAuth2 integration
 
 ### Secret Management
-- **SOPS** (v3.8.1) - Secrets Operations for encrypting secrets at rest
-- **Age** (v1.1.1) - Modern encryption tool for public key encryption
-- **Encrypted GitOps**: Secrets encrypted in Git repository using Age/SOPS
+- **External Secrets Operator** - Dynamic secret injection from external stores
+- **GitHub Secrets** - Repository secrets as external secret backend
+- **AWS Secrets Manager** - Optional advanced secret backend
+- **Kubernetes Native**: Secrets fetched at runtime, not stored in Git
 
 ## Tools and Technologies
 
 ### Core CLI Tools (versions in tool-versions.txt)
 - **kubectl** (v1.31.0) - Kubernetes CLI
 - **flux** (v2.3.0) - Flux CLI for GitOps management
-- **terraform** (v1.12.1) - Infrastructure as Code
+- **terraform** (v1.12.1) - Infrastructure as Code (via CDKTF)
 - **doctl** (v1.117.0) - DigitalOcean CLI
-- **sops** (v3.8.1) - Secret encryption
-- **age** (v1.1.1) - Encryption key management
 - **yq** (v4.44.3) - YAML processor
 - **gomplate** (v3.11.7) - Template processor for dynamic configuration
 
+### Development Tools & Runtime
+- **Node.js** (v22+) - Required runtime for CDKTF and setup scripts
+- **PNPM** - Package manager for monorepo workspace
+- **TypeScript** - Primary language for infrastructure and configuration
+- **CDKTF** - Terraform CDK for type-safe infrastructure as code
+
 ### Configuration Management
-- **Template Processing**: gomplate for dynamic YAML generation
-- **Configuration File**: `config.yaml` (copy from `config.yaml.example`)
-- **Environment Variables**: Repository secrets for sensitive data
+- **TypeScript Configuration**: `platform/config.json` with schema validation
+- **Interactive Setup**: `setup.ts` script with CLI prompts and validation
+- **Environment Variables**: Support for CI/CD automation
 - **Tool Versions**: Centralized in `tool-versions.txt` for CI/CD caching
 
 ### CI/CD & Automation
-- **GitHub Actions** - Multi-stage deployment pipelines
+- **GitHub Actions** - Multi-stage deployment pipelines with TypeScript
 - **Custom Actions**: 
   - `setup-tools` - Installs and caches GitOps tools
   - `validate-config` - Repository configuration validation
-- **Automation Scripts**: Comprehensive bash scripts in `/scripts/` directory
+- **CDKTF Stacks**: TypeScript-based infrastructure provisioning
+- **Automated Secrets**: GitHub repository secret management via setup.ts
 
 ### Database & Storage
-- **PostgreSQL** - Primary database via CloudNativePG operator
-- **Redis** - Caching and session storage via Redis operator
-- **DigitalOcean Spaces** - Object storage for Terraform state and backups
+- **PostgreSQL** - High-availability clusters via CloudNativePG operator (3 replicas)
+- **Redis** - Distributed caching and session storage via Redis operator
+- **DigitalOcean Spaces** - Primary application storage (not just backup)
+- **AWS S3** - Terraform state storage with versioning and encryption
 
 ## Project Structure
 
 ### Key Directories
-- `/manifests/` - GitOps manifests organized by cluster
-- `/platform/` - Infrastructure as Code definitions using CDKTF
+- `/manifests/` - GitOps manifests organized by cluster (formerly `/flux/`)
+- `/platform/` - CDKTF infrastructure definitions with TypeScript stacks
 - `/scripts/` - Automation scripts for cluster lifecycle
-- `/.github/` - CI/CD workflows and actions
-- `/docs/` - Documentation for secrets, dependencies, templates
+- `/.github/` - CI/CD workflows and actions with custom actions
+- `/docs/` - Technical documentation for architecture and deployment
 
 ### Important Files
-- `config.yaml` - Main configuration (copy from example)
+- `platform/config.json` - Main infrastructure configuration (generated by setup.ts)
+- `setup.ts` - Interactive setup script for prerequisites and authentication
 - `tool-versions.txt` - Tool version definitions for CI caching
-- `.sops.yaml` - SOPS encryption configuration
 - `WORKFLOW.md` - Issue management workflow specification
+- `platform/config.json.example` - Example configuration template
 
 ## Affiliate Links & External References
 
@@ -105,15 +116,18 @@ When referencing DigitalOcean in markdown files:
 - Automated progression through workflow stages
 
 ### Secret Management
-- Use `scripts/generate-secrets` for initial secret generation
-- SOPS encryption for all sensitive data in Git
-- Age public key encryption for GitOps workflows
+- Use External Secrets Operator for dynamic secret injection
+- GitHub repository secrets as primary backend
+- AWS Secrets Manager for advanced secret management
+- Runtime secret fetching (no secrets stored in Git)
 
 ### Deployment Process
-1. Update `config.yaml` with your specific configuration
-2. Run initial setup scripts
-3. Terraform provisions infrastructure
-4. Flux deploys applications via GitOps
+1. Run `./setup.ts` for interactive configuration and prerequisites
+2. CDKTF provisions infrastructure via TypeScript stacks
+3. Flux is bootstrapped to cluster with GitHub integration
+4. External Secrets Operator enables dynamic secret injection
+5. Kong Gateway provides enterprise API gateway with OIDC
+6. Applications deploy with automatic OIDC and secret integration
 
 ## Synchronization Rules
 - `.claude/commands/issue.md` and `WORKFLOW.md` should always be reflective of each other. If a change is requested to either, it should be echo'd in the other.

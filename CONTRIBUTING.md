@@ -1,6 +1,6 @@
-# Contributing to Startup GitOps Template
+# Contributing to Enterprise GitOps Template
 
-Thank you for your interest in contributing to this project! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to this project! This document provides guidelines and instructions for contributing to the enterprise-grade GitOps template.
 
 ## Code of Conduct
 
@@ -59,6 +59,55 @@ We follow a Kanban workflow with these stages:
 
 See [docs/WORKFLOW.md](docs/WORKFLOW.md) for detailed information.
 
+## Development Environment
+
+### Prerequisites
+
+Before contributing, ensure you have the following tools installed:
+
+- **Node.js 22+** - Required for CDKTF infrastructure and setup scripts
+- **PNPM** - Package manager for monorepo workspace
+- **Docker** - For testing and development containers
+- **kubectl** - Kubernetes CLI for cluster interaction
+- **flux** - GitOps CLI for Flux operations
+
+```bash
+# Verify prerequisites
+node --version    # Should be 22.0.0 or higher
+pnpm --version    # Install with: npm install -g pnpm
+docker --version
+kubectl version --client
+flux version --client
+```
+
+### Local Development Setup
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/your-org/your-repo.git
+   cd your-repo
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   # Root dependencies (for setup script)
+   pnpm install
+   
+   # Platform dependencies (for CDKTF)
+   cd platform
+   pnpm install
+   cd ..
+   ```
+
+3. **Set up development configuration**:
+   ```bash
+   # Copy example configuration
+   cp platform/config.json.example platform/config.json
+   
+   # Edit configuration for your development environment
+   # Use minimal resources for cost-effective development
+   ```
+
 ## Coding Standards
 
 ### General Guidelines
@@ -67,14 +116,24 @@ See [docs/WORKFLOW.md](docs/WORKFLOW.md) for detailed information.
 - Follow existing patterns in the codebase
 - Keep changes focused and atomic
 - Update documentation as needed
+- Use TypeScript for type safety where applicable
 
-### Kubernetes/Flux Specific
+### CDKTF/Infrastructure Code
+
+- **Type Safety**: Use TypeScript for all infrastructure code
+- **Validation**: Implement Zod schemas for configuration validation
+- **Resource Naming**: Follow consistent naming patterns across stacks
+- **Documentation**: Include JSDoc comments for complex infrastructure logic
+- **Testing**: Write unit tests for CDKTF constructs
+
+### Kubernetes/GitOps Specific
 
 - Use Kustomize for configuration management
 - Follow GitOps principles (declarative, versioned, automated)
 - Validate YAML files before committing
-- Use semantic versioning for Helm charts
-- Keep secrets encrypted with SOPS
+- Use External Secrets Operator (not SOPS) for secret management
+- Use Kong Gateway HTTPRoute resources instead of legacy Ingress
+- Follow CloudNativePG patterns for database clusters
 
 ### Commit Messages
 
@@ -114,24 +173,55 @@ Closes #123
 
 Before submitting a PR:
 
-1. **Validate YAML syntax**:
+1. **Install and validate dependencies**:
    ```bash
-   find . -name "*.yaml" -o -name "*.yml" | xargs yamllint
+   # Install all dependencies
+   pnpm install
+   cd platform && pnpm install && cd ..
+   
+   # Run type checking
+   cd platform && pnpm run type-check && cd ..
    ```
 
-2. **Check Kubernetes manifests**:
+2. **Validate YAML syntax**:
+   ```bash
+   find manifests -name "*.yaml" -o -name "*.yml" | xargs yamllint
+   ```
+
+3. **Check Kubernetes manifests**:
    ```bash
    kubectl --dry-run=client apply -f <your-file>
    ```
 
-3. **Test Flux kustomizations**:
+4. **Test Flux kustomizations**:
    ```bash
    flux build kustomization <name> --path <path>
    ```
 
-4. **Verify secret encryption** (if modifying secrets):
+5. **Validate CDKTF configuration**:
    ```bash
-   sops -d <encrypted-file> > /dev/null
+   cd platform
+   npx cdktf synth  # Validate TypeScript compilation and Terraform generation
+   npx cdktf plan   # Preview infrastructure changes (if connected to cloud)
+   ```
+
+6. **Test External Secrets (if modifying secrets)**:
+   ```bash
+   # Validate ExternalSecret resources
+   kubectl --dry-run=client apply -f manifests/applications/*/externalsecret.yaml
+   
+   # Check secret store configurations
+   kubectl --dry-run=client apply -f manifests/infrastructure/external-secrets.yaml
+   ```
+
+7. **Validate configuration schema**:
+   ```bash
+   cd platform
+   npx tsx -e "
+     import { validateConfig } from './src/config/schema';
+     import config from './config.json';
+     console.log('Config validation:', validateConfig(config));
+   "
    ```
 
 ### Integration Testing
@@ -142,11 +232,24 @@ Before submitting a PR:
 
 ## Documentation
 
-- Update README.md if changing user-facing functionality
-- Document new scripts in their headers
-- Update architecture diagrams if changing structure
-- Keep secrets documentation current
-- Add examples for complex features
+When contributing changes, ensure documentation is updated:
+
+- **README.md**: Update for user-facing functionality changes
+- **Architecture Documentation**: Update [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for structural changes
+- **Deployment Guide**: Update [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for setup process changes
+- **Application Guide**: Update [docs/APPLICATIONS.md](docs/APPLICATIONS.md) for application modifications
+- **Secret Management**: Update [docs/SECRETS.md](docs/SECRETS.md) for External Secrets changes
+- **Configuration Guide**: Update [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for schema changes
+- **Script Documentation**: Add JSDoc headers for new TypeScript functions
+- **Inline Comments**: Document complex CDKTF constructs and Kubernetes configurations
+
+### Documentation Standards
+
+- Use clear, concise language
+- Include code examples for complex procedures
+- Update version numbers when changing tool requirements
+- Add troubleshooting sections for common issues
+- Include links between related documentation sections
 
 ## Getting Help
 
