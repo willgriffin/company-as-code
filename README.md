@@ -225,13 +225,10 @@ EXAMPLES:
 ├── .github/
 │   ├── workflows/         # CI/CD pipelines
 │   └── actions/          # Custom GitHub Actions
-├── flux/
+├── manifests/
 │   ├── clusters/         # Cluster-specific configurations
 │   │   └── production/   # Production cluster manifests
 │   └── infrastructure/   # Core infrastructure components
-├── terraform/            # Infrastructure as Code
-│   ├── modules/         # Reusable Terraform modules
-│   └── environments/    # Environment-specific configs
 ├── platform/            # CDKTF infrastructure (TypeScript)
 │   ├── src/
 │   │   ├── stacks/     # Terraform CDK stacks
@@ -360,7 +357,7 @@ npm run deploy
 Add custom applications by creating Flux Kustomizations:
 
 ```yaml
-# flux/clusters/production/apps/my-app.yaml
+# manifests/clusters/production/apps/my-app.yaml
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:

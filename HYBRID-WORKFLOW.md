@@ -203,7 +203,7 @@ kubectl get configmap infrastructure-config -n flux-system -o yaml
 If domains or cluster names aren't updated:
 ```bash
 # Check backup files
-ls flux/.backups/
+ls manifests/.backups/
 
 # Re-run CDKTF deployment to retry configuration
 cd platform && npm run deploy

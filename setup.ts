@@ -626,7 +626,7 @@ This issue was automatically created after repository setup to track cleanup of 
 - [ ] Template documentation that's no longer needed
 
 ### Generated Configuration to Review
-- [ ] \`flux/\` - Kubernetes manifests (verify all placeholders replaced)
+- [ ] \`manifests/\` - Kubernetes manifests (verify all placeholders replaced)
 - [ ] \`platform/\` - CDKTF infrastructure code
 - [ ] GitHub repository secrets (verify all are set correctly)
 - [ ] DNS records (set up domain verification as instructed)
@@ -634,7 +634,7 @@ This issue was automatically created after repository setup to track cleanup of 
 ### Optional Cleanup
 - [ ] Remove \`.github/workflows/create-setup-issue.yml\` (this workflow)
 - [ ] Update README.md to reflect your project instead of template
-- [ ] Remove any unused applications from \`flux/applications/\`
+- [ ] Remove any unused applications from \`manifests/applications/\`
 - [ ] Clean up .gitignore entries if needed
 
 ${this.options.skipProject ? '' : '- [ ] Keep GitHub project and workflow automation (manually delete if not needed)'}
@@ -752,7 +752,7 @@ This will remove all template-specific files automatically.
     this.logSuccess(`Template ejection complete! ${removedCount} files removed.`);
     this.log(`\n${colors.yellow}Final steps:${colors.reset}`);
     this.log('1. Update README.md to reflect your project');
-    this.log('2. Remove any unused applications from flux/applications/');
+    this.log('2. Remove any unused applications from manifests/applications/');
     this.log('3. Customize the infrastructure as needed');
     this.log('\nYour repository is now fully independent from the template!');
   }

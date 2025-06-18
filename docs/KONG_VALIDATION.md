@@ -136,10 +136,10 @@ Your repository contains standard Kubernetes YAML files. Use normal Flux command
 
 ```bash
 # Validate manifests
-flux check --path flux/clusters/my-cluster/
+flux check --path manifests/clusters/my-cluster/
 
 # Dry run deployment
-flux diff kustomization flux-system --path flux/clusters/my-cluster/
+flux diff kustomization flux-system --path manifests/clusters/my-cluster/
 
 # Check for drift
 flux get kustomizations

@@ -77,8 +77,8 @@ The repository follows Infrastructure as Code principles using Terraform and Git
 ## Project Structure
 
 ### Key Directories
-- `/flux/` - GitOps manifests organized by cluster
-- `/terraform/` - Infrastructure as Code definitions
+- `/manifests/` - GitOps manifests organized by cluster
+- `/platform/` - Infrastructure as Code definitions using CDKTF
 - `/scripts/` - Automation scripts for cluster lifecycle
 - `/.github/` - CI/CD workflows and actions
 - `/docs/` - Documentation for secrets, dependencies, templates

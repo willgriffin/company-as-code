@@ -587,7 +587,7 @@ kubectl exec -n monitoring prometheus-0 -- \
 1. **Default Credentials**
    ```bash
    # Search for default passwords
-   grep -r "password\|secret" flux/ | grep -v ".sops.yaml"
+   grep -r "password\|secret" manifests/ | grep -v ".sops.yaml"
    ```
 
 2. **Exposed Services**
