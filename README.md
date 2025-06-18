@@ -51,7 +51,8 @@ cd your-repo-name
 The setup script will interactively prompt for configuration and then:
 - Create `platform/config.json` with your infrastructure settings
 - Guide you through authentication for DigitalOcean, AWS, and GitHub
-- Create DigitalOcean Spaces bucket for Terraform state
+- Create AWS S3 bucket for Terraform state (with versioning and encryption)
+- Create DigitalOcean Spaces bucket for application storage
 - Set up AWS SES credentials for email functionality
 - Configure GitHub repository secrets automatically
 - Create workflow labels and optional project board

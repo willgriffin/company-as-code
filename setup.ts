@@ -262,9 +262,13 @@ class GitOpsSetup {
     this.log('');
 
     this.log(`${colors.bold}${colors.blue}Resources to be Created:${colors.reset}`);
+    this.log(`  ${colors.bold}AWS S3:${colors.reset}`);
+    this.log(`    • Terraform State Bucket: ${this.config.project.name}-terraform-state`);
+    this.log(`    • Versioning: Enabled`);
+    this.log(`    • Encryption: AES256`);
+    
     this.log(`  ${colors.bold}DigitalOcean Spaces:${colors.reset}`);
-    this.log(`    • Bucket: ${this.config.project.name}-terraform-state (${this.config.environments[0].cluster.region})`);
-    this.log(`    • Access Key: ${this.config.project.name}-terraform-state`);
+    this.log(`    • Application Storage: ${this.config.project.name}-app-data (${this.config.environments[0].cluster.region})`);
     
     this.log(`  ${colors.bold}AWS SES:${colors.reset}`);
     this.log(`    • IAM User: ${this.config.project.name}-ses-smtp`);
@@ -281,7 +285,8 @@ class GitOpsSetup {
     this.log('');
 
     this.log(`${colors.bold}${colors.blue}Estimated Costs:${colors.reset}`);
-    this.log(`  • DigitalOcean Spaces: ~$5/month (250GB storage + transfers)`);
+    this.log(`  • AWS S3 (Terraform state): ~$0.02/month (minimal storage)`);
+    this.log(`  • DigitalOcean Spaces: ~$5/month (application storage)`);
     this.log(`  • AWS SES: $0 (free tier: 62,000 emails/month)`);
     this.log(`  • GitHub: $0 (using existing repository)`);
     this.log('');
@@ -371,10 +376,56 @@ class GitOpsSetup {
     }
   }
 
-  private async setupSpacesBucket(): Promise<{ accessKey: string; secretKey: string; bucketName: string }> {
-    this.logStep('Setting up DigitalOcean Spaces for Terraform State');
+  private async setupS3StateBucket(): Promise<{ bucketName: string; region: string }> {
+    this.logStep('Setting up AWS S3 for Terraform State');
 
     const bucketName = `${this.config.project.name}-terraform-state`;
+    const region = process.env.AWS_REGION || 'us-east-1';
+
+    // Check if bucket already exists
+    try {
+      this.exec(`aws s3 ls s3://${bucketName} 2>&1`, true);
+      this.logSuccess(`S3 bucket "${bucketName}" already exists`);
+    } catch {
+      // Create bucket
+      this.log(`Creating S3 bucket: ${bucketName}`);
+      
+      // Create bucket with versioning
+      if (region === 'us-east-1') {
+        this.exec(`aws s3api create-bucket --bucket ${bucketName}`);
+      } else {
+        this.exec(`aws s3api create-bucket --bucket ${bucketName} --region ${region} --create-bucket-configuration LocationConstraint=${region}`);
+      }
+      
+      // Enable versioning
+      this.exec(`aws s3api put-bucket-versioning --bucket ${bucketName} --versioning-configuration Status=Enabled`);
+      
+      // Enable encryption
+      this.exec(`aws s3api put-bucket-encryption --bucket ${bucketName} --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'`);
+      
+      // Add lifecycle policy for old versions
+      const lifecyclePolicy = {
+        Rules: [{
+          ID: 'terraform-state-cleanup',
+          Status: 'Enabled',
+          NoncurrentVersionExpiration: {
+            NoncurrentDays: 90
+          }
+        }]
+      };
+      
+      this.exec(`aws s3api put-bucket-lifecycle-configuration --bucket ${bucketName} --lifecycle-configuration '${JSON.stringify(lifecyclePolicy)}'`);
+      
+      this.logSuccess(`Created S3 bucket: ${bucketName} with versioning and encryption`);
+    }
+
+    return { bucketName, region };
+  }
+
+  private async setupSpacesBucket(): Promise<{ bucketName: string }> {
+    this.logStep('Setting up DigitalOcean Spaces for Application Storage');
+
+    const bucketName = `${this.config.project.name}-app-data`;
     const region = this.config.environments[0].cluster.region;
 
     // Check if bucket already exists
@@ -388,39 +439,7 @@ class GitOpsSetup {
       this.logSuccess(`Created Spaces bucket: ${bucketName}`);
     }
 
-    // Generate Spaces access keys
-    const keyName = `${this.config.project.name}-terraform-state`;
-    let accessKey: string;
-    let secretKey: string;
-
-    try {
-      // Check if key already exists
-      const existingKeys = this.exec('doctl spaces keys list --format Name --no-header', true);
-      if (existingKeys.includes(keyName)) {
-        this.logWarning(`Spaces key "${keyName}" already exists. Using existing key.`);
-        // Note: We can't retrieve existing secret key, user needs to provide it
-        throw new SetupError(
-          `Spaces key "${keyName}" exists but secret key cannot be retrieved. Delete and recreate, or provide manually.`,
-          'KEY_EXISTS'
-        );
-      }
-
-      // Create new key
-      this.log(`Creating Spaces access key: ${keyName}`);
-      const keyOutput = this.exec(`doctl spaces keys create ${keyName} --format AccessKey,SecretKey --no-header`, true);
-      const [newAccessKey, newSecretKey] = keyOutput.split('\t');
-      accessKey = newAccessKey.trim();
-      secretKey = newSecretKey.trim();
-      
-      this.logSuccess(`Created Spaces access key: ${accessKey}`);
-    } catch (error) {
-      if (error instanceof SetupError && error.code === 'KEY_EXISTS') {
-        throw error;
-      }
-      throw new SetupError(`Failed to create Spaces access key: ${error}`, 'SPACES_KEY_FAILED');
-    }
-
-    return { accessKey, secretKey, bucketName };
+    return { bucketName };
   }
 
   private generateSesSmtpPassword(secretKey: string): string {
@@ -757,19 +776,22 @@ This will remove all template-specific files automatically.
       // Step 2: Show confirmation dialog with account details
       await this.showConfirmationDialog();
 
-      // Step 3: Setup Spaces bucket for Terraform state
+      // Step 3: Setup S3 bucket for Terraform state
+      const s3Config = await this.setupS3StateBucket();
+
+      // Step 4: Setup Spaces bucket for application storage
       const spacesConfig = await this.setupSpacesBucket();
 
-      // Step 4: Setup SES credentials (if email enabled)
+      // Step 5: Setup SES credentials
       const sesConfig = await this.setupSesCredentials();
 
-      // Step 5: Set GitHub secrets
+      // Step 6: Set GitHub secrets
       const secrets: Record<string, string> = {
         DIGITALOCEAN_TOKEN: process.env.DIGITALOCEAN_TOKEN || '',
-        SPACES_ACCESS_KEY_ID: spacesConfig.accessKey,
-        SPACES_SECRET_ACCESS_KEY: spacesConfig.secretKey,
         SPACES_BUCKET_NAME: spacesConfig.bucketName,
-        AWS_ACCESS_KEY_ID: sesConfig.username,
+        TERRAFORM_STATE_BUCKET: s3Config.bucketName,
+        TERRAFORM_STATE_REGION: s3Config.region,
+        AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID || '',
         AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || '',
         AWS_SES_SMTP_USERNAME: sesConfig.username,
         AWS_SES_SMTP_PASSWORD: sesConfig.password,
@@ -779,10 +801,10 @@ This will remove all template-specific files automatically.
 
       await this.setGitHubSecrets(secrets);
 
-      // Step 6: Setup GitHub project (optional)
+      // Step 7: Setup GitHub project (optional)
       await this.setupGitHubProject();
 
-      // Step 7: Create cleanup issue for template ejection
+      // Step 8: Create cleanup issue for template ejection
       await this.createCleanupIssue();
 
       this.logStep('Setup Complete');
@@ -984,7 +1006,8 @@ EXAMPLES:
   npx tsx setup.ts --eject             # Remove template files (after setup complete)
 
 This script sets up prerequisites for CDKTF deployment:
-- DigitalOcean Spaces bucket for Terraform state
+- AWS S3 bucket for Terraform state (with versioning and encryption)
+- DigitalOcean Spaces bucket for application storage
 - AWS SES credentials for email functionality
 - GitHub repository secrets
 - Optional GitHub project labels and workflow
