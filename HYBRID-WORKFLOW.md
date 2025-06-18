@@ -110,7 +110,7 @@ cp config.ts.example config.ts            # TypeScript format (with type safety)
 # Edit with your settings
 
 # 2. Run prerequisites (creates secrets, state bucket, etc.)
-./setup.sh
+./setup.ts
 ```
 
 ### Infrastructure Deployment

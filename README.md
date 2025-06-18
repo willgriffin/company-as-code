@@ -44,7 +44,7 @@ git clone https://github.com/yourusername/your-repo-name.git
 cd your-repo-name
 
 # Run the interactive setup script
-./setup.sh
+./setup.ts
 ```
 
 **Option 2A: Interactive Setup (Default)**
@@ -71,7 +71,7 @@ export SETUP_NODE_COUNT="3"
 export SETUP_ENVIRONMENT="production"
 
 # Run setup with environment variables (non-interactive)
-./setup.sh --yes --no-interactive
+./setup.ts --yes --no-interactive
 ```
 
 **Copy-Paste Example (replace with your values):**
@@ -85,7 +85,7 @@ SETUP_REGION="nyc1" \
 SETUP_NODE_SIZE="s-4vcpu-8gb" \
 SETUP_NODE_COUNT="5" \
 SETUP_ENVIRONMENT="production" \
-./setup.sh --yes --no-interactive && \
+./setup.ts --yes --no-interactive && \
 cd platform && \
 npm install && \
 npx cdktf deploy

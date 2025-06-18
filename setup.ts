@@ -602,8 +602,7 @@ This issue was automatically created after repository setup to track cleanup of 
 
 ### Template Files to Remove (when ready)
 - [ ] \`setup.ts\` - Setup script (keep if you want to re-run setup)
-- [ ] \`setup.sh\` - Setup wrapper script  
-- [ ] \`config.*.example\` - Example configuration files
+- [ ] \`platform/config.*.example\` - Example configuration files
 - [ ] \`initial-setup.sh\` - Legacy setup script (if present)
 - [ ] Template documentation that's no longer needed
 
@@ -648,10 +647,7 @@ This will remove all template-specific files automatically.
     
     const filesToRemove = [
       'setup.ts',
-      'setup.sh', 
-      'config.json.example',
-      'config.js.example',
-      'config.ts.example',
+      'platform/config.json.example',
       'initial-setup.sh',
       '.github/workflows/create-setup-issue.yml',
       'HYBRID-WORKFLOW.md'
@@ -1041,7 +1037,6 @@ async function main(): Promise<void> {
       case '--help':
         showHelp();
         process.exit(0);
-        break;
       default:
         console.error(`Unknown option: ${args[i]}`);
         showHelp();
