@@ -123,26 +123,7 @@ export class DigitalOceanClusterStack extends TerraformStack {
       ipAddress: this.loadBalancer.ip
     });
 
-    // DNS records for applications
-    const appSubdomains = config.applications.map(app => {
-      switch (app) {
-        case 'keycloak': return 'auth';
-        case 'mattermost': return 'chat';
-        case 'nextcloud': return 'files';
-        case 'mailu': return 'mail';
-        default: return app;
-      }
-    });
-
-    appSubdomains.forEach(subdomain => {
-      new Record(this, `record-${subdomain}`, {
-        domain: this.domain.name,
-        type: 'A',
-        name: subdomain,
-        value: this.loadBalancer.ip,
-        ttl: 300
-      });
-    });
+    // Application DNS records are managed by external-dns based on ingress annotations
 
     // Wildcard record for additional services
     new Record(this, 'wildcard-record', {
@@ -196,8 +177,8 @@ export class DigitalOceanClusterStack extends TerraformStack {
     });
 
     new TerraformOutput(this, 'application_urls', {
-      value: appSubdomains.map(sub => `https://${sub}.${environment.domain}`),
-      description: 'URLs for deployed applications'
+      value: ['auth', 'chat', 'files', 'mail'].map(sub => `https://${sub}.${environment.domain}`),
+      description: 'URLs for deployed applications (DNS managed by external-dns)'
     });
   }
 }
