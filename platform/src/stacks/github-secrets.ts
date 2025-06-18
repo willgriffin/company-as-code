@@ -37,8 +37,8 @@ export class GitHubSecretsStack extends TerraformStack {
   static createSecretsMap(props: {
     kubeconfig: string;
     digitalOceanToken: string;
-    spacesAccessKey: string;
-    spacesSecretKey: string;
+    terraformStateBucket: string;
+    terraformStateRegion: string;
     awsAccessKey?: string;
     awsSecretKey?: string;
     sesSmtpUsername?: string;
@@ -47,8 +47,8 @@ export class GitHubSecretsStack extends TerraformStack {
     const secrets: Record<string, string> = {
       KUBECONFIG: props.kubeconfig,
       DIGITALOCEAN_TOKEN: props.digitalOceanToken,
-      SPACES_ACCESS_KEY_ID: props.spacesAccessKey,
-      SPACES_SECRET_ACCESS_KEY: props.spacesSecretKey,
+      TERRAFORM_STATE_BUCKET: props.terraformStateBucket,
+      TERRAFORM_STATE_REGION: props.terraformStateRegion,
     };
 
     if (props.awsAccessKey && props.awsSecretKey) {

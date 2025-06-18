@@ -63,6 +63,8 @@ const config = loadConfig();
 const app = new App();
 
 // Create shared infrastructure first
+// Note: S3 bucket for Terraform state is created by setup.ts as a prerequisite
+// Spaces bucket for application storage
 const spacesStack = new DigitalOceanSpacesStack(app, `${config.project.name}-spaces`, {
   projectName: config.project.name,
   config,
@@ -102,8 +104,8 @@ if (process.env.GITHUB_REPOSITORY) {
   const secrets = GitHubSecretsStack.createSecretsMap({
     kubeconfig: primaryCluster.cluster.kubeConfig.get(0).rawConfig,
     digitalOceanToken: process.env.DIGITALOCEAN_TOKEN!,
-    spacesAccessKey: process.env.SPACES_ACCESS_KEY_ID!,
-    spacesSecretKey: process.env.SPACES_SECRET_ACCESS_KEY!,
+    terraformStateBucket: process.env.TERRAFORM_STATE_BUCKET!,
+    terraformStateRegion: process.env.TERRAFORM_STATE_REGION!,
     awsAccessKey: sesStack ? process.env.AWS_ACCESS_KEY_ID : undefined,
     awsSecretKey: sesStack ? process.env.AWS_SECRET_ACCESS_KEY : undefined,
     sesSmtpUsername: sesStack ? sesStack.accessKey.id : undefined,

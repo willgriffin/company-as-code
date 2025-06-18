@@ -41,7 +41,7 @@ jobs:
           Run the setup script to configure this repository:
 
           ```bash
-          ./setup.sh
+          ./setup.ts
           ```
 
           The script will:

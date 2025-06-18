@@ -44,14 +44,15 @@ git clone https://github.com/yourusername/your-repo-name.git
 cd your-repo-name
 
 # Run the interactive setup script
-./setup.sh
+./setup.ts
 ```
 
 **Option 2A: Interactive Setup (Default)**
 The setup script will interactively prompt for configuration and then:
 - Create `platform/config.json` with your infrastructure settings
 - Guide you through authentication for DigitalOcean, AWS, and GitHub
-- Create DigitalOcean Spaces bucket for Terraform state
+- Create AWS S3 bucket for Terraform state (with versioning and encryption)
+- Create DigitalOcean Spaces bucket for application storage
 - Set up AWS SES credentials for email functionality
 - Configure GitHub repository secrets automatically
 - Create workflow labels and optional project board
@@ -71,7 +72,7 @@ export SETUP_NODE_COUNT="3"
 export SETUP_ENVIRONMENT="production"
 
 # Run setup with environment variables (non-interactive)
-./setup.sh --yes --no-interactive
+./setup.ts --yes --no-interactive
 ```
 
 **Copy-Paste Example (replace with your values):**
@@ -85,7 +86,7 @@ SETUP_REGION="nyc1" \
 SETUP_NODE_SIZE="s-4vcpu-8gb" \
 SETUP_NODE_COUNT="5" \
 SETUP_ENVIRONMENT="production" \
-./setup.sh --yes --no-interactive && \
+./setup.ts --yes --no-interactive && \
 cd platform && \
 npm install && \
 npx cdktf deploy

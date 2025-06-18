@@ -12,7 +12,6 @@ export interface DigitalOceanSpacesStackProps {
 }
 
 export class DigitalOceanSpacesStack extends TerraformStack {
-  public readonly terraformStateBucket: SpacesBucket;
   public readonly applicationDataBucket: SpacesBucket;
 
   constructor(scope: Construct, id: string, props: DigitalOceanSpacesStackProps) {
@@ -20,30 +19,9 @@ export class DigitalOceanSpacesStack extends TerraformStack {
 
     const { projectName, config, region = 'nyc3' } = props;
 
-    // DigitalOcean provider
+    // DigitalOcean provider - uses token only, no separate Spaces keys needed
     new DigitaloceanProvider(this, 'digitalocean', {
-      token: process.env.DIGITALOCEAN_TOKEN!,
-      spacesAccessId: process.env.SPACES_ACCESS_KEY_ID!,
-      spacesSecretKey: process.env.SPACES_SECRET_ACCESS_KEY!,
-    });
-
-    // Terraform state bucket
-    this.terraformStateBucket = new SpacesBucket(this, 'terraform-state', {
-      name: `${projectName}-terraform-state`,
-      region: region,
-      acl: 'private',
-      versioning: {
-        enabled: true
-      },
-      lifecycleRule: [
-        {
-          id: 'terraform-state-cleanup',
-          enabled: true,
-          noncurrentVersionExpiration: {
-            days: 90
-          }
-        }
-      ]
+      token: process.env.DIGITALOCEAN_TOKEN!
     });
 
     // Application data bucket
@@ -95,16 +73,6 @@ export class DigitalOceanSpacesStack extends TerraformStack {
     });
 
     // Outputs
-    new TerraformOutput(this, 'terraform_state_bucket', {
-      value: this.terraformStateBucket.name,
-      description: 'Bucket for Terraform state storage'
-    });
-
-    new TerraformOutput(this, 'terraform_state_endpoint', {
-      value: `https://${region}.digitaloceanspaces.com`,
-      description: 'Endpoint for Terraform state bucket'
-    });
-
     new TerraformOutput(this, 'application_data_bucket', {
       value: this.applicationDataBucket.name,
       description: 'Bucket for application data storage'

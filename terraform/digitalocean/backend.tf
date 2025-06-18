@@ -1,21 +1,13 @@
 terraform {
   backend "s3" {
-    endpoints = {
-      s3 = "https://nyc3.digitaloceanspaces.com"
-    }
-    region                      = "nyc3"
+    # Standard AWS S3 backend configuration
     key                         = "terraform/digitalocean.tfstate"
-    # bucket is provided via backend-config in CI/CD
-    skip_credentials_validation = true
-    skip_metadata_api_check     = true
-    skip_region_validation      = true
-    skip_requesting_account_id  = true
-    # skip_get_ec2_platforms      = true
-    skip_s3_checksum            = true
-    use_path_style              = true
+    encrypt                     = true
     
-    # These will be provided via backend-config in CI/CD
-    # access_key = var.spaces_access_key
-    # secret_key = var.spaces_secret_key
+    # These will be provided via backend-config in CI/CD:
+    # bucket = var.terraform_state_bucket
+    # region = var.terraform_state_region
+    # access_key = var.aws_access_key_id
+    # secret_key = var.aws_secret_access_key
   }
 }
