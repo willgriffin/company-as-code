@@ -1,5 +1,0 @@
-# Copy this file to backend-config.hcl and fill in your credentials
-# DO NOT commit backend-config.hcl to version control
-
-access_key = "YOUR_SPACES_ACCESS_KEY"
-secret_key = "YOUR_SPACES_SECRET_KEY"
