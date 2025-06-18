@@ -1,6 +1,6 @@
-# Flux GitOps Configuration
+# GitOps Manifests
 
-This directory contains Flux CD configurations for GitOps-based Kubernetes deployments.
+This directory contains Kubernetes manifests for GitOps-based application deployments using Flux v2.
 
 > **Note**: Links to DigitalOcean are affiliate links that help support the maintenance of this template.
 
@@ -9,47 +9,81 @@ This directory contains Flux CD configurations for GitOps-based Kubernetes deplo
 ```
 manifests/
 ├── clusters/              # Cluster-specific configurations
-│   └── cumulus/          # Cumulus cluster (DigitalOcean)
-│       ├── core/         # Core infrastructure components
-│       ├── controllers/  # Kubernetes operators and controllers
-│       ├── services/     # Platform services
-│       │   ├── cert-manager/     # TLS certificate automation
-│       │   ├── ingress-nginx/    # Ingress controller
-│       │   └── keycloak/         # Identity and access management
-│       └── kustomization.yaml    # Cluster root kustomization
-└── base/                 # Base configurations (future)
+│   └── my-cluster/       # Default cluster configuration
+│       ├── applications.yaml     # Application deployments
+│       └── infrastructure.yaml   # Infrastructure components
+├── applications/         # Application manifests
+│   ├── nextcloud.yaml    # Cloud storage platform
+│   ├── mattermost.yaml   # Team collaboration
+│   ├── mailu.yaml        # Email server suite
+│   └── kustomization.yaml
+├── infrastructure/       # Infrastructure components
+│   ├── external-secrets.yaml    # External Secrets Operator
+│   ├── kong-gateway.yaml        # API Gateway
+│   ├── cert-manager.yaml        # TLS certificate automation
+│   ├── external-dns.yaml        # DNS automation
+│   └── kustomization.yaml
+└── users/               # User and identity management
+    ├── admin-user.yaml
+    ├── realm-config.yaml
+    └── kustomization.yaml
 ```
 
-## Cluster: Cumulus (DigitalOcean)
+## Infrastructure Components
 
-The cumulus cluster hosts the core infrastructure services required for application deployment on DigitalOcean.
+### Kong Gateway
+- Enterprise API gateway with Gateway API support
+- OIDC authentication integration with Keycloak
+- Advanced routing, rate limiting, and monitoring
+- TLS termination and certificate management
 
-### Infrastructure Components
+### External Secrets Operator
+- Dynamic secret injection from external stores
+- GitHub repository secrets backend
+- Automatic secret rotation support
+- Kubernetes-native secret management
 
-#### cert-manager
-- Automated TLS certificate provisioning
-- Let's Encrypt integration
+### cert-manager
+- Automated TLS certificate provisioning with Let's Encrypt
 - Certificate renewal automation
+- Integration with Kong Gateway for TLS termination
 
-#### ingress-nginx
-- Layer 7 load balancing
-- SSL/TLS termination
-- Path-based routing
+### External DNS
+- Automatic DNS record management with DigitalOcean
+- Integration with Kong Gateway for service discovery
+- Subdomain automation for applications
+
+### Applications
+
+#### Nextcloud
+- Enterprise cloud storage platform
+- DigitalOcean Spaces primary storage integration
+- OIDC authentication with Keycloak
+- High-availability PostgreSQL backend
+
+#### Mattermost
+- Team collaboration and messaging platform
+- OIDC integration for single sign-on
+- File storage and team management features
 
 #### Keycloak
-- Single Sign-On (SSO) provider
-- OAuth2/OIDC authentication
-- Hosted at: `auth.happyvertical.com`
-- User federation and identity brokering
+- Identity and access management platform
+- Central SSO provider for all applications
+- Operator-based deployment and management
+
+#### Mailu
+- Complete email server suite with webmail
+- Anti-spam and antivirus protection
+- OAuth2 proxy for OIDC authentication
 
 ## Flux Management
 
-Flux is automatically bootstrapped and managed by the Terraform provider during cluster creation. No manual bootstrap is required.
+Flux is automatically bootstrapped and managed by CDKTF during cluster creation. No manual bootstrap is required.
 
 **Key Features:**
-- **Infrastructure as Code**: Flux lifecycle managed via Terraform
-- **SOPS Integration**: Automatic secret decryption configured via Terraform  
-- **Declarative Configuration**: All Flux settings defined in `terraform/digitalocean/flux.tf`
+- **Infrastructure as Code**: Flux lifecycle managed via CDKTF stacks
+- **External Secrets Integration**: Dynamic secret injection configured automatically
+- **GitOps Automation**: All manifests synced from Git repository
 
 **Manual Operations:**
 ```bash
@@ -91,9 +125,9 @@ resources:
 ### Adding a New Cluster
 
 1. Create new cluster directory under `manifests/clusters/<cluster-name>/`
-2. Copy the directory structure from `cumulus/`
-3. Add cluster-specific infrastructure components
-4. Update Terraform configuration to bootstrap Flux for the new cluster path
+2. Copy the directory structure from `my-cluster/`
+3. Add cluster-specific infrastructure components  
+4. Update CDKTF configuration to bootstrap Flux for the new cluster path
 
 ## Flux Commands
 
@@ -119,26 +153,27 @@ flux resume kustomization <name>
 
 ## Secret Management
 
-Secrets should be created directly in the cluster:
+This template uses **External Secrets Operator** for dynamic secret management:
 
 ```bash
-# Create generic secret
-kubectl create secret generic <secret-name> \
-  --from-literal=key=value \
-  -n <namespace>
+# Check ExternalSecret status
+kubectl get externalsecrets -A
 
-# Create docker registry secret
-kubectl create secret docker-registry <secret-name> \
-  --docker-server=<registry> \
-  --docker-username=<username> \
-  --docker-password=<password> \
-  -n <namespace>
+# View secret synchronization
+kubectl describe externalsecret <name> -n <namespace>
+
+# Check secret stores
+kubectl get secretstores -A
+kubectl get clustersecretstores
 ```
 
-For production, consider using:
-- Sealed Secrets
-- SOPS with Flux
-- External Secrets Operator
+**Key Features:**
+- **Dynamic Injection**: Secrets fetched from external stores at runtime
+- **GitHub Integration**: Repository secrets as external secret backend
+- **Automatic Rotation**: Secrets refreshed periodically
+- **No Secrets in Git**: Enhanced security with runtime secret fetching
+
+See [docs/SECRETS.md](../docs/SECRETS.md) for detailed configuration.
 
 ## Monitoring Deployments
 
