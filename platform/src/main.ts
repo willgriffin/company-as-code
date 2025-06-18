@@ -3,7 +3,6 @@ import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { DigitalOceanClusterStack } from './stacks/digitalocean-cluster';
 import { DigitalOceanSpacesStack } from './stacks/digitalocean-spaces';
-import { AWSS3StateStack } from './stacks/aws-s3-state';
 import { AWSSESStack } from './stacks/aws-ses';
 import { GitHubSecretsStack } from './stacks/github-secrets';
 import { FluxConfigurationStack } from './stacks/flux-configuration';
@@ -64,13 +63,7 @@ const config = loadConfig();
 const app = new App();
 
 // Create shared infrastructure first
-// S3 bucket for Terraform state
-const s3StateStack = new AWSS3StateStack(app, `${config.project.name}-terraform-state`, {
-  projectName: config.project.name,
-  config,
-  region: process.env.AWS_REGION || 'us-east-1'
-});
-
+// Note: S3 bucket for Terraform state is created by setup.ts as a prerequisite
 // Spaces bucket for application storage
 const spacesStack = new DigitalOceanSpacesStack(app, `${config.project.name}-spaces`, {
   projectName: config.project.name,
@@ -111,8 +104,8 @@ if (process.env.GITHUB_REPOSITORY) {
   const secrets = GitHubSecretsStack.createSecretsMap({
     kubeconfig: primaryCluster.cluster.kubeConfig.get(0).rawConfig,
     digitalOceanToken: process.env.DIGITALOCEAN_TOKEN!,
-    spacesAccessKey: process.env.SPACES_ACCESS_KEY_ID!,
-    spacesSecretKey: process.env.SPACES_SECRET_ACCESS_KEY!,
+    terraformStateBucket: process.env.TERRAFORM_STATE_BUCKET!,
+    terraformStateRegion: process.env.TERRAFORM_STATE_REGION!,
     awsAccessKey: sesStack ? process.env.AWS_ACCESS_KEY_ID : undefined,
     awsSecretKey: sesStack ? process.env.AWS_SECRET_ACCESS_KEY : undefined,
     sesSmtpUsername: sesStack ? sesStack.accessKey.id : undefined,
