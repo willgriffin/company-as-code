@@ -9,16 +9,11 @@ if [ ! -r tool-versions.txt ]; then
     echo "Error: tool-versions.txt is missing or not readable."
     exit 1
 fi
-# Remove legacy tools that are no longer used
-# AGE_VERSION=$(grep "^age=" tool-versions.txt | cut -d'=' -f2)
-# SOPS_VERSION=$(grep "^sops=" tool-versions.txt | cut -d'=' -f2)
 YQ_VERSION=$(grep "^yq=" tool-versions.txt | cut -d'=' -f2)
 FLUX_VERSION=$(grep "^flux=" tool-versions.txt | cut -d'=' -f2)
 GOMPLATE_VERSION=$(grep "^gomplate=" tool-versions.txt | cut -d'=' -f2)
 DOCTL_VERSION=$(grep "^doctl=" tool-versions.txt | cut -d'=' -f2)
 
-# Legacy tools no longer used with External Secrets Operator
-# Age and SOPS have been replaced by External Secrets Operator
 
 # Install yq
 echo "Installing yq v${YQ_VERSION}..."
@@ -45,8 +40,6 @@ rm -f doctl-*
 echo "All tools installed successfully!"
 echo "Verifying installations..."
 
-# age --version
-# sops --version
 yq --version
 flux version --client
 gomplate --version
