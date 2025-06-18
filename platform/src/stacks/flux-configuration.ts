@@ -133,27 +133,27 @@ export class FluxConfigurationStack extends TerraformStack {
   }
 
   private generateReplacementScript(replacements: Record<string, string>): string {
-    const fluxDir = path.resolve('..', 'flux');
+    const manifestsDir = path.resolve('..', 'manifests');
     let script = `#!/bin/bash\nset -euo pipefail\n\n`;
     
-    script += `echo "Configuring static Flux manifests..."\n`;
-    script += `FLUX_DIR="${fluxDir}"\n\n`;
+    script += `echo "Configuring static manifests..."\n`;
+    script += `MANIFESTS_DIR="${manifestsDir}"\n\n`;
     
-    // Check if flux directory exists
-    script += `if [[ ! -d "$FLUX_DIR" ]]; then\n`;
-    script += `  echo "Warning: Flux directory not found at $FLUX_DIR"\n`;
+    // Check if manifests directory exists
+    script += `if [[ ! -d "$MANIFESTS_DIR" ]]; then\n`;
+    script += `  echo "Warning: Manifests directory not found at $MANIFESTS_DIR"\n`;
     script += `  exit 0\n`;
     script += `fi\n\n`;
 
     // Backup existing files first
     script += `echo "Creating backup of original manifests..."\n`;
-    script += `if [[ ! -d "$FLUX_DIR/.backups" ]]; then\n`;
-    script += `  mkdir -p "$FLUX_DIR/.backups"\n`;
-    script += `  find "$FLUX_DIR" -name "*.yaml" -o -name "*.yml" | while read -r file; do\n`;
-    script += `    relative_path=\${file#$FLUX_DIR/}\n`;
-    script += `    backup_dir="$FLUX_DIR/.backups/$(dirname "$relative_path")"\n`;
+    script += `if [[ ! -d "$MANIFESTS_DIR/.backups" ]]; then\n`;
+    script += `  mkdir -p "$MANIFESTS_DIR/.backups"\n`;
+    script += `  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | while read -r file; do\n`;
+    script += `    relative_path=\${file#$MANIFESTS_DIR/}\n`;
+    script += `    backup_dir="$MANIFESTS_DIR/.backups/$(dirname "$relative_path")"\n`;
     script += `    mkdir -p "$backup_dir"\n`;
-    script += `    cp "$file" "$FLUX_DIR/.backups/$relative_path.orig"\n`;
+    script += `    cp "$file" "$MANIFESTS_DIR/.backups/$relative_path.orig"\n`;
     script += `  done\n`;
     script += `fi\n\n`;
 
@@ -166,17 +166,17 @@ export class FluxConfigurationStack extends TerraformStack {
       // Escape special characters for sed
       const escapedFrom = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const escapedTo = to.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/&/g, '\\&');
-      script += `find "$FLUX_DIR" -name "*.yaml" -o -name "*.yml" | xargs sed -i 's|${escapedFrom}|${escapedTo}|g'\n`;
+      script += `find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs sed -i 's|${escapedFrom}|${escapedTo}|g'\n`;
     }
 
     // Verification step
     script += `echo "Verifying replacement completeness..."\n`;
-    script += `REMAINING_EXAMPLES=$(find "$FLUX_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example" | wc -l)\n`;
+    script += `REMAINING_EXAMPLES=$(find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example" | wc -l)\n`;
     script += `if [ "$REMAINING_EXAMPLES" -gt 0 ]; then\n`;
     script += `  echo "Warning: $REMAINING_EXAMPLES files still contain 'example' patterns:"\n`;
-    script += `  find "$FLUX_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example"\n`;
+    script += `  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example"\n`;
     script += `  echo "Specific patterns found:"\n`;
-    script += `  find "$FLUX_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -o '[a-zA-Z0-9.-]*example[a-zA-Z0-9.-]*' | sort | uniq\n`;
+    script += `  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -o '[a-zA-Z0-9.-]*example[a-zA-Z0-9.-]*' | sort | uniq\n`;
     script += `else\n`;
     script += `  echo "✓ All example patterns successfully replaced"\n`;
     script += `fi\n\n`;

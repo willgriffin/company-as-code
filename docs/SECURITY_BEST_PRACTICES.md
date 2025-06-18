@@ -132,13 +132,13 @@ This guide outlines security best practices for operating and maintaining your G
    {
      "extends": ["config:base"],
      "kubernetes": {
-       "fileMatch": ["flux/.+\\.yaml$"]
+       "fileMatch": ["manifests/.+\\.yaml$"]
      },
      "helm-values": {
-       "fileMatch": ["flux/.+\\.yaml$"]
+       "fileMatch": ["manifests/.+\\.yaml$"]
      },
      "regexManagers": [{
-       "fileMatch": ["flux/.+\\.yaml$"],
+       "fileMatch": ["manifests/.+\\.yaml$"],
        "matchStrings": [
          "repository: (?<depName>.*?)\\s*tag: (?<currentValue>.*?)\\s"
        ],

@@ -7,7 +7,7 @@ This directory contains Flux CD configurations for GitOps-based Kubernetes deplo
 ## Directory Structure
 
 ```
-flux/
+manifests/
 ├── clusters/              # Cluster-specific configurations
 │   └── cumulus/          # Cumulus cluster (DigitalOcean)
 │       ├── core/         # Core infrastructure components
@@ -67,7 +67,7 @@ kubectl get gitrepository,kustomizations -n flux-system
 
 ### To the Cumulus Cluster
 
-1. Create application directory under `flux/clusters/my-cluster/`
+1. Create application directory under `manifests/clusters/my-cluster/`
 2. Add Kubernetes manifests:
    - `namespace.yaml` - Application namespace
    - `deployment.yaml` - Application deployment
@@ -75,7 +75,7 @@ kubectl get gitrepository,kustomizations -n flux-system
    - `ingress.yaml` - Ingress rules (if needed)
    - `kustomization.yaml` - Kustomize configuration
 
-3. Update `flux/clusters/my-cluster/kustomization.yaml` to include new path
+3. Update `manifests/clusters/my-cluster/kustomization.yaml` to include new path
 
 Example structure:
 ```yaml
@@ -90,7 +90,7 @@ resources:
 
 ### Adding a New Cluster
 
-1. Create new cluster directory under `flux/clusters/<cluster-name>/`
+1. Create new cluster directory under `manifests/clusters/<cluster-name>/`
 2. Copy the directory structure from `cumulus/`
 3. Add cluster-specific infrastructure components
 4. Update Terraform configuration to bootstrap Flux for the new cluster path

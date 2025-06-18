@@ -97,7 +97,7 @@ jobs:
             --owner=${{ github.repository_owner }} \
             --repository=${{ github.event.repository.name }} \
             --branch=main \
-            --path=./flux/clusters/my-cluster \
+            --path=./manifests/clusters/my-cluster \
             --personal=false \
             --private-key-file=flux-key
       
