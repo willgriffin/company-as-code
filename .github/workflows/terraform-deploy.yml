@@ -123,10 +123,39 @@ jobs:
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
           # Extract kubeconfig from CDKTF output
-          npx cdktf output > cdktf-output.json
+          if ! npx cdktf output > cdktf-output.json; then
+            echo "Error: Failed to get CDKTF output"
+            exit 1
+          fi
+          
+          # Validate output file exists and is not empty
+          if [[ ! -s cdktf-output.json ]]; then
+            echo "Error: CDKTF output file is empty or missing"
+            exit 1
+          fi
           
           # Get the kubeconfig from the cluster stack output
-          KUBECONFIG_CONTENT=$(cat cdktf-output.json | jq -r --arg project "${{ secrets.PROJECT_NAME || 'my-company' }}" '.[$project + "-production"].kubeconfig')
+          PROJECT_NAME="${{ secrets.PROJECT_NAME || 'my-company' }}"
+          STACK_NAME="${PROJECT_NAME}-production"
+          
+          # Validate stack exists in output
+          if ! jq -e --arg stack "$STACK_NAME" 'has($stack)' cdktf-output.json > /dev/null; then
+            echo "Error: Stack '$STACK_NAME' not found in CDKTF output"
+            echo "Available stacks:"
+            jq -r 'keys[]' cdktf-output.json
+            exit 1
+          fi
+          
+          # Extract kubeconfig with validation
+          KUBECONFIG_CONTENT=$(jq -r --arg stack "$STACK_NAME" '.[$stack].kubeconfig' cdktf-output.json)
+          
+          # Validate kubeconfig content
+          if [[ "$KUBECONFIG_CONTENT" == "null" || -z "$KUBECONFIG_CONTENT" ]]; then
+            echo "Error: Kubeconfig not found in stack output"
+            echo "Available outputs for stack '$STACK_NAME':"
+            jq -r --arg stack "$STACK_NAME" '.[$stack] | keys[]' cdktf-output.json
+            exit 1
+          fi
           
           # Encode for GitHub secret
           echo "KUBECONFIG_BASE64=$(echo "$KUBECONFIG_CONTENT" | base64 -w 0)" >> $GITHUB_ENV
@@ -154,17 +183,38 @@ jobs:
           export KUBECONFIG=kubeconfig.yaml
           
           echo "Waiting for Flux to be ready..."
-          kubectl wait --for=condition=available --timeout=300s deployment/source-controller -n flux-system
-          kubectl wait --for=condition=available --timeout=300s deployment/kustomize-controller -n flux-system
+          if ! kubectl wait --for=condition=available --timeout=300s deployment/source-controller -n flux-system; then
+            echo "Error: Flux source-controller failed to become available"
+            kubectl describe deployment/source-controller -n flux-system
+            exit 1
+          fi
+          
+          if ! kubectl wait --for=condition=available --timeout=300s deployment/kustomize-controller -n flux-system; then
+            echo "Error: Flux kustomize-controller failed to become available"
+            kubectl describe deployment/kustomize-controller -n flux-system
+            exit 1
+          fi
           
           echo "Forcing Flux reconciliation..."
-          kubectl annotate gitrepository flux-system -n flux-system reconcile.fluxcd.io/requestedAt="$(date +%s)" --overwrite
+          if ! kubectl annotate gitrepository flux-system -n flux-system reconcile.fluxcd.io/requestedAt="$(date +%s)" --overwrite; then
+            echo "Warning: Failed to trigger Flux reconciliation, continuing anyway"
+          fi
           
           echo "Waiting for infrastructure to be ready..."
-          timeout 600 bash -c 'until kubectl wait --for=condition=Ready kustomization/infrastructure -n flux-system --timeout=30s; do echo "Waiting for infrastructure..."; sleep 10; done'
+          if ! timeout 600 bash -c 'until kubectl wait --for=condition=Ready kustomization/infrastructure -n flux-system --timeout=30s; do echo "Waiting for infrastructure..."; sleep 10; done'; then
+            echo "Error: Infrastructure kustomization failed to become ready"
+            kubectl describe kustomization/infrastructure -n flux-system
+            kubectl get events -n flux-system --sort-by='.metadata.creationTimestamp'
+            exit 1
+          fi
           
           echo "Waiting for applications to be ready..."
-          timeout 600 bash -c 'until kubectl wait --for=condition=Ready kustomization/applications -n flux-system --timeout=30s; do echo "Waiting for applications..."; sleep 10; done'
+          if ! timeout 600 bash -c 'until kubectl wait --for=condition=Ready kustomization/applications -n flux-system --timeout=30s; do echo "Waiting for applications..."; sleep 10; done'; then
+            echo "Error: Applications kustomization failed to become ready"
+            kubectl describe kustomization/applications -n flux-system
+            kubectl get events -n flux-system --sort-by='.metadata.creationTimestamp'
+            exit 1
+          fi
       
       - name: Get deployment status
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
