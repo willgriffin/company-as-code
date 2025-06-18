@@ -177,8 +177,8 @@ export class DigitalOceanClusterStack extends TerraformStack {
     });
 
     new TerraformOutput(this, 'application_urls', {
-      value: appSubdomains.map(sub => `https://${sub}.${environment.domain}`),
-      description: 'URLs for deployed applications'
+      value: ['auth', 'chat', 'files', 'mail'].map(sub => `https://${sub}.${environment.domain}`),
+      description: 'URLs for deployed applications (DNS managed by external-dns)'
     });
   }
 }
