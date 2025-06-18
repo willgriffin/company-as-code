@@ -55,14 +55,7 @@ function loadConfig(): Config {
         haControlPlane: false
       },
       domain: 'example.com'
-    }],
-    features: {
-      email: false,
-      monitoring: true,
-      backup: true,
-      ssl: true
-    },
-    applications: []
+    }]
   };
 }
 
@@ -76,14 +69,11 @@ const spacesStack = new DigitalOceanSpacesStack(app, `${config.project.name}-spa
   region: config.environments[0].cluster.region
 });
 
-// Create SES stack if email is enabled
-let sesStack: AWSSESStack | undefined;
-if (config.features.email) {
-  sesStack = new AWSSESStack(app, `${config.project.name}-ses`, {
-    projectName: config.project.name,
-    config
-  });
-}
+// Create SES stack for email functionality
+const sesStack = new AWSSESStack(app, `${config.project.name}-ses`, {
+  projectName: config.project.name,
+  config
+});
 
 // Create stacks for each environment
 const clusterStacks = config.environments.map(env => {

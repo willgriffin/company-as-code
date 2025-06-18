@@ -123,16 +123,8 @@ export class DigitalOceanClusterStack extends TerraformStack {
       ipAddress: this.loadBalancer.ip
     });
 
-    // DNS records for applications
-    const appSubdomains = config.applications.map(app => {
-      switch (app) {
-        case 'keycloak': return 'auth';
-        case 'mattermost': return 'chat';
-        case 'nextcloud': return 'files';
-        case 'mailu': return 'mail';
-        default: return app;
-      }
-    });
+    // DNS records for applications (all applications deployed via Flux)
+    const appSubdomains = ['auth', 'chat', 'files', 'mail'];
 
     appSubdomains.forEach(subdomain => {
       new Record(this, `record-${subdomain}`, {

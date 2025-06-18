@@ -12,7 +12,7 @@
  * Run this BEFORE deploying infrastructure with CDKTF.
  */
 
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
 import { createHash, createHmac } from 'crypto';
 
@@ -46,13 +46,17 @@ interface Config {
     };
     domain: string;
   }>;
-  features: {
-    email: boolean;
-    monitoring: boolean;
-    backup: boolean;
-    ssl: boolean;
-  };
-  applications: Array<'keycloak' | 'mattermost' | 'nextcloud' | 'mailu'>;
+}
+
+interface ConfigQuestions {
+  projectName?: string;
+  domain?: string;
+  email?: string;
+  description?: string;
+  region?: string;
+  nodeSize?: string;
+  nodeCount?: number;
+  environment?: string;
 }
 
 interface SetupOptions {
@@ -262,12 +266,10 @@ class GitOpsSetup {
     this.log(`    • Bucket: ${this.config.project.name}-terraform-state (${this.config.environments[0].cluster.region})`);
     this.log(`    • Access Key: ${this.config.project.name}-terraform-state`);
     
-    if (this.config.features.email) {
-      this.log(`  ${colors.bold}AWS SES:${colors.reset}`);
-      this.log(`    • IAM User: ${this.config.project.name}-ses-smtp`);
-      this.log(`    • IAM Policy: ${this.config.project.name}-ses-policy`);
-      this.log(`    • Domain: ${this.config.project.domain} (verification required)`);
-    }
+    this.log(`  ${colors.bold}AWS SES:${colors.reset}`);
+    this.log(`    • IAM User: ${this.config.project.name}-ses-smtp`);
+    this.log(`    • IAM Policy: ${this.config.project.name}-ses-policy`);
+    this.log(`    • Domain: ${this.config.project.domain} (verification required)`);
 
     if (!this.options.skipGithub) {
       this.log(`  ${colors.bold}GitHub Repository:${colors.reset} ${accountInfo.github.repo}`);
@@ -280,9 +282,7 @@ class GitOpsSetup {
 
     this.log(`${colors.bold}${colors.blue}Estimated Costs:${colors.reset}`);
     this.log(`  • DigitalOcean Spaces: ~$5/month (250GB storage + transfers)`);
-    if (this.config.features.email) {
-      this.log(`  • AWS SES: $0 (free tier: 62,000 emails/month)`);
-    }
+    this.log(`  • AWS SES: $0 (free tier: 62,000 emails/month)`);
     this.log(`  • GitHub: $0 (using existing repository)`);
     this.log('');
 
@@ -437,10 +437,6 @@ class GitOpsSetup {
   private async setupSesCredentials(): Promise<{ username: string; password: string }> {
     this.logStep('Setting up AWS SES SMTP Credentials');
 
-    if (!this.config.features.email) {
-      this.logWarning('Email feature disabled, skipping SES setup');
-      return { username: '', password: '' };
-    }
 
     const domain = this.config.project.domain;
     const userName = `${this.config.project.name}-ses-smtp`;
@@ -815,9 +811,12 @@ This will remove all template-specific files automatically.
 }
 
 // CLI handling
-function loadConfig(configPath = 'config.json'): Config {
+async function loadOrCreateConfig(configPath?: string): Promise<Config> {
   const paths = [
     configPath,
+    'platform/config.json',
+    'platform/config.js',
+    'platform/config.ts',
     'config.json',
     'config.js',
     'config.ts',
@@ -845,10 +844,116 @@ function loadConfig(configPath = 'config.json'): Config {
     }
   }
 
-  throw new SetupError(
-    'Configuration file not found. Expected config.json, config.js, or config.ts.',
-    'CONFIG_NOT_FOUND'
-  );
+  // No config found, create interactively
+  console.log(`${colors.yellow}No configuration file found.${colors.reset}`);
+  console.log('Let\'s create one interactively.\n');
+  
+  return await createConfigInteractively();
+}
+
+async function createConfigInteractively(): Promise<Config> {
+  console.log(`${colors.bold}${colors.blue}Configuration Setup${colors.reset}`);
+  console.log('Let\'s create your infrastructure configuration.\n');
+
+  // Environment variable defaults
+  const envDefaults = {
+    projectName: process.env.PROJECT_NAME,
+    domain: process.env.DOMAIN,
+    email: process.env.EMAIL,
+    region: process.env.DO_REGION || 'nyc3',
+    nodeSize: process.env.NODE_SIZE || 's-2vcpu-4gb',
+    nodeCount: process.env.NODE_COUNT ? parseInt(process.env.NODE_COUNT) : 3,
+    environment: process.env.ENVIRONMENT || 'production'
+  };
+
+  const readline = require('readline').createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  const prompt = (question: string, defaultValue?: string): Promise<string> => {
+    return new Promise(resolve => {
+      const defaultDisplay = defaultValue ? ` (${defaultValue})` : '';
+      readline.question(`${question}${defaultDisplay}: `, (answer) => {
+        resolve(answer.trim() || defaultValue || '');
+      });
+    });
+  };
+
+  try {
+    const projectName = await prompt(
+      'Project name (lowercase, hyphens only)', 
+      envDefaults.projectName || 'my-startup'
+    );
+
+    const domain = await prompt(
+      'Primary domain', 
+      envDefaults.domain || 'example.com'
+    );
+
+    const email = await prompt(
+      'Admin email (for SSL certificates)', 
+      envDefaults.email || `admin@${domain}`
+    );
+
+    const description = await prompt(
+      'Project description (optional)', 
+      `GitOps infrastructure for ${projectName}`
+    );
+
+    const environment = await prompt(
+      'Environment name (staging/production)', 
+      envDefaults.environment
+    );
+
+    const region = await prompt(
+      'DigitalOcean region', 
+      envDefaults.region
+    );
+
+    const nodeSize = await prompt(
+      'Node size', 
+      envDefaults.nodeSize
+    );
+
+    const nodeCountStr = await prompt(
+      'Node count', 
+      envDefaults.nodeCount.toString()
+    );
+
+    const config: Config = {
+      project: {
+        name: projectName,
+        domain: domain,
+        email: email,
+        description: description || undefined
+      },
+      environments: [{
+        name: environment as 'staging' | 'production',
+        cluster: {
+          region: region,
+          nodeSize: nodeSize,
+          nodeCount: parseInt(nodeCountStr),
+          haControlPlane: parseInt(nodeCountStr) >= 3
+        },
+        domain: domain
+      }]
+    };
+
+    // Save config
+    const configPath = 'platform/config.json';
+    if (!existsSync('platform')) {
+      console.log(`${colors.red}Platform directory not found. Run this from the repository root.${colors.reset}`);
+      process.exit(1);
+    }
+
+    writeFileSync(configPath, JSON.stringify(config, null, 2));
+    console.log(`${colors.green}Configuration saved to ${configPath}${colors.reset}\n`);
+    
+    return config;
+  } finally {
+    readline.close();
+  }
 }
 
 function showHelp(): void {
@@ -932,7 +1037,7 @@ async function main(): Promise<void> {
 
   try {
     // For eject mode, we don't need a valid config
-    const config = options.eject ? {} as Config : loadConfig(options.config);
+    const config = options.eject ? {} as Config : await loadOrCreateConfig(options.config);
     const setup = new GitOpsSetup(config, options);
     await setup.run();
   } catch (error) {

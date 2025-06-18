@@ -20,15 +20,4 @@
       "domain": "example.com"
     }
   ],
-  "features": {
-    "email": true,
-    "monitoring": true,
-    "backup": true,
-    "ssl": true
-  },
-  "applications": [
-    "keycloak",
-    "nextcloud",
-    "mattermost"
-  ]
 }

@@ -1,12 +1,5 @@
 import { z } from 'zod';
 
-export const ApplicationSchema = z.enum([
-  'keycloak',
-  'mattermost',
-  'nextcloud',
-  'mailu'
-]);
-
 export const EnvironmentSchema = z.object({
   name: z.enum(['staging', 'production']),
   cluster: z.object({
@@ -48,24 +41,13 @@ export const ProjectSchema = z.object({
   description: z.string().optional()
 });
 
-export const FeaturesSchema = z.object({
-  email: z.boolean().default(false),
-  monitoring: z.boolean().default(true),
-  backup: z.boolean().default(true),
-  ssl: z.boolean().default(true)
-});
-
 export const ConfigSchema = z.object({
   project: ProjectSchema,
-  environments: z.array(EnvironmentSchema).min(1, 'At least one environment is required'),
-  features: FeaturesSchema,
-  applications: z.array(ApplicationSchema).default([])
+  environments: z.array(EnvironmentSchema).min(1, 'At least one environment is required')
 });
 
-export type Application = z.infer<typeof ApplicationSchema>;
 export type Environment = z.infer<typeof EnvironmentSchema>;
 export type Project = z.infer<typeof ProjectSchema>;
-export type Features = z.infer<typeof FeaturesSchema>;
 export type Config = z.infer<typeof ConfigSchema>;
 
 // Validation helper

@@ -1,10 +1,7 @@
-// Example configuration file in TypeScript
-// Copy to config.ts and customize for your deployment
-// Provides type safety and IntelliSense
+// Example configuration file in JavaScript
+// Copy to config.js and customize for your deployment
 
-import { Config } from './platform/src/config/schema';
-
-const config: Config = {
+module.exports = {
   project: {
     name: "my-startup",
     domain: "example.com", 
@@ -25,18 +22,5 @@ const config: Config = {
       },
       domain: "example.com"
     }
-  ],
-  features: {
-    email: true,
-    monitoring: true,
-    backup: true,
-    ssl: true
-  },
-  applications: [
-    "keycloak",
-    "nextcloud",
-    "mattermost"
   ]
 };
-
-export default config;
