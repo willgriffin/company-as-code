@@ -47,18 +47,85 @@ cd your-repo-name
 ./setup.sh
 ```
 
-The setup script will:
-- Check for required tools (doctl, aws-cli, gh, jq)
+**Option 2A: Interactive Setup (Default)**
+The setup script will interactively prompt for configuration and then:
+- Create `platform/config.json` with your infrastructure settings
 - Guide you through authentication for DigitalOcean, AWS, and GitHub
 - Create DigitalOcean Spaces bucket for Terraform state
-- Set up AWS SES credentials (if email features enabled)
+- Set up AWS SES credentials for email functionality
 - Configure GitHub repository secrets automatically
 - Create workflow labels and optional project board
-- Generate a cleanup issue for template artifacts
+
+**Option 2B: Environment Variable Setup (CI/CD)**
+For automated environments, provide configuration via environment variables:
+
+```bash
+# Set configuration environment variables (customize these values)
+export SETUP_PROJECT_NAME="my-startup"
+export SETUP_DOMAIN="example.com"
+export SETUP_EMAIL="admin@example.com"
+export SETUP_DESCRIPTION="GitOps infrastructure for my startup"
+export SETUP_REGION="nyc3"
+export SETUP_NODE_SIZE="s-2vcpu-4gb"
+export SETUP_NODE_COUNT="3"
+export SETUP_ENVIRONMENT="production"
+
+# Run setup with environment variables (non-interactive)
+./setup.sh --yes --no-interactive
+```
+
+**Copy-Paste Example (replace with your values):**
+```bash
+# Quick setup - replace these values with your own
+export SETUP_PROJECT_NAME="acme-corp"
+export SETUP_DOMAIN="acme.com"
+export SETUP_EMAIL="devops@acme.com"
+export SETUP_DESCRIPTION="ACME Corp production infrastructure"
+export SETUP_REGION="nyc1"
+export SETUP_NODE_SIZE="s-4vcpu-8gb"
+export SETUP_NODE_COUNT="5"
+export SETUP_ENVIRONMENT="production"
+
+# Deploy everything automatically
+./setup.sh --yes --no-interactive && cd platform && npm install && npx cdktf deploy
+```
+
+**Available Environment Variables:**
+- `SETUP_PROJECT_NAME` - Project name (overrides `PROJECT_NAME`)
+- `SETUP_DOMAIN` - Primary domain (overrides `DOMAIN`)
+- `SETUP_EMAIL` - Admin email for SSL certificates (overrides `EMAIL`)
+- `SETUP_DESCRIPTION` - Project description
+- `SETUP_REGION` - DigitalOcean region (overrides `DO_REGION`)
+- `SETUP_NODE_SIZE` - Kubernetes node size (overrides `NODE_SIZE`)
+- `SETUP_NODE_COUNT` - Number of nodes (overrides `NODE_COUNT`)
+- `SETUP_ENVIRONMENT` - Environment name (overrides `ENVIRONMENT`)
 
 #### 3. Deploy Infrastructure
 
-After setup completes:
+After setup completes, you'll have a `platform/config.json` file with your infrastructure settings:
+
+```json
+{
+  "project": {
+    "name": "my-startup",
+    "domain": "example.com",
+    "email": "admin@example.com",
+    "description": "GitOps infrastructure for my startup"
+  },
+  "environments": [{
+    "name": "production",
+    "cluster": {
+      "region": "nyc3",
+      "nodeSize": "s-2vcpu-4gb",
+      "nodeCount": 3,
+      "haControlPlane": true
+    },
+    "domain": "example.com"
+  }]
+}
+```
+
+Deploy the infrastructure:
 ```bash
 # Deploy using CDKTF
 cd platform
