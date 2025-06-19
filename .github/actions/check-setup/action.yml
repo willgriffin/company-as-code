@@ -254,6 +254,7 @@ runs:
           --exclude-dir=docs \
           --exclude-dir=platform \
           --exclude-dir=manifests \
+          --exclude-dir=.github \
           . >/dev/null 2>&1; then
           SETUP_COMPLETE=false
           MISSING_ITEMS="$MISSING_ITEMS- Critical template placeholders (CHANGEME) still present\n"
