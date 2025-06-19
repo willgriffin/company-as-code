@@ -5,6 +5,7 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
+    "compile": "tsc",
     "typecheck": "tsc --noEmit",
     "get": "cdktf get",
     "synth": "cdktf synth",
