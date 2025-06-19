@@ -767,8 +767,8 @@ This will remove all template-specific files automatically.
         TERRAFORM_STATE_REGION: s3Config.region,
         AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID || '',
         AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || '',
-        AWS_SES_SMTP_USERNAME: sesConfig.username,
-        AWS_SES_SMTP_PASSWORD: sesConfig.password,
+        SES_SMTP_USERNAME: sesConfig.username,
+        SES_SMTP_PASSWORD: sesConfig.password,
         ADMIN_EMAIL: this.config.project.email,
         DOMAIN: this.config.project.domain
       };
