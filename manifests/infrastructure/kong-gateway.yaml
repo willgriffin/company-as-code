@@ -201,6 +201,26 @@ spec:
       - kind: Secret
         name: wildcard-tls
 ---
+# Kong secrets managed by External Secrets
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: kong-secrets
+  namespace: kong-system
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: cluster-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: kong-secrets
+    creationPolicy: Owner
+  data:
+  - secretKey: oidc-client-secret
+    remoteRef:
+      key: credentials
+      property: kong-oidc-client-secret
+---
 # Kong plugins configuration
 apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
@@ -211,7 +231,11 @@ spec:
   plugin: oidc
   config:
     client_id: kong-gateway
-    client_secret: changeme-will-be-updated
+    client_secret:
+      valueFrom:
+        secretKeyRef:
+          name: kong-secrets
+          key: oidc-client-secret
     discovery: "https://auth.example.com/realms/mycompany/.well-known/openid_configuration"
     redirect_uri_scheme: https
     session_storage: redis

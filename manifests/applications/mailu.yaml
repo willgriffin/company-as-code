@@ -620,11 +620,11 @@ spec:
   data:
     - secretKey: username
       remoteRef:
-        key: digitalocean-credentials
+        key: credentials
         property: postgres-admin-username
     - secretKey: password
       remoteRef:
-        key: digitalocean-credentials
+        key: credentials
         property: postgres-admin-password
 ---
 # Application secrets for Mailu
@@ -643,13 +643,13 @@ spec:
   data:
     - secretKey: secret-key
       remoteRef:
-        key: digitalocean-credentials
+        key: credentials
         property: mailu-secret-key
     - secretKey: smtp-username
       remoteRef:
-        key: digitalocean-credentials
+        key: credentials
         property: aws-access-key-id
     - secretKey: smtp-password
       remoteRef:
-        key: digitalocean-credentials
+        key: credentials
         property: aws-secret-access-key

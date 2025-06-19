@@ -196,7 +196,11 @@ data:
     
     # General settings
     general_settings:
-      master_key: "sk-example-cluster-changeme"
+      master_key:
+        valueFrom:
+          secretKeyRef:
+            name: litellm-secrets
+            key: master-key
       database_url: "redis://rfs-kong-redis.kong-system.svc.cluster.local:6379"
       
     # Budget and rate limiting
@@ -220,7 +224,7 @@ metadata:
 spec:
   refreshInterval: 1h
   secretStoreRef:
-    name: digitalocean-secret-store
+    name: cluster-secret-store
     kind: ClusterSecretStore
   target:
     name: litellm-secrets
@@ -228,13 +232,20 @@ spec:
   data:
   - secretKey: openai-api-key
     remoteRef:
-      key: openai-api-key
+      key: credentials
+      property: openai-api-key
   - secretKey: anthropic-api-key
     remoteRef:
-      key: anthropic-api-key
+      key: credentials
+      property: anthropic-api-key
   - secretKey: cohere-api-key
     remoteRef:
-      key: cohere-api-key
+      key: credentials
+      property: cohere-api-key
+  - secretKey: master-key
+    remoteRef:
+      key: credentials
+      property: litellm-master-key
 
 ---
 # Expense Tracker Service for LiteLLM integration
