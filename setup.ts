@@ -650,6 +650,15 @@ class GitOpsSetup {
       return;
     }
 
+    // Validate GitHub authentication before attempting operations
+    try {
+      this.exec('gh auth status', true);
+    } catch (error) {
+      this.logWarning('GitHub authentication required. Run: gh auth login');
+      this.logWarning('Skipping template cleanup issue creation');
+      return;
+    }
+
     const issueBody = `## Template Cleanup Required
 
 This issue was automatically created after repository setup to track cleanup of template artifacts.
@@ -692,11 +701,43 @@ This will remove all template-specific files automatically.
 *This issue was created automatically by the GitOps template setup process.*`;
 
     try {
-      this.exec(`gh issue create --title "chore: complete template cleanup and ejection" --body "${issueBody.replace(/"/g, '\\"')}" --label "template-cleanup"`, true);
-      this.logSuccess('Created template cleanup issue');
-    } catch (error) {
-      this.logWarning(`Could not create GitHub issue: ${error}`);
-      this.logWarning('You may need to authenticate with: gh auth login');
+      // Create template-cleanup label if it doesn't exist
+      try {
+        this.exec('gh label create "template-cleanup" --description "Issues related to template cleanup and ejection" --color "5319e7"', true);
+        this.log('Created template-cleanup label');
+      } catch {
+        // Label might already exist, continue silently
+        this.log(`${colors.yellow}Label 'template-cleanup' already exists; skipping creation.${colors.reset}`);
+      }
+
+      // Use heredoc to avoid shell interpretation of backticks
+      const command = `gh issue create --title "chore: complete template cleanup and ejection" --body "$(cat <<'EOF'
+${issueBody}
+EOF
+)" --label "template-cleanup"`;
+      
+      const result = this.exec(command, true);
+      if (result && typeof result === 'string') {
+        this.logSuccess(`Created template cleanup issue: ${result.trim()}`);
+      } else {
+        this.logWarning('Failed to retrieve result from GitHub CLI command');
+      }
+      
+    } catch (error: any) {
+      this.logWarning('Failed to create template cleanup issue');
+      
+      // Provide specific error context
+      if (error.message.includes('not found')) {
+        this.logWarning('GitHub CLI (gh) not found. Install with: nix-shell -p github-cli');
+      } else if (error.message.includes('permission') || error.message.includes('auth')) {
+        this.logWarning('GitHub authentication issue. Run: gh auth login');
+      } else if (error.message.includes('template-cleanup')) {
+        this.logWarning('Label issue - this has been fixed for future runs');
+      } else {
+        this.logWarning(`Unexpected error: ${error.message}`);
+      }
+      
+      this.logWarning('You can create the cleanup issue manually or re-run setup with proper authentication');
     }
   }
 
