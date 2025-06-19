@@ -68,23 +68,6 @@ The `setup.ts` script provides an interactive setup that will:
 ### 4. Environment Variable Setup (CI/CD)
 
 For automated environments, provide configuration via environment variables:
-
-```bash
-# Set configuration environment variables (customize these values)
-export SETUP_PROJECT_NAME="my-company"
-export SETUP_DOMAIN="company.com"
-export SETUP_EMAIL="devops@company.com"
-export SETUP_DESCRIPTION="Production GitOps infrastructure"
-export SETUP_REGION="nyc3"
-export SETUP_NODE_SIZE="s-4vcpu-8gb"
-export SETUP_NODE_COUNT="3"
-export SETUP_ENVIRONMENT="production"
-
-# Run setup with environment variables (non-interactive)
-./setup.ts --yes --no-interactive
-```
-
-**Copy-Paste Example (replace with your values):**
 ```bash
 # Quick setup - replace these values with your own
 SETUP_PROJECT_NAME="acme-corp" \
