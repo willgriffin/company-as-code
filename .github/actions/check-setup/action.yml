@@ -191,7 +191,7 @@ runs:
         # Check for required GitHub secrets
         echo "Checking required GitHub secrets..."
         
-# The secret validation is already done above, no need for duplicate checks
+        # The secret validation is already done above, no need for duplicate checks
         
         
         # Optional secrets (warn if not set)
