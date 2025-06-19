@@ -639,7 +639,7 @@ This will remove all template-specific files automatically.
   private async ejectTemplate(): Promise<void> {
     this.logStep('Template Ejection Mode');
     
-    this.log(`${colors.yellow}${colors.bold}⚠️ This will remove template-specific files from your repository${colors.reset}\n`);
+    this.log(`${colors.yellow}${colors.bold}⚠️ This will create a pull request to remove template-specific files${colors.reset}\n`);
     
     const filesToRemove = [
       'setup.ts',
@@ -673,8 +673,8 @@ This will remove all template-specific files automatically.
 
     // Interactive confirmation unless --yes flag
     if (!this.options.assumeYes) {
-      this.log(`\n${colors.yellow}${colors.bold}Are you sure you want to eject the template?${colors.reset}`);
-      this.log(`This will permanently remove template files. Type 'eject' to confirm:`);
+      this.log(`\n${colors.yellow}${colors.bold}Create a PR to remove template files?${colors.reset}`);
+      this.log(`Type 'yes' to continue, 'no' to cancel:`);
       
       try {
         const { execSync } = await import('child_process');
@@ -684,7 +684,7 @@ This will remove all template-specific files automatically.
           shell: '/bin/bash'
         }).trim().toLowerCase();
 
-        if (response !== 'eject') {
+        if (response !== 'yes' && response !== 'y') {
           this.log(`${colors.yellow}Ejection cancelled${colors.reset}`);
           return;
         }
@@ -693,45 +693,154 @@ This will remove all template-specific files automatically.
       }
     }
 
+    if (this.options.dryRun) {
+      this.log(`${colors.yellow}[DRY-RUN] Would create PR to remove template files${colors.reset}`);
+      return;
+    }
+
+    // Check if we're in a git repository
+    try {
+      this.exec('git rev-parse --git-dir', true);
+    } catch {
+      this.logError('Not in a git repository');
+      return;
+    }
+
+    // Save current branch
+    const currentBranch = this.exec('git rev-parse --abbrev-ref HEAD', true);
+
+    // Create cleanup branch
+    const branchName = 'chore/eject-template-artifacts';
+    this.log(`\n${colors.blue}Creating branch: ${branchName}${colors.reset}`);
+    
+    try {
+      // Check if branch already exists
+      try {
+        this.exec(`git rev-parse --verify ${branchName}`, true);
+        this.logWarning(`Branch ${branchName} already exists`);
+        
+        // Ask to delete existing branch
+        if (this.options.interactive && !this.options.assumeYes) {
+          this.log(`Delete existing branch and create a new one? (y/N):`);
+          const response = this.exec('read -p "> " response && echo $response', true).toLowerCase();
+          if (response === 'y' || response === 'yes') {
+            this.exec(`git branch -D ${branchName}`, true);
+            this.logSuccess(`Deleted existing branch ${branchName}`);
+          } else {
+            this.logError('Cannot proceed with existing branch. Please delete it manually or choose a different name.');
+            return;
+          }
+        } else {
+          this.logError(`Branch ${branchName} already exists. Delete it first or use a different name.`);
+          return;
+        }
+      } catch {
+        // Branch doesn't exist, which is what we want
+      }
+
+      // Create and checkout new branch
+      this.exec(`git checkout -b ${branchName}`, true);
+      this.logSuccess(`Created and switched to branch: ${branchName}`);
+    } catch (error) {
+      this.logError(`Failed to create branch: ${error}`);
+      return;
+    }
+
     // Remove files
     this.log(`\n${colors.blue}Removing template files...${colors.reset}`);
     let removedCount = 0;
+    const removedFiles: string[] = [];
     
     for (const file of filesToRemove) {
       if (existsSync(file)) {
-        if (!this.options.dryRun) {
-          try {
-            this.exec(`rm -f "${file}"`, true);
-            this.logSuccess(`Removed ${file}`);
-            removedCount++;
-          } catch (error) {
-            this.logError(`Failed to remove ${file}: ${error}`);
-          }
-        } else {
-          this.log(`${colors.yellow}[DRY-RUN] Would remove: ${file}${colors.reset}`);
+        try {
+          this.exec(`rm -f "${file}"`, true);
+          this.logSuccess(`Removed ${file}`);
+          removedFiles.push(file);
           removedCount++;
+        } catch (error) {
+          this.logError(`Failed to remove ${file}: ${error}`);
         }
       }
     }
 
-    // Create final ejection commit
-    if (!this.options.dryRun && removedCount > 0) {
-      try {
-        this.exec('git add -A', true);
-        this.exec('git commit -m "chore: eject GitOps template artifacts\n\nRemoved template-specific files after successful setup.\nRepository is now ready for independent development."', true);
-        this.logSuccess('Created ejection commit');
-      } catch (error) {
-        this.logWarning(`Could not create git commit: ${error}`);
-      }
+    if (removedCount === 0) {
+      this.logWarning('No files to remove');
+      this.exec(`git checkout ${currentBranch}`, true);
+      this.exec(`git branch -d ${branchName}`, true);
+      return;
     }
 
-    this.logStep('Ejection Complete');
-    this.logSuccess(`Template ejection complete! ${removedCount} files removed.`);
-    this.log(`\n${colors.yellow}Final steps:${colors.reset}`);
-    this.log('1. Update README.md to reflect your project');
-    this.log('2. Remove any unused applications from manifests/applications/');
-    this.log('3. Customize the infrastructure as needed');
-    this.log('\nYour repository is now fully independent from the template!');
+    // Stage changes
+    try {
+      this.exec('git add -A', true);
+      
+      // Create commit
+      const commitMessage = `chore: eject GitOps template artifacts
+
+Removed template-specific files after successful setup:
+${removedFiles.map(f => `- ${f}`).join('\n')}
+
+Repository is now ready for independent development.`;
+      
+      this.exec(`git commit -m "${commitMessage}"`, true);
+      this.logSuccess('Created commit');
+    } catch (error) {
+      this.logError(`Failed to commit: ${error}`);
+      this.exec(`git checkout ${currentBranch}`, true);
+      this.exec(`git branch -D ${branchName}`, true);
+      return;
+    }
+
+    // Push branch
+    try {
+      this.exec(`git push -u origin ${branchName}`, true);
+      this.logSuccess(`Pushed branch to origin`);
+    } catch (error) {
+      this.logError(`Failed to push branch: ${error}`);
+      this.exec(`git checkout ${currentBranch}`, true);
+      return;
+    }
+
+    // Create PR using gh CLI
+    this.log(`\n${colors.blue}Creating pull request...${colors.reset}`);
+    
+    const prBody = `## Template Ejection
+
+This PR removes template-specific files after repository setup is complete.
+
+### Files Removed
+${removedFiles.map(f => `- \`${f}\``).join('\n')}
+
+### Next Steps
+1. Review the changes
+2. Merge when ready to finalize template ejection
+3. Update README.md and other documentation as needed
+
+### Note
+The following files may need manual updates:
+${optionalFiles.filter(f => existsSync(f)).map(f => `- \`${f}\``).join('\n')}`;
+
+    try {
+      const prUrl = this.exec(`gh pr create --title "chore: eject GitOps template artifacts" --body "${prBody.replace(/"/g, '\\"')}" --head ${branchName}`, true);
+      this.logSuccess('Created pull request');
+      this.log(`\n${colors.green}Pull request URL: ${prUrl}${colors.reset}`);
+    } catch (error) {
+      this.logWarning(`Could not create PR automatically: ${error}`);
+      this.log(`\n${colors.yellow}Create PR manually at:${colors.reset}`);
+      this.log(`https://github.com/<owner>/<repo>/compare/${branchName}`);
+    }
+
+    // Return to original branch
+    this.exec(`git checkout ${currentBranch}`, true);
+
+    this.logStep('Ejection PR Created');
+    this.log(`\n${colors.green}✓ Template ejection PR created successfully!${colors.reset}`);
+    this.log(`\n${colors.yellow}Next steps:${colors.reset}`);
+    this.log('1. Review the pull request');
+    this.log('2. Merge when ready to remove template artifacts');
+    this.log('3. Update README.md and other documentation as needed');
+    this.log('\nThe template files will remain available until you merge the PR.');
   }
 
   public async run(): Promise<void> {
@@ -966,7 +1075,7 @@ OPTIONS:
   --skip-project      Skip GitHub project setup only
   --no-interactive    Skip automatic login prompts (fail if not authenticated)
   --yes               Skip confirmation dialog (auto-approve)
-  --eject             Remove template artifacts (advanced)
+  --eject             Create PR to remove template artifacts (advanced)
   --verbose           Show detailed command output
   --help              Show this help message
 
@@ -977,7 +1086,7 @@ EXAMPLES:
   npx tsx setup.ts --no-interactive    # Fail if credentials missing (CI mode)
   npx tsx setup.ts --skip-github       # Skip all GitHub setup
   npx tsx setup.ts --config config.ts  # Use TypeScript config file
-  npx tsx setup.ts --eject             # Remove template files (after setup complete)
+  npx tsx setup.ts --eject             # Create PR to remove template files
 
 This script sets up prerequisites for CDKTF deployment:
 - AWS S3 bucket for Terraform state (with versioning and encryption)
