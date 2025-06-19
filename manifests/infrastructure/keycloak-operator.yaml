@@ -317,7 +317,7 @@ spec:
       key: keycloak-admin-username
   - secretKey: password
     remoteRef:
-      key: digitalocean-credentials
+      key: credentials
       property: keycloak-admin-password
 ---
 # Admin user credentials for Keycloak realm import
@@ -337,15 +337,15 @@ spec:
   data:
   - secretKey: password
     remoteRef:
-      key: digitalocean-credentials
+      key: credentials
       property: admin-password
   - secretKey: username
     remoteRef:
-      key: digitalocean-credentials
+      key: credentials
       property: admin-username
   - secretKey: fullname
     remoteRef:
-      key: digitalocean-credentials
+      key: credentials
       property: admin-full-name
 ---
 # TLS certificate for Keycloak

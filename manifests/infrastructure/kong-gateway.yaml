@@ -218,7 +218,7 @@ spec:
   data:
   - secretKey: oidc-client-secret
     remoteRef:
-      key: digitalocean-credentials
+      key: credentials
       property: kong-oidc-client-secret
 ---
 # Kong plugins configuration
