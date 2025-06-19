@@ -118,6 +118,18 @@ class GitOpsSetup {
 
     if (this.options.dryRun) {
       this.log(`${colors.yellow}[DRY-RUN] Would execute: ${command}${colors.reset}`);
+      
+      // Return mock data for specific commands in dry-run mode
+      if (command.includes('aws iam create-access-key') && command.includes('--output text')) {
+        return 'AKIAIOSFODNN7EXAMPLE\twJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY';
+      }
+      if (command.includes('aws sts get-caller-identity') && command.includes('--query Account')) {
+        return '123456789012';
+      }
+      if (command.includes('gh repo view') && command.includes('--json')) {
+        return JSON.stringify({ owner: { login: 'test-org' }, name: 'test-repo' });
+      }
+      
       return '';
     }
 
@@ -493,6 +505,10 @@ class GitOpsSetup {
   }
 
   private generateSesSmtpPassword(secretKey: string): string {
+    if (!secretKey || typeof secretKey !== 'string') {
+      throw new SetupError('Invalid secret key provided for SMTP password generation', 'INVALID_SECRET_KEY');
+    }
+    
     const message = 'SendRawEmail';
     const versionInBytes = Buffer.from([0x04]);
     const signatureInBytes = Buffer.concat([versionInBytes, Buffer.from(secretKey, 'utf-8')]);
@@ -596,11 +612,28 @@ class GitOpsSetup {
         `aws iam create-access-key --user-name ${userName} --query 'AccessKey.[AccessKeyId,SecretAccessKey]' --output text`,
         true
       );
-      [accessKey, secretKey] = keyOutput.split('\t');
+      
+      if (!keyOutput || typeof keyOutput !== 'string') {
+        throw new SetupError(`Failed to get access key output for ${userName}`, 'SES_KEY_FAILED');
+      }
+      
+      const keyParts = keyOutput.split('\t');
+      if (keyParts.length !== 2) {
+        throw new SetupError(`Invalid access key output format for ${userName}. Expected tab-separated AccessKeyId and SecretAccessKey`, 'SES_KEY_FAILED');
+      }
+      
+      [accessKey, secretKey] = keyParts;
+      
+      if (!accessKey || !secretKey) {
+        throw new SetupError(`Failed to parse access keys for ${userName}. AccessKey or SecretKey is empty`, 'SES_KEY_FAILED');
+      }
 
       this.logSuccess(`Created new access keys for: ${userName}`);
-    } catch {
-      throw new SetupError(`Failed to create access keys for ${userName}`, 'SES_KEY_FAILED');
+    } catch (error) {
+      if (error instanceof SetupError) {
+        throw error;
+      }
+      throw new SetupError(`Failed to create access keys for ${userName}: ${error}`, 'SES_KEY_FAILED');
     }
 
     // Generate SMTP password
