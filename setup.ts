@@ -130,7 +130,6 @@ class GitOpsSetup {
     this.logStep('Checking Prerequisites');
 
     const tools = [
-      { name: 'doctl', command: 'doctl version', package: 'doctl' },
       { name: 'aws', command: 'aws --version', package: 'awscli' },
       { name: 'gh', command: 'gh --version', package: 'github-cli' },
       { name: 'jq', command: 'jq --version', package: 'jq' }
@@ -155,23 +154,14 @@ class GitOpsSetup {
   private checkAuthentication(): void {
     this.logStep('Checking Authentication');
 
-    // Check DigitalOcean authentication
-    try {
-      this.exec('doctl account get', true);
-      this.logSuccess('DigitalOcean authenticated');
-    } catch {
-      if (this.options.interactive && !this.options.dryRun) {
-        this.log(`${colors.yellow}DigitalOcean not authenticated. Running login...${colors.reset}`);
-        this.log(`${colors.blue}Get your API token from: https://cloud.digitalocean.com/account/api/tokens${colors.reset}`);
-        this.exec('doctl auth init');
-        this.logSuccess('DigitalOcean authentication complete');
-      } else {
-        throw new SetupError(
-          'DigitalOcean not authenticated. Run: doctl auth init',
-          'AUTH_FAILED'
-        );
-      }
+    // Check DigitalOcean token
+    if (!process.env.DIGITALOCEAN_TOKEN) {
+      throw new SetupError(
+        'DIGITALOCEAN_TOKEN environment variable not set. Get your API token from: https://cloud.digitalocean.com/account/api/tokens',
+        'AUTH_FAILED'
+      );
     }
+    this.logSuccess('DigitalOcean token is set');
 
     // Check AWS authentication
     try {
@@ -299,12 +289,23 @@ class GitOpsSetup {
     const accountInfo: any = {};
 
     try {
-      // DigitalOcean account info
-      const doAccount = this.exec('doctl account get --format Email,UUID --no-header', true).split('\t');
-      accountInfo.digitalOcean = {
-        email: doAccount[0]?.trim() || 'Unknown',
-        uuid: doAccount[1]?.trim() || 'Unknown'
-      };
+      // DigitalOcean account info via API
+      const response = await fetch('https://api.digitalocean.com/v2/account', {
+        headers: {
+          'Authorization': `Bearer ${process.env.DIGITALOCEAN_TOKEN}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        accountInfo.digitalOcean = {
+          email: data.account?.email || 'Unknown',
+          uuid: data.account?.uuid || 'Unknown'
+        };
+      } else {
+        throw new Error(`API response: ${response.status}`);
+      }
     } catch {
       accountInfo.digitalOcean = { email: 'Unknown', uuid: 'Unknown' };
     }
