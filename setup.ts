@@ -1079,9 +1079,8 @@ ${optionalFiles.filter(f => existsSync(f)).map(f => `- \`${f}\``).join('\n')}`;
         return;
       }
 
-      // Generate deterministic branch name based on project configuration
-      const projectSlug = this.config.project.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-      const finalBranchName = `setup/${projectSlug}-initial-configuration`;
+      // Generate deterministic branch name for setup PR
+      const finalBranchName = `feat/setup-config`;
 
       // Check if branch already exists and delete it (we want to recreate)
       try {
