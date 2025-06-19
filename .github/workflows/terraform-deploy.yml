@@ -50,6 +50,7 @@ jobs:
           ses-smtp-password: ${{ secrets.SES_SMTP_PASSWORD }}
           terraform-state-bucket: ${{ secrets.TERRAFORM_STATE_BUCKET }}
           terraform-state-region: ${{ secrets.TERRAFORM_STATE_REGION }}
+          project-name: ${{ secrets.PROJECT_NAME }}
           admin-email: ${{ secrets.ADMIN_EMAIL }}
           domain: ${{ secrets.DOMAIN }}
           kubeconfig: ${{ secrets.KUBECONFIG }}

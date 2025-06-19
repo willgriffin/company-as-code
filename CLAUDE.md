@@ -54,7 +54,7 @@ The repository follows Infrastructure as Code principles using Terraform and Git
 - **kubectl** (v1.31.0) - Kubernetes CLI
 - **flux** (v2.3.0) - Flux CLI for GitOps management
 - **terraform** (v1.12.1) - Infrastructure as Code (via CDKTF)
-- **doctl** (v1.117.0) - DigitalOcean CLI
+- **doctl** (v1.117.0) - DigitalOcean CLI (optional, for cluster management)
 - **yq** (v4.44.3) - YAML processor
 - **gomplate** (v3.11.7) - Template processor for dynamic configuration
 
