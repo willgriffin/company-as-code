@@ -110,9 +110,6 @@ export class FluxConfigurationStack extends TerraformStack {
       'example-cluster-mailu': `${clusterName}-mailu`,
       'example-cluster-postal-smtp': `${clusterName}-postal-smtp`,
 
-      // Special patterns
-      'sk-example-cluster-changeme': `sk-${clusterName}-${this.generateRandomSuffix()}`,
-
       // URL patterns with protocol
       'https://auth.example.com': `https://auth.${domain}`,
       'https://cloud.example.com': `https://cloud.${domain}`,
