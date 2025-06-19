@@ -12,7 +12,7 @@ A production-ready GitHub template repository for deploying enterprise-grade Kub
 - **Integrated enterprise applications**:
   - 🔐 **Keycloak** - Identity and Access Management with operator
   - 💬 **Mattermost** - Team collaboration with OIDC
-  - ☁️ **Nextcloud** - Cloud storage with DigitalOcean Spaces primary storage
+  - ☁️ **Nextcloud** - Enterprise cloud storage solution
   - 📧 **Mailu/Postal** - Full-featured email servers
 - **Enterprise infrastructure**:
   - 🌐 Kong Gateway with Gateway API and advanced routing
@@ -61,7 +61,6 @@ The `setup.ts` script provides an interactive setup that will:
 - **Authenticate services**: Guide you through DigitalOcean, AWS, and GitHub authentication
 - **Provision prerequisites**:
   - Create AWS S3 bucket for Terraform state (with versioning and encryption)
-  - Create DigitalOcean Spaces bucket for application storage
   - Set up AWS SES credentials for email functionality
 - **Configure GitHub**: Set repository secrets automatically
 - **Setup project management**: Create workflow labels and optional project board
@@ -170,21 +169,21 @@ npx cdktf deploy
 - **Databases**: CloudNativePG operator for high-availability PostgreSQL clusters
 - **Caching**: Redis Operator for distributed caching
 - **Identity**: Keycloak with custom operator for enterprise SSO
-- **Storage**: DigitalOcean Spaces for primary application storage
+- **Storage**: DigitalOcean Spaces managed automatically by CDKTF
 - **Monitoring**: Prometheus and Grafana with ServiceMonitors
 - **Backups**: Velero for cluster-wide backup and disaster recovery
 
 ### CDKTF Stacks
 
 1. **DigitalOceanClusterStack** - Kubernetes cluster with node pools
-2. **DigitalOceanSpacesStack** - Object storage for applications
+2. **DigitalOceanSpacesStack** - Object storage managed by CDKTF
 3. **AWSSESStack** - Email infrastructure with SES
 4. **GitHubSecretsStack** - Automated repository secret management
 5. **FluxConfigurationStack** - GitOps bootstrap and configuration
 
 ### Deployment Flow
 
-1. **Setup Script** creates prerequisites (S3 bucket, Spaces, secrets)
+1. **Setup Script** creates prerequisites (S3 bucket, secrets)
 2. **CDKTF** provisions cloud infrastructure via typed TypeScript stacks
 3. **Flux** is bootstrapped to the cluster with GitHub integration
 4. **External Secrets Operator** is deployed for dynamic secret management
@@ -233,7 +232,7 @@ Applications use CloudNativePG for enterprise database features:
 
 ### Application Features
 
-- **Nextcloud**: DigitalOcean Spaces as primary storage (not just backup)
+- **Nextcloud**: Enterprise cloud storage with advanced features
 - **Mattermost**: Full OIDC integration with Keycloak for SSO
 - **Keycloak**: Deployed via operator with advanced realm configuration
 - **Email Servers**: Choice of Mailu or Postal with OAuth2 proxy integration
@@ -262,4 +261,4 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) for deta
 
 ---
 
-**Note**: Links to DigitalOcean are affiliate links that help support the maintenance of this template.
+**Note**: Links to DigitalOcean are affiliate links that support the maintenance of this template.
