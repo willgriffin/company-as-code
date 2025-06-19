@@ -370,7 +370,8 @@ class GitOpsSetup {
     if (!this.options.skipGithub) {
       try {
         // GitHub account info
-        const ghUser = this.exec('gh api user --jq .login', true).trim();
+        const ghUserResult = this.exec('gh api user --jq .login', true);
+        const ghUser = ghUserResult ? ghUserResult.trim() : 'Unknown';
         const repoInfo = this.exec('gh repo view --json owner,name', true);
         const repo = JSON.parse(repoInfo);
         const repoName = `${repo.owner.login}/${repo.name}`;
@@ -1065,7 +1066,7 @@ ${optionalFiles.filter(f => existsSync(f)).map(f => `- \`${f}\``).join('\n')}`;
     try {
       // Check if there are any git changes
       const status = this.exec('git status --porcelain', true);
-      if (!status.trim()) {
+      if (!status || !status.trim()) {
         this.log('No changes to commit, skipping PR creation');
         return;
       }
