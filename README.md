@@ -1,159 +1,264 @@
-actionlint
-==========
-[![CI Badge][]][CI]
-[![API Document][apidoc-badge]][apidoc]
+# Enterprise GitOps Template
 
-[actionlint][repo] is a static checker for GitHub Actions workflow files. [Try it online!][playground]
+A production-ready GitHub template repository for deploying enterprise-grade Kubernetes infrastructure on [DigitalOcean](https://digitalocean.pxf.io/3evZdB) using GitOps principles with Flux v2 and advanced CDKTF orchestration.
 
-Features:
+## 🚀 Features
 
-- **Syntax check for workflow files** to check unexpected or missing keys following [workflow syntax][syntax-doc]
-- **Strong type check for `${{ }}` expressions** to catch several semantic errors like access to not existing property,
-  type mismatches, ...
-- **Actions usage check** to check that inputs at `with:` and outputs in `steps.{id}.outputs` are correct
-- **Reusable workflow check** to check inputs/outputs/secrets of reusable workflows and workflow calls
-- **[shellcheck][] and [pyflakes][] integrations** for scripts at `run:`
-- **Security checks**; [script injection][script-injection-doc] by untrusted inputs, hard-coded credentials
-- **Other several useful checks**; [glob syntax][filter-pattern-doc] validation, dependencies check for `needs:`,
-  runner label validation, cron syntax validation, ...
+- **Enterprise GitOps workflow** with Flux v2 for continuous deployment
+- **Infrastructure as Code** using CDKTF (Terraform CDK) with TypeScript
+- **Production-ready Kubernetes** on DigitalOcean with high availability
+- **Advanced API Gateway** with Kong Gateway and OIDC integration
+- **Dynamic secret management** using External Secrets Operator
+- **Integrated enterprise applications**:
+  - 🔐 **Keycloak** - Identity and Access Management with operator
+  - 💬 **Mattermost** - Team collaboration with OIDC
+  - ☁️ **Nextcloud** - Enterprise cloud storage solution
+  - 📧 **Mailu/Postal** - Full-featured email servers
+- **Enterprise infrastructure**:
+  - 🌐 Kong Gateway with Gateway API and advanced routing
+  - 🔒 Automatic SSL/TLS with cert-manager
+  - 🔑 External Secrets Operator for dynamic secret injection
+  - 🌐 DNS management with External DNS
+  - 🐘 High-availability PostgreSQL clusters with CloudNativePG
+  - 🚀 Redis caching with Redis Operator
+  - 📊 Comprehensive monitoring with Prometheus and Grafana
+  - 💾 Automated backups with Velero
 
-See [the full list][checks] of checks done by actionlint.
+## 📋 Prerequisites
 
-<img src="https://github.com/rhysd/ss/blob/master/actionlint/main.gif?raw=true" alt="actionlint reports 7 errors" width="806" height="492"/>
+- **Node.js 22+** with PNPM package manager
+- **[DigitalOcean account](https://digitalocean.pxf.io/3evZdB)** with [API token](https://digitalocean.pxf.io/je2Ggv)
+- **GitHub account** with personal access token
+- **Domain name** configured with DigitalOcean DNS
+- **AWS account** for S3 Terraform state storage and SES email
 
-**Example of broken workflow:**
+## 🛠️ Quick Start
 
-```yaml
-on:
-  push:
-    branch: main
-    tags:
-      - 'v\d+'
-jobs:
-  test:
-    strategy:
-      matrix:
-        os: [macos-latest, linux-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - run: echo "Checking commit '${{ github.event.head_commit.message }}'"
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node_version: 18.x
-      - uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ matrix.platform }}-node-${{ hashFiles('**/package-lock.json') }}
-        if: ${{ github.repository.permissions.admin == true }}
-      - run: npm install && npm test
+### 1. Use This Template
+
+Click the "Use this template" button on GitHub to create your own repository from this template.
+
+### 2. Clone and Setup
+
+```bash
+# Clone your new repository
+git clone https://github.com/yourusername/your-repo-name.git
+cd your-repo-name
+
+# Ensure you have Node.js 22+ and pnpm installed
+node --version  # Should be 22+
+pnpm --version  # Install with: npm install -g pnpm
+
+# Run the interactive setup script
+./setup.ts
 ```
 
-**actionlint reports 7 errors:**
+### 3. Interactive Setup (Recommended)
 
-```
-test.yaml:3:5: unexpected key "branch" for "push" section. expected one of "branches", "branches-ignore", "paths", "paths-ignore", "tags", "tags-ignore", "types", "workflows" [syntax-check]
-  |
-3 |     branch: main
-  |     ^~~~~~~
-test.yaml:5:11: character '\' is invalid for branch and tag names. only special characters [, ?, +, *, \, ! can be escaped with \. see `man git-check-ref-format` for more details. note that regular expression is unavailable. note: filter pattern syntax is explained at https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet [glob]
-  |
-5 |       - 'v\d+'
-  |           ^~~~
-test.yaml:10:28: label "linux-latest" is unknown. available labels are "windows-latest", "windows-latest-8-cores", "windows-2022", "windows-2019", "ubuntu-latest", "ubuntu-latest-4-cores", "ubuntu-latest-8-cores", "ubuntu-latest-16-cores", "ubuntu-24.04", "ubuntu-22.04", "ubuntu-20.04", "macos-latest", "macos-latest-xl", "macos-latest-xlarge", "macos-latest-large", "macos-15-xlarge", "macos-15-large", "macos-15", "macos-14-xl", "macos-14-xlarge", "macos-14-large", "macos-14", "macos-13-xl", "macos-13-xlarge", "macos-13-large", "macos-13", "macos-12-xl", "macos-12-xlarge", "macos-12-large", "macos-12", "self-hosted", "x64", "arm", "arm64", "linux", "macos", "windows". if it is a custom label for self-hosted runner, set list of labels in actionlint.yaml config file [runner-label]
-   |
-10 |         os: [macos-latest, linux-latest]
-   |                            ^~~~~~~~~~~~~
-test.yaml:13:41: "github.event.head_commit.message" is potentially untrusted. avoid using it directly in inline scripts. instead, pass it through an environment variable. see https://docs.github.com/en/actions/learn-github-actions/security-hardening-for-github-actions for more details [expression]
-   |
-13 |       - run: echo "Checking commit '${{ github.event.head_commit.message }}'"
-   |                                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-test.yaml:17:11: input "node_version" is not defined in action "actions/setup-node@v4". available inputs are "always-auth", "architecture", "cache", "cache-dependency-path", "check-latest", "node-version", "node-version-file", "registry-url", "scope", "token" [action]
-   |
-17 |           node_version: 18.x
-   |           ^~~~~~~~~~~~~
-test.yaml:21:20: property "platform" is not defined in object type {os: string} [expression]
-   |
-21 |           key: ${{ matrix.platform }}-node-${{ hashFiles('**/package-lock.json') }}
-   |                    ^~~~~~~~~~~~~~~
-test.yaml:22:17: receiver of object dereference "permissions" must be type of object but got "string" [expression]
-   |
-22 |         if: ${{ github.repository.permissions.admin == true }}
-   |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The `setup.ts` script provides an interactive setup that will:
+
+- **Create configuration**: Generate `platform/config.json` with your infrastructure settings
+- **Authenticate services**: Guide you through DigitalOcean, AWS, and GitHub authentication
+- **Provision prerequisites**:
+  - Create AWS S3 bucket for Terraform state (with versioning and encryption)
+  - Set up AWS SES credentials for email functionality
+- **Configure GitHub**: Set repository secrets automatically
+- **Setup project management**: Create workflow labels and optional project board
+
+### 4. Environment Variable Setup (CI/CD)
+
+For automated environments, provide configuration via environment variables:
+
+```bash
+# Set configuration environment variables (customize these values)
+export SETUP_PROJECT_NAME="my-company"
+export SETUP_DOMAIN="company.com"
+export SETUP_EMAIL="devops@company.com"
+export SETUP_DESCRIPTION="Production GitOps infrastructure"
+export SETUP_REGION="nyc3"
+export SETUP_NODE_SIZE="s-4vcpu-8gb"
+export SETUP_NODE_COUNT="3"
+export SETUP_ENVIRONMENT="production"
+
+# Run setup with environment variables (non-interactive)
+./setup.ts --yes --no-interactive
 ```
 
-## Why?
-
-- **Running a workflow is time consuming.** You need to push the changes and wait until the workflow runs on GitHub even if
-  it contains some trivial mistakes. [act][] is useful to debug the workflow locally. But it is not suitable for CI and still
-  time consuming when your workflow gets larger.
-- **Checks of workflow files by GitHub are very loose.** It reports no error even if unexpected keys are in mappings
-  (meant that some typos in keys). And also it reports no error when accessing to property which is actually not existing.
-  For example `matrix.foo` when no `foo` is defined in `matrix:` section, it is evaluated to `null` and causes no error.
-- **Some mistakes silently break a workflow.** Most common case I saw is specifying missing property to cache key. In the
-  case cache silently does not work properly but a workflow itself runs without error. So you might not notice the mistake
-  forever.
-
-## Quick start
-
-Install `actionlint` command by downloading [the released binary][releases] or by Homebrew or by `go install`. See
-[the installation document][install] for more details like how to manage the command with several package managers
-or run via Docker container.
-
-```sh
-go install github.com/rhysd/actionlint/cmd/actionlint@latest
+**Copy-Paste Example (replace with your values):**
+```bash
+# Quick setup - replace these values with your own
+SETUP_PROJECT_NAME="acme-corp" \
+SETUP_DOMAIN="acme.com" \
+SETUP_EMAIL="devops@acme.com" \
+SETUP_DESCRIPTION="ACME Corp production infrastructure" \
+SETUP_REGION="nyc1" \
+SETUP_NODE_SIZE="s-4vcpu-8gb" \
+SETUP_NODE_COUNT="5" \
+SETUP_ENVIRONMENT="production" \
+./setup.ts --yes --no-interactive
 ```
 
-Basically all you need to do is run the `actionlint` command in your repository. actionlint automatically detects workflows and
-checks errors. actionlint focuses on finding out mistakes. It tries to catch errors as much as possible and make false positives
-as minimal as possible.
+### 5. Deploy Infrastructure
 
-```sh
-actionlint
+After setup completes, you'll have a `platform/config.json` file:
+
+```json
+{
+  "project": {
+    "name": "my-company",
+    "domain": "company.com",
+    "email": "devops@company.com",
+    "description": "Production GitOps infrastructure"
+  },
+  "environments": [{
+    "name": "production",
+    "cluster": {
+      "region": "nyc3",
+      "nodeSize": "s-4vcpu-8gb",
+      "nodeCount": 3,
+      "haControlPlane": true
+    },
+    "domain": "company.com"
+  }]
+}
 ```
 
-Another option to try actionlint is [the online playground][playground]. Your browser can run actionlint through WebAssembly.
+Deploy the infrastructure using CDKTF:
+```bash
+cd platform
+pnpm install
+npx cdktf deploy
+```
 
-See [the usage document][usage] for more details.
+## 📁 Project Structure
 
-## Documents
+```
+.
+├── .github/
+│   ├── workflows/         # CI/CD pipelines with GitHub Actions
+│   └── actions/          # Custom actions for tool setup and validation
+├── manifests/            # GitOps manifests (formerly flux/)
+│   ├── clusters/         # Cluster-specific configurations
+│   │   └── my-cluster/   # Production cluster manifests
+│   ├── applications/     # Application deployments
+│   └── infrastructure/   # Core infrastructure components
+├── platform/            # CDKTF infrastructure (TypeScript)
+│   ├── src/
+│   │   ├── stacks/      # Terraform CDK stacks
+│   │   ├── config/      # Configuration schema and validation
+│   │   └── main.ts      # CDKTF entry point
+│   ├── config.json      # Generated infrastructure configuration
+│   └── cdktf.json       # CDKTF framework configuration
+├── scripts/             # Automation and utility scripts
+├── docs/               # Technical documentation
+├── setup.ts            # Interactive setup script
+└── tool-versions.txt   # Tool version specifications for CI/CD
+```
 
-- [Checks][checks]: Full list of all checks done by actionlint with example inputs, outputs, and playground links.
-- [Installation][install]: Installation instructions. Prebuilt binaries, a Docker image, building from source, a download script
-  (for CI), supports by several package managers are available.
-- [Usage][usage]: How to use `actionlint` command locally or on GitHub Actions, the online playground, an official Docker image,
-  and integrations with reviewdog, Problem Matchers, super-linter, pre-commit, VS Code.
-- [Configuration][config]: How to configure actionlint behavior. Currently, the labels of self-hosted runners, the configuration
-  variables, and ignore patterns of errors for each file paths can be set.
-- [Go API][api]: How to use actionlint as Go library.
-- [References][refs]: Links to resources.
+## 🔧 Architecture
 
-## Bug reporting
+### Technology Stack
 
-When you see some bugs or false positives, it is helpful to [file a new issue][issue-form] with a minimal example
-of input. Giving me some feedbacks like feature requests or ideas of additional checks is also welcome.
+- **Infrastructure**: CDKTF (Terraform CDK) with TypeScript for type-safe infrastructure
+- **Kubernetes**: DigitalOcean Kubernetes (DOKS) with high availability
+- **GitOps**: Flux v2 for continuous deployment from Git
+- **API Gateway**: Kong Gateway with Gateway API, OIDC, and advanced routing
+- **Certificates**: cert-manager with Let's Encrypt automation
+- **DNS**: External DNS with DigitalOcean provider
+- **Secrets**: External Secrets Operator with dynamic injection from external stores
+- **Databases**: CloudNativePG operator for high-availability PostgreSQL clusters
+- **Caching**: Redis Operator for distributed caching
+- **Identity**: Keycloak with custom operator for enterprise SSO
+- **Storage**: DigitalOcean Spaces managed automatically by CDKTF
+- **Monitoring**: Prometheus and Grafana with ServiceMonitors
+- **Backups**: Velero for cluster-wide backup and disaster recovery
 
-## License
+### CDKTF Stacks
 
-actionlint is distributed under [the MIT license](./LICENSE.txt).
+1. **DigitalOceanClusterStack** - Kubernetes cluster with node pools
+2. **DigitalOceanSpacesStack** - Object storage managed by CDKTF
+3. **AWSSESStack** - Email infrastructure with SES
+4. **GitHubSecretsStack** - Automated repository secret management
+5. **FluxConfigurationStack** - GitOps bootstrap and configuration
 
-[CI Badge]: https://github.com/rhysd/actionlint/workflows/CI/badge.svg?branch=main&event=push
-[CI]: https://github.com/rhysd/actionlint/actions?query=workflow%3ACI+branch%3Amain
-[apidoc-badge]: https://pkg.go.dev/badge/github.com/rhysd/actionlint.svg
-[apidoc]: https://pkg.go.dev/github.com/rhysd/actionlint
-[repo]: https://github.com/rhysd/actionlint
-[playground]: https://rhysd.github.io/actionlint/
-[shellcheck]: https://github.com/koalaman/shellcheck
-[pyflakes]: https://github.com/PyCQA/pyflakes
-[act]: https://github.com/nektos/act
-[syntax-doc]: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
-[filter-pattern-doc]: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
-[script-injection-doc]: https://docs.github.com/en/actions/learn-github-actions/security-hardening-for-github-actions#understanding-the-risk-of-script-injections
-[releases]: https://github.com/rhysd/actionlint/releases
-[checks]: https://github.com/rhysd/actionlint/blob/v1.7.3/docs/checks.md
-[install]: https://github.com/rhysd/actionlint/blob/v1.7.3/docs/install.md
-[usage]: https://github.com/rhysd/actionlint/blob/v1.7.3/docs/usage.md
-[config]: https://github.com/rhysd/actionlint/blob/v1.7.3/docs/config.md
-[api]: https://github.com/rhysd/actionlint/blob/v1.7.3/docs/api.md
-[refs]: https://github.com/rhysd/actionlint/blob/v1.7.3/docs/reference.md
-[issue-form]: https://github.com/rhysd/actionlint/issues/new
+### Deployment Flow
+
+1. **Setup Script** creates prerequisites (S3 bucket, secrets)
+2. **CDKTF** provisions cloud infrastructure via typed TypeScript stacks
+3. **Flux** is bootstrapped to the cluster with GitHub integration
+4. **External Secrets Operator** is deployed for dynamic secret management
+5. **Kong Gateway** provides enterprise API gateway with OIDC
+6. **Applications** deploy with automatic secret injection and OIDC integration
+7. **GitOps** continuously syncs changes from the Git repository
+
+## 🔐 Secret Management
+
+This template uses **External Secrets Operator (ESO)** for enterprise-grade secret management:
+
+- **Dynamic Secret Injection**: Secrets are fetched from external stores at runtime
+- **Multiple Backends**: Support for GitHub, AWS Secrets Manager, DigitalOcean, and more
+- **Automatic Rotation**: Secrets can be automatically rotated and updated
+- **Kubernetes Native**: Integrates seamlessly with Kubernetes RBAC and namespaces
+
+## 📚 Documentation
+
+- [Architecture Details](docs/ARCHITECTURE.md) - Deep dive into system architecture
+- [Deployment Guide](docs/DEPLOYMENT.md) - Complete deployment walkthrough
+- [Application Setup](docs/APPLICATIONS.md) - Configuring applications with OIDC
+- [Secret Management](docs/SECRETS.md) - External Secrets Operator usage
+- [Configuration](docs/CONFIGURATION.md) - TypeScript configuration options
+- [Workflow](WORKFLOW.md) - Development workflow and issue management
+
+## 🚀 Advanced Features
+
+### Kong Gateway Integration
+
+This template includes enterprise-grade API gateway features:
+
+- **Gateway API**: Modern Kubernetes networking with HTTPRoute resources
+- **OIDC Authentication**: Integrated with Keycloak for single sign-on
+- **Rate Limiting**: Built-in protection against abuse
+- **Monitoring**: Comprehensive metrics and observability
+- **Redis Sessions**: Distributed session storage
+
+### High-Availability PostgreSQL
+
+Applications use CloudNativePG for enterprise database features:
+
+- **Cluster Mode**: 3-replica clusters for high availability
+- **Automatic Failover**: Built-in leader election and failover
+- **Backup Integration**: Automated backups to object storage
+- **Performance Monitoring**: Advanced metrics and alerting
+
+### Application Features
+
+- **Nextcloud**: Enterprise cloud storage with advanced features
+- **Mattermost**: Full OIDC integration with Keycloak for SSO
+- **Keycloak**: Deployed via operator with advanced realm configuration
+- **Email Servers**: Choice of Mailu or Postal with OAuth2 proxy integration
+
+## 🤝 Contributing
+
+This is an enterprise-grade template requiring:
+
+- **Node.js 22+** and **PNPM** for development
+- **TypeScript** knowledge for CDKTF stack development
+- **Kubernetes** experience for manifest customization
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+
+## 📝 License
+
+This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
+
+## 🙏 Acknowledgments
+
+- Powered by [DigitalOcean Kubernetes](https://digitalocean.pxf.io/3evZdB)
+- GitOps by [Flux](https://fluxcd.io/)
+- Infrastructure by [CDKTF](https://developer.hashicorp.com/terraform/cdktf)
+- API Gateway by [Kong](https://konghq.com/)
+- Secrets by [External Secrets Operator](https://external-secrets.io/)
+
+---
+
+**Note**: Links to DigitalOcean are affiliate links that support the maintenance of this template.
