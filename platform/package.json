@@ -9,7 +9,7 @@
     "synth": "cdktf synth",
     "deploy": "cdktf deploy",
     "destroy": "cdktf destroy",
-    "test": "vitest",
+    "test": "vitest run",
     "test:run": "vitest run",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
