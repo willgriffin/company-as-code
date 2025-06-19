@@ -1069,7 +1069,6 @@ ${optionalFiles
         SES_SMTP_PASSWORD: sesConfig.password,
         ADMIN_EMAIL: this.config.project.email,
         DOMAIN: this.config.project.domain,
-        SETUP_COMPLETE: 'true',
       };
 
       await this.setGitHubSecrets(secrets);

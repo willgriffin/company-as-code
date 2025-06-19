@@ -44,7 +44,6 @@ jobs:
         uses: ./.github/actions/check-repository-status
         env:
           PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
-          SETUP_COMPLETE: ${{ secrets.SETUP_COMPLETE }}
       
       - name: Check setup status (detailed)
         if: steps.setup-check.outputs.should-skip != 'true'

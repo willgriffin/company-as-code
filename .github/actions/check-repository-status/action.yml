@@ -31,7 +31,7 @@ runs:
           echo "🚀 Repository is deployed and operational"
           
         # Check if configured but not yet deployed
-        elif [ -n "${{ env.PROJECT_NAME }}" ] || [ -n "${{ env.SETUP_COMPLETE }}" ]; then
+        elif [ -n "${{ env.PROJECT_NAME }}" ]; then
           echo "is-setup=true" >> $GITHUB_OUTPUT
           echo "is-deployed=false" >> $GITHUB_OUTPUT
           echo "should-skip=false" >> $GITHUB_OUTPUT
