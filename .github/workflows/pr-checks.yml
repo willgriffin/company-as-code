@@ -7,27 +7,30 @@ on:
     branches: [ main ]
 
 jobs:
-  check-setup:
-    name: Check Repository Setup
+  check-status:
+    name: Check Repository Status
     runs-on: ubuntu-latest
     outputs:
-      should-skip: ${{ steps.setup-check.outputs.should-skip }}
-      is-setup: ${{ steps.setup-check.outputs.is-setup }}
+      should-skip: ${{ steps.status-check.outputs.should-skip }}
+      is-setup: ${{ steps.status-check.outputs.is-setup }}
+      is-deployed: ${{ steps.status-check.outputs.is-deployed }}
+      status: ${{ steps.status-check.outputs.status }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         
-      - name: Check if repository is set up
-        id: setup-check
-        uses: ./.github/actions/check-repository-setup
+      - name: Check repository status
+        id: status-check
+        uses: ./.github/actions/check-repository-status
         env:
           PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
           SETUP_COMPLETE: ${{ secrets.SETUP_COMPLETE }}
+          KUBECONFIG: ${{ secrets.KUBECONFIG }}
 
   validate:
     name: Validate Code Quality
-    needs: check-setup
-    if: needs.check-setup.outputs.should-skip != 'true'
+    needs: check-status
+    if: needs.check-status.outputs.should-skip != 'true'
     runs-on: ubuntu-latest
     
     steps:
@@ -60,8 +63,8 @@ jobs:
 
   security:
     name: Security Scan
-    needs: check-setup
-    if: needs.check-setup.outputs.should-skip != 'true'
+    needs: check-status
+    if: needs.check-status.outputs.should-skip != 'true'
     runs-on: ubuntu-latest
     
     steps:
@@ -88,8 +91,8 @@ jobs:
 
   setup-validation:
     name: Validate Setup Script
-    needs: check-setup
-    if: needs.check-setup.outputs.should-skip != 'true'
+    needs: check-status
+    if: needs.check-status.outputs.should-skip != 'true'
     runs-on: ubuntu-latest
     
     steps:

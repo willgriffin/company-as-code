@@ -1,0 +1,56 @@
+---
+name: 'Check Repository Status'
+description: 'Determines repository status: template, configured, or deployed'
+outputs:
+  is-setup:
+    description: 'Whether the repository has been set up (true/false)'
+    value: ${{ steps.check.outputs.is-setup }}
+  is-deployed:
+    description: 'Whether infrastructure has been deployed (true/false)'
+    value: ${{ steps.check.outputs.is-deployed }}
+  should-skip:
+    description: 'Whether workflows should be skipped (true/false)'
+    value: ${{ steps.check.outputs.should-skip }}
+  status:
+    description: 'Repository status: template, configured, or deployed'
+    value: ${{ steps.check.outputs.status }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Check repository status
+      id: check
+      shell: bash
+      run: |
+        # Check deployment status first (most advanced state)
+        if [ -n "${{ env.KUBECONFIG }}" ]; then
+          echo "is-setup=true" >> $GITHUB_OUTPUT
+          echo "is-deployed=true" >> $GITHUB_OUTPUT
+          echo "should-skip=false" >> $GITHUB_OUTPUT
+          echo "status=deployed" >> $GITHUB_OUTPUT
+          echo "🚀 Repository is deployed and operational"
+          
+        # Check if configured but not yet deployed
+        elif [ -n "${{ env.PROJECT_NAME }}" ] || [ -n "${{ env.SETUP_COMPLETE }}" ]; then
+          echo "is-setup=true" >> $GITHUB_OUTPUT
+          echo "is-deployed=false" >> $GITHUB_OUTPUT
+          echo "should-skip=false" >> $GITHUB_OUTPUT
+          echo "status=configured" >> $GITHUB_OUTPUT
+          echo "⚙️ Repository is configured and ready for deployment"
+          
+        elif [ -f "platform/config.json" ]; then
+          echo "is-setup=true" >> $GITHUB_OUTPUT
+          echo "is-deployed=false" >> $GITHUB_OUTPUT
+          echo "should-skip=false" >> $GITHUB_OUTPUT
+          echo "status=configured" >> $GITHUB_OUTPUT
+          echo "⚙️ Repository is configured (config.json exists)"
+          
+        # Template state
+        else
+          echo "is-setup=false" >> $GITHUB_OUTPUT
+          echo "is-deployed=false" >> $GITHUB_OUTPUT
+          echo "should-skip=true" >> $GITHUB_OUTPUT
+          echo "status=template" >> $GITHUB_OUTPUT
+          echo "📋 Repository appears to be a template - workflows will be skipped"
+          echo "ℹ️ Run ./setup.ts to configure this repository"
+        fi

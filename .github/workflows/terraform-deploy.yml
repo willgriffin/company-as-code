@@ -41,7 +41,7 @@ jobs:
       
       - name: Check if repository is set up
         id: setup-check
-        uses: ./.github/actions/check-repository-setup
+        uses: ./.github/actions/check-repository-status
         env:
           PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
           SETUP_COMPLETE: ${{ secrets.SETUP_COMPLETE }}
