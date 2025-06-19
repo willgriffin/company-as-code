@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.json
+*.yaml
+*.yml
+*.md
+platform/cdktf.out/
+platform/terraform.*/
+.git/
