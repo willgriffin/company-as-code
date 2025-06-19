@@ -36,17 +36,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Install PNPM
+      uses: pnpm/action-setup@v2
+      with:
+        version: 9
+        
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '22'
         cache: 'pnpm'
         cache-dependency-path: 'pnpm-lock.yaml'
-        
-    - name: Install PNPM
-      uses: pnpm/action-setup@v2
-      with:
-        version: 9
       
     - name: Setup tools
       uses: ./.github/actions/setup-tools
@@ -82,17 +82,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Install PNPM
+      uses: pnpm/action-setup@v2
+      with:
+        version: 9
+        
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '22'
         cache: 'pnpm'
         cache-dependency-path: 'pnpm-lock.yaml'
-        
-    - name: Install PNPM
-      uses: pnpm/action-setup@v2
-      with:
-        version: 9
       
     - name: Setup tools
       uses: ./.github/actions/setup-tools
@@ -122,25 +122,28 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
-        
     - name: Install pnpm
       uses: pnpm/action-setup@v2
       with:
         version: 9
         
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'pnpm'
+        cache-dependency-path: 'pnpm-lock.yaml'
+        
     - name: Install tsx
       run: npm install -g tsx
       
     - name: Validate setup.ts syntax
-      run: tsx --check setup.ts
+      run: tsx setup.ts --help
       
     - name: Test setup.ts dry-run
       run: tsx setup.ts --dry-run --skip-github --no-interactive
       env:
+        DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
         SETUP_PROJECT_NAME: "test-project"
         SETUP_DOMAIN: "test.example.com"
         SETUP_EMAIL: "test@example.com"
