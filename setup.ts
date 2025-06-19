@@ -4,7 +4,7 @@
  * Setup script for GitOps template prerequisites
  * 
  * This script handles the foundational setup that CDKTF doesn't cover:
- * - DigitalOcean Spaces bucket for Terraform state
+ * - AWS S3 bucket for Terraform state storage
  * - AWS SES credentials and IAM user setup
  * - GitHub secrets management
  * - Optional GitHub project board setup
@@ -267,9 +267,6 @@ class GitOpsSetup {
     this.log(`    • Versioning: Enabled`);
     this.log(`    • Encryption: AES256`);
     
-    this.log(`  ${colors.bold}DigitalOcean Spaces:${colors.reset}`);
-    this.log(`    • Application Storage: ${this.config.project.name}-app-data (${this.config.environments[0].cluster.region})`);
-    
     this.log(`  ${colors.bold}AWS SES:${colors.reset}`);
     this.log(`    • IAM User: ${this.config.project.name}-ses-smtp`);
     this.log(`    • IAM Policy: ${this.config.project.name}-ses-policy`);
@@ -286,7 +283,6 @@ class GitOpsSetup {
 
     this.log(`${colors.bold}${colors.blue}Estimated Costs:${colors.reset}`);
     this.log(`  • AWS S3 (Terraform state): ~$0.02/month (minimal storage)`);
-    this.log(`  • DigitalOcean Spaces: ~$5/month (application storage)`);
     this.log(`  • AWS SES: $0 (free tier: 62,000 emails/month)`);
     this.log(`  • GitHub: $0 (using existing repository)`);
     this.log('');
@@ -422,25 +418,6 @@ class GitOpsSetup {
     return { bucketName, region };
   }
 
-  private async setupSpacesBucket(): Promise<{ bucketName: string }> {
-    this.logStep('Setting up DigitalOcean Spaces for Application Storage');
-
-    const bucketName = `${this.config.project.name}-app-data`;
-    const region = this.config.environments[0].cluster.region;
-
-    // Check if bucket already exists
-    try {
-      this.exec(`doctl spaces ls | grep -q "${bucketName}"`, true);
-      this.logSuccess(`Spaces bucket "${bucketName}" already exists`);
-    } catch {
-      // Create bucket
-      this.log(`Creating Spaces bucket: ${bucketName}`);
-      this.exec(`doctl spaces create ${bucketName} --region ${region}`);
-      this.logSuccess(`Created Spaces bucket: ${bucketName}`);
-    }
-
-    return { bucketName };
-  }
 
   private generateSesSmtpPassword(secretKey: string): string {
     const message = 'SendRawEmail';
@@ -779,16 +756,13 @@ This will remove all template-specific files automatically.
       // Step 3: Setup S3 bucket for Terraform state
       const s3Config = await this.setupS3StateBucket();
 
-      // Step 4: Setup Spaces bucket for application storage
-      const spacesConfig = await this.setupSpacesBucket();
-
-      // Step 5: Setup SES credentials
+      // Step 4: Setup SES credentials
       const sesConfig = await this.setupSesCredentials();
 
-      // Step 6: Set GitHub secrets
+      // Step 5: Set GitHub secrets
       const secrets: Record<string, string> = {
+        PROJECT_NAME: this.config.project.name,
         DIGITALOCEAN_TOKEN: process.env.DIGITALOCEAN_TOKEN || '',
-        SPACES_BUCKET_NAME: spacesConfig.bucketName,
         TERRAFORM_STATE_BUCKET: s3Config.bucketName,
         TERRAFORM_STATE_REGION: s3Config.region,
         AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID || '',
@@ -801,10 +775,10 @@ This will remove all template-specific files automatically.
 
       await this.setGitHubSecrets(secrets);
 
-      // Step 7: Setup GitHub project (optional)
+      // Step 6: Setup GitHub project (optional)
       await this.setupGitHubProject();
 
-      // Step 8: Create cleanup issue for template ejection
+      // Step 7: Create cleanup issue for template ejection
       await this.createCleanupIssue();
 
       this.logStep('Setup Complete');
@@ -1007,7 +981,6 @@ EXAMPLES:
 
 This script sets up prerequisites for CDKTF deployment:
 - AWS S3 bucket for Terraform state (with versioning and encryption)
-- DigitalOcean Spaces bucket for application storage
 - AWS SES credentials for email functionality
 - GitHub repository secrets
 - Optional GitHub project labels and workflow
