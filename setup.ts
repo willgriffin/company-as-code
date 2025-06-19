@@ -484,8 +484,32 @@ class GitOpsSetup {
       this.logWarning(`Policy may already be attached to ${userName}`);
     }
 
-    // Create access keys
-    this.log(`Creating access keys for: ${userName}`);
+    // Delete any existing access keys and create new ones
+    this.log(`Managing access keys for: ${userName}`);
+    
+    // List existing access keys
+    try {
+      const existingKeys = this.exec(`aws iam list-access-keys --user-name ${userName} --query 'AccessKeyMetadata[].AccessKeyId' --output text`, true);
+      
+      if (existingKeys.trim()) {
+        const keyIds = existingKeys.trim().split(/\s+/);
+        this.log(`Found ${keyIds.length} existing access key(s), removing them...`);
+        
+        for (const keyId of keyIds) {
+          try {
+            this.exec(`aws iam delete-access-key --user-name ${userName} --access-key-id ${keyId}`, true);
+            this.logSuccess(`Deleted existing access key: ${keyId}`);
+          } catch (error) {
+            this.logWarning(`Could not delete access key ${keyId}: ${error}`);
+          }
+        }
+      }
+    } catch {
+      // User might not exist yet, which is fine
+    }
+
+    // Create new access keys
+    this.log(`Creating new access keys for: ${userName}`);
     let accessKey: string;
     let secretKey: string;
 
@@ -493,7 +517,7 @@ class GitOpsSetup {
       const keyOutput = this.exec(`aws iam create-access-key --user-name ${userName} --query 'AccessKey.[AccessKeyId,SecretAccessKey]' --output text`, true);
       [accessKey, secretKey] = keyOutput.split('\t');
       
-      this.logSuccess(`Created access keys for: ${userName}`);
+      this.logSuccess(`Created new access keys for: ${userName}`);
     } catch {
       throw new SetupError(`Failed to create access keys for ${userName}`, 'SES_KEY_FAILED');
     }
