@@ -271,6 +271,7 @@ jobs:
       - name: Send deployment success notification
         if: success() && (github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
         uses: dawidd6/action-send-mail@v3
+        continue-on-error: true
         with:
           server_address: email-smtp.us-east-1.amazonaws.com
           server_port: 587
@@ -311,6 +312,7 @@ jobs:
       - name: Send deployment failure notification  
         if: failure()
         uses: dawidd6/action-send-mail@v3
+        continue-on-error: true
         with:
           server_address: email-smtp.us-east-1.amazonaws.com
           server_port: 587
