@@ -154,8 +154,8 @@ jobs:
       run: tsx setup.ts --dry-run --skip-github --no-interactive
       env:
         DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
-        AWS_ACCESS_KEY_ID: "AKIAIOSFODNN7EXAMPLE"
-        AWS_SECRET_ACCESS_KEY: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: "us-east-1"
         SETUP_PROJECT_NAME: "test-project"
         SETUP_DOMAIN: "test.example.com"
