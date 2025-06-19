@@ -5,11 +5,17 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "synth": "cdktf synth",
     "deploy": "cdktf deploy",
     "destroy": "cdktf destroy",
     "test": "vitest",
-    "lint": "eslint src --ext .ts"
+    "test:run": "vitest run",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write src",
+    "format:check": "prettier --check src",
+    "dev": "tsc --watch"
   },
   "dependencies": {
     "@cdktf/provider-aws": "^20.0.0",
@@ -29,6 +35,7 @@
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "eslint": "^8.0.0",
+    "prettier": "^3.0.0",
     "typescript": "^5.0.0",
     "vitest": "^1.0.0"
   }
