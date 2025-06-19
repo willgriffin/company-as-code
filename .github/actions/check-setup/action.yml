@@ -191,36 +191,7 @@ runs:
         # Check for required GitHub secrets
         echo "Checking required GitHub secrets..."
         
-        # Function to check if a secret appears to be set (GitHub doesn't expose secret values)
-        # We use the fact that GitHub Actions will replace undefined secrets with empty strings
-        check_secret() {
-          local secret_name="$1"
-          local secret_value="$2"
-          
-          if [[ -z "$secret_value" ]]; then
-            SETUP_COMPLETE=false
-            MISSING_ITEMS="$MISSING_ITEMS- GitHub secret $secret_name is not set\n"
-            echo "❌ GitHub secret $secret_name is not set"
-            return 1
-          else
-            echo "✅ GitHub secret $secret_name appears to be set"
-            return 0
-          fi
-        }
-        
-        # Required secrets for terraform-deploy workflow
-        check_secret "DIGITALOCEAN_TOKEN" "$DIGITALOCEAN_TOKEN"
-        check_secret "AWS_ACCESS_KEY_ID" "$AWS_ACCESS_KEY_ID"
-        check_secret "AWS_SECRET_ACCESS_KEY" "$AWS_SECRET_ACCESS_KEY"
-        check_secret "PROJECT_NAME" "$PROJECT_NAME"
-        check_secret "TERRAFORM_STATE_BUCKET" "$TERRAFORM_STATE_BUCKET"
-        check_secret "TERRAFORM_STATE_REGION" "$TERRAFORM_STATE_REGION"
-        
-        # Required secrets for flux-bootstrap workflow
-        check_secret "SES_SMTP_USERNAME" "$SES_SMTP_USERNAME"
-        check_secret "SES_SMTP_PASSWORD" "$SES_SMTP_PASSWORD"
-        check_secret "ADMIN_EMAIL" "$ADMIN_EMAIL"
-        check_secret "DOMAIN" "$DOMAIN"
+# The secret validation is already done above, no need for duplicate checks
         
         
         # Optional secrets (warn if not set)
