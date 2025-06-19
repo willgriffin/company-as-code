@@ -1,0 +1,77 @@
+name: Create Setup Issue
+
+on:
+  create:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/create-setup-issue.yml']
+
+# Only run on repositories created from this template, not the template itself
+jobs:
+  create-setup-issue:
+    name: Create Setup Issue
+    runs-on: ubuntu-latest
+    if: github.repository != 'willgriffin/startup-gitops-template'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create setup issue
+        run: |
+          echo "🔧 Creating repository setup issue..."
+          
+          gh issue create \
+            --title "chore: configure repository from template" \
+            --body "$(cat <<'EOF'
+          ## 🚀 Repository Setup Required
+
+          This repository was created from the GitOps template and needs to be configured.
+
+          ### Prerequisites
+          Before running the setup script, you need API credentials for:
+          
+          1. **DigitalOcean API Token** - Get from [DigitalOcean API Tokens](https://digitalocean.pxf.io/je2Ggv)
+          2. **AWS Access Key & Secret** - For SES email and other AWS services
+          3. **Anthropic API Key** - For Claude Code integration (optional but recommended)
+
+          ### Next Steps
+          Run the setup script to configure this repository:
+
+          ```bash
+          ./setup.ts
+          ```
+
+          The script will:
+          - **Automatically prompt for authentication** if credentials are missing
+          - **Show you exactly which accounts** it will create resources in
+          - **Ask for confirmation** before creating anything
+          - **Read configuration** from config.json (copy from config.json.example)
+
+          ### What the setup script automatically creates:
+          - **DigitalOcean Spaces bucket** for Terraform state storage
+          - **Spaces access keys** for the bucket
+          - **AWS SES domain verification** for email sending
+          - **AWS IAM user and SMTP credentials** for applications
+          - **All GitHub repository secrets** needed for deployment
+          - **Template cleanup issue** for post-setup tasks
+
+          ### Step-by-Step Process:
+          1. **Create configuration**: `cp config.json.example config.json` (edit as needed)
+          2. **Run setup**: `./setup.sh` (will guide you through authentication)
+          3. **Deploy infrastructure**: `cd platform && npm run deploy`
+          4. **Follow the cleanup issue** created automatically
+
+          ### Advanced Options:
+          ```bash
+          ./setup.sh --dry-run           # Preview what would be done
+          ./setup.sh --no-interactive    # Fail if credentials missing (CI mode)
+          ./setup.sh --skip-github       # Skip GitHub setup entirely  
+          ./setup.sh --yes               # Auto-approve all confirmations
+          ```
+          EOF
+          )"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

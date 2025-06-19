@@ -1,0 +1,186 @@
+---
+name: 'Setup GitOps Tools'
+description: >-
+  Install and cache GitOps tools like kubectl, flux, yq, gomplate, and doctl
+inputs:
+  tools:
+    description: >-
+    required: false
+outputs:
+  cache-hit:
+    description: 'Whether the tools were restored from cache'
+    value: ${{ steps.cache-tools.outputs.cache-hit }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Read tool versions
+      id: versions
+      shell: bash
+      run: |
+        # Read versions from tool-versions.txt
+        YQ_VERSION=$(grep '^yq=' tool-versions.txt | cut -d'=' -f2)
+        KUBECTL_VERSION=$(grep '^kubectl=' tool-versions.txt | cut -d'=' -f2)
+        FLUX_VERSION=$(grep '^flux=' tool-versions.txt | cut -d'=' -f2)
+        GOMPLATE_VERSION=$(grep '^gomplate=' tool-versions.txt | cut -d'=' -f2)
+        DOCTL_VERSION=$(grep '^doctl=' tool-versions.txt | cut -d'=' -f2)
+
+        echo "yq-version=$YQ_VERSION" >> $GITHUB_OUTPUT
+        echo "kubectl-version=$KUBECTL_VERSION" >> $GITHUB_OUTPUT
+        echo "flux-version=$FLUX_VERSION" >> $GITHUB_OUTPUT
+        echo "gomplate-version=$GOMPLATE_VERSION" >> $GITHUB_OUTPUT
+        echo "doctl-version=$DOCTL_VERSION" >> $GITHUB_OUTPUT
+
+        echo "Tools versions:"
+        echo "  yq: $YQ_VERSION"
+        echo "  kubectl: $KUBECTL_VERSION"
+        echo "  flux: $FLUX_VERSION"
+        echo "  gomplate: $GOMPLATE_VERSION"
+        echo "  doctl: $DOCTL_VERSION"
+
+    - name: Cache tools
+      id: cache-tools
+      uses: actions/cache@v4
+      with:
+        path: |
+          /usr/bin/yq
+          /usr/local/bin/kubectl
+          /usr/local/bin/flux
+          /usr/local/bin/gomplate
+          /usr/local/bin/doctl
+        key: ${{ runner.os }}-tools-${{ hashFiles('tool-versions.txt') }}
+
+    - name: Install SOPS
+      if: steps.cache-tools.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        echo "✅ SOPS installed"
+
+    - name: Install yq
+      if: >-
+        steps.cache-tools.outputs.cache-hit != 'true' &&
+        contains(inputs.tools, 'yq')
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_wait_seconds: 10
+        shell: bash
+        command: |
+          echo "Installing yq v${{ steps.versions.outputs.yq-version }}..."
+          YQ_URL="https://github.com/mikefarah/yq/releases/download"
+          YQ_FILE="yq_linux_amd64"
+          sudo wget "$YQ_URL/v${{ steps.versions.outputs.yq-version }}/$YQ_FILE" \
+            -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+          echo "✅ yq installed"
+
+    - name: Install kubectl
+      if: >-
+        steps.cache-tools.outputs.cache-hit != 'true' &&
+        contains(inputs.tools, 'kubectl')
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_wait_seconds: 10
+        shell: bash
+        command: |
+          echo "Installing kubectl v${{ steps.versions.outputs.kubectl-version }}..."
+          KUBECTL_URL="https://dl.k8s.io/release"
+          K_VER="${{ steps.versions.outputs.kubectl-version }}"
+          KUBECTL_FILE="v$K_VER/bin/linux/amd64/kubectl"
+          curl -LO "$KUBECTL_URL/$KUBECTL_FILE"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          echo "✅ kubectl installed"
+
+    - name: Install flux CLI
+      if: >-
+        steps.cache-tools.outputs.cache-hit != 'true' &&
+        contains(inputs.tools, 'flux')
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_wait_seconds: 10
+        shell: bash
+        command: |
+          echo "Installing flux CLI v${{ steps.versions.outputs.flux-version }}..."
+          FLUX_URL="https://github.com/fluxcd/flux2/releases/download"
+          F_VER="${{ steps.versions.outputs.flux-version }}"
+          FLUX_FILE="flux_${F_VER}_linux_amd64.tar.gz"
+          curl -Lo flux.tar.gz "$FLUX_URL/v$F_VER/$FLUX_FILE"
+          tar xf flux.tar.gz
+          sudo mv flux /usr/local/bin/
+          rm -f flux.tar.gz
+          echo "✅ flux CLI installed"
+
+    - name: Install gomplate
+      if: >-
+        steps.cache-tools.outputs.cache-hit != 'true' &&
+        contains(inputs.tools, 'gomplate')
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_wait_seconds: 10
+        shell: bash
+        command: |
+          echo "Installing gomplate v${{ steps.versions.outputs.gomplate-version }}..."
+          GOMPLATE_URL="https://github.com/hairyhenderson/gomplate/releases/download"
+          G_VER="${{ steps.versions.outputs.gomplate-version }}"
+          curl -o gomplate -sSL "$GOMPLATE_URL/v$G_VER/gomplate_linux-amd64"
+          chmod +x gomplate
+          sudo mv gomplate /usr/local/bin/
+          echo "✅ gomplate installed"
+
+    - name: Install doctl
+      if: >-
+        steps.cache-tools.outputs.cache-hit != 'true' &&
+        contains(inputs.tools, 'doctl')
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_wait_seconds: 10
+        shell: bash
+        command: |
+          echo "Installing doctl v${{ steps.versions.outputs.doctl-version }}..."
+          DOCTL_URL="https://github.com/digitalocean/doctl/releases/download"
+          D_VER="${{ steps.versions.outputs.doctl-version }}"
+          DOCTL_FILE="doctl-${D_VER}-linux-amd64.tar.gz"
+          curl -Lo doctl.tar.gz "$DOCTL_URL/v$D_VER/$DOCTL_FILE"
+          tar xf doctl.tar.gz
+          sudo mv doctl /usr/local/bin/
+          rm -f doctl.tar.gz
+          echo "✅ doctl installed"
+
+    - name: Verify installations
+      shell: bash
+      run: |
+        echo "Verifying tool installations..."
+        TOOLS="${{ inputs.tools }}"
+
+
+        if command -v yq >/dev/null 2>&1 && [[ "$TOOLS" == *"yq"* ]]; then
+          echo "✅ yq: $(yq --version)"
+        fi
+
+        if command -v kubectl >/dev/null 2>&1 && [[ "$TOOLS" == *"kubectl"* ]]; then
+          kubectl_ver=$(kubectl version --client --short 2>/dev/null || \
+            kubectl version --client)
+          echo "✅ kubectl: $kubectl_ver"
+        fi
+
+        if command -v flux >/dev/null 2>&1 && [[ "$TOOLS" == *"flux"* ]]; then
+          echo "✅ flux: $(flux version --client)"
+        fi
+
+        if command -v gomplate >/dev/null 2>&1 && [[ "$TOOLS" == *"gomplate"* ]]; then
+          echo "✅ gomplate: $(gomplate --version)"
+        fi
+
+        if command -v doctl >/dev/null 2>&1 && [[ "$TOOLS" == *"doctl"* ]]; then
+          echo "✅ doctl: $(doctl version)"
+        fi

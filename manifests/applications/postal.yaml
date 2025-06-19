@@ -1,0 +1,663 @@
+# Postal mail processing server
+
+---
+# Postal namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: postal
+  labels:
+    name: postal
+---
+# PostgreSQL cluster for Postal
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postal-postgres
+  namespace: postal
+spec:
+  instances: 3
+  
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      effective_cache_size: "1GB"
+  
+  bootstrap:
+    initdb:
+      database: postal
+      owner: postal
+      secret:
+        name: postal-postgres-credentials
+  
+  storage:
+    size: 20Gi
+    storageClass: do-block-storage
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  
+  monitoring:
+    enabled: true
+---
+# Redis for Postal
+apiVersion: redis.redis.opstreelabs.in/v1beta2
+kind: Redis
+metadata:
+  name: postal-redis
+  namespace: postal
+spec:
+  kubernetesConfig:
+    image: redis:7-alpine
+    imagePullPolicy: IfNotPresent
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: do-block-storage
+        resources:
+          requests:
+            storage: 2Gi
+  redisConfig:
+    maxmemory: 1gb
+    maxmemory-policy: allkeys-lru
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+---
+# RabbitMQ for Postal message queue
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: postal-rabbitmq
+  namespace: postal
+spec:
+  replicas: 3
+  
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  
+  persistence:
+    storageClassName: do-block-storage
+    storage: 10Gi
+  
+  rabbitmq:
+    additionalConfig: |
+      vm_memory_high_watermark.relative = 0.8
+      disk_free_limit.relative = 1.5
+      collect_statistics_interval = 10000
+  
+  override:
+    statefulSet:
+      spec:
+        template:
+          spec:
+            containers:
+            - name: rabbitmq
+              securityContext:
+                capabilities:
+                  drop:
+                    - ALL
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 999
+                runAsGroup: 999
+                seccompProfile:
+                  type: RuntimeDefault
+---
+# Postal web deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postal-web
+  namespace: postal
+  labels:
+    app: postal-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: postal-web
+  template:
+    metadata:
+      labels:
+        app: postal-web
+    spec:
+      initContainers:
+      - name: postal-init
+        image: ghcr.io/postalserver/postal:3.3.1
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          postal initialize-config
+          postal initialize
+          postal make-user <<EOF
+          support@example.com
+          Postal
+          Admin
+          $(POSTAL_ADMIN_PASSWORD)
+          EOF
+        env:
+        - name: POSTAL_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postal-secrets
+              key: admin-password
+        envFrom:
+        - configMapRef:
+            name: postal-config
+        - secretRef:
+            name: postal-secrets
+        volumeMounts:
+        - name: config
+          mountPath: /config
+      containers:
+      - name: postal-web
+        image: ghcr.io/postalserver/postal:3.3.1
+        command: ["postal", "web-server"]
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        - name: RAILS_ENV
+          value: production
+        envFrom:
+        - configMapRef:
+            name: postal-config
+        - secretRef:
+            name: postal-secrets
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: signing-key
+          mountPath: /opt/postal/config/signing.key
+          subPath: signing.key
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: config
+        emptyDir: {}
+      - name: signing-key
+        secret:
+          secretName: postal-signing-key
+---
+# Postal SMTP deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postal-smtp
+  namespace: postal
+  labels:
+    app: postal-smtp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: postal-smtp
+  template:
+    metadata:
+      labels:
+        app: postal-smtp
+    spec:
+      containers:
+      - name: postal-smtp
+        image: ghcr.io/postalserver/postal:3.3.1
+        command: ["postal", "smtp-server"]
+        ports:
+        - containerPort: 25
+          name: smtp
+        env:
+        - name: RAILS_ENV
+          value: production
+        envFrom:
+        - configMapRef:
+            name: postal-config
+        - secretRef:
+            name: postal-secrets
+        volumeMounts:
+        - name: signing-key
+          mountPath: /opt/postal/config/signing.key
+          subPath: signing.key
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        securityContext:
+          capabilities:
+            add:
+              - NET_BIND_SERVICE
+            drop:
+              - ALL
+          allowPrivilegeEscalation: false
+          runAsNonRoot: false  # Needs to bind to port 25
+          runAsUser: 0  # Root required for port 25
+      volumes:
+      - name: signing-key
+        secret:
+          secretName: postal-signing-key
+---
+# Postal worker deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postal-worker
+  namespace: postal
+  labels:
+    app: postal-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: postal-worker
+  template:
+    metadata:
+      labels:
+        app: postal-worker
+    spec:
+      containers:
+      - name: postal-worker
+        image: ghcr.io/postalserver/postal:3.3.1
+        command: ["postal", "worker"]
+        env:
+        - name: RAILS_ENV
+          value: production
+        envFrom:
+        - configMapRef:
+            name: postal-config
+        - secretRef:
+            name: postal-secrets
+        volumeMounts:
+        - name: signing-key
+          mountPath: /opt/postal/config/signing.key
+          subPath: signing.key
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+      volumes:
+      - name: signing-key
+        secret:
+          secretName: postal-signing-key
+---
+# Postal configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postal-config
+  namespace: postal
+data:
+  # Database configuration
+  DATABASE_URL: "postgres://postal:$(DATABASE_PASSWORD)@postal-postgres-rw.postal.svc.cluster.local:5432/postal"
+  
+  # Redis configuration
+  REDIS_URL: "redis://rfs-postal-redis.postal.svc.cluster.local:6379/0"
+  
+  # RabbitMQ configuration
+  RABBITMQ_HOST: "postal-rabbitmq.postal.svc.cluster.local"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_VHOST: "/"
+  
+  # Web configuration
+  WEB_HOST: "postal.example.com"
+  WEB_PROTOCOL: "https"
+  
+  # SMTP configuration
+  SMTP_HOST: "smtp.example.com"
+  SMTP_PORT: "25"
+  
+  # DNS configuration
+  DNS_MX: "10 mail.example.com"
+  DNS_SPF: "v=spf1 mx a:mail.example.com include:amazonses.com ~all"
+  DNS_RETURN_PATH: "rp.example.com"
+  DNS_ROUTE_DOMAIN: "routes.example.com"
+  DNS_TRACK_DOMAIN: "track.example.com"
+  
+  # AWS SES relay configuration
+  SMTP_RELAY_HOST: "email-smtp.us-east-1.amazonaws.com"
+  SMTP_RELAY_PORT: "587"
+  SMTP_RELAY_SSL: "true"
+  SMTP_RELAY_STARTTLS: "true"
+  
+  # Fast server configuration
+  FAST_SERVER_ENABLED: "true"
+---
+# Postal secrets
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: postal-secrets
+  namespace: postal
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: digitalocean-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: postal-secrets
+    creationPolicy: Owner
+  data:
+  - secretKey: SECRET_KEY
+    remoteRef:
+      key: postal-secret-key
+  - secretKey: admin-password
+    remoteRef:
+      key: postal-admin-password
+  - secretKey: DATABASE_PASSWORD
+    remoteRef:
+      key: postgres-admin-password
+  - secretKey: RABBITMQ_USERNAME
+    remoteRef:
+      key: postal-rabbitmq-username
+  - secretKey: RABBITMQ_PASSWORD
+    remoteRef:
+      key: postal-rabbitmq-password
+  - secretKey: SMTP_RELAY_USERNAME
+    remoteRef:
+      key: aws-ses-smtp-username
+  - secretKey: SMTP_RELAY_PASSWORD
+    remoteRef:
+      key: aws-ses-smtp-password
+---
+# PostgreSQL credentials
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: postal-postgres-credentials
+  namespace: postal
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: digitalocean-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: postal-postgres-credentials
+    creationPolicy: Owner
+  data:
+  - secretKey: username
+    remoteRef:
+      key: postgres-username
+  - secretKey: password
+    remoteRef:
+      key: postgres-admin-password
+---
+# Postal signing key secret
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: postal-signing-key
+  namespace: postal
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: digitalocean-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: postal-signing-key
+    creationPolicy: Owner
+  data:
+  - secretKey: signing.key
+    remoteRef:
+      key: postal-signing-key
+---
+# Postal web service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postal-web
+  namespace: postal
+  labels:
+    app: postal-web
+spec:
+  selector:
+    app: postal-web
+  ports:
+  - name: http
+    port: 80
+    targetPort: 5000
+    protocol: TCP
+  type: ClusterIP
+---
+# Postal SMTP service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postal-smtp
+  namespace: postal
+  labels:
+    app: postal-smtp
+  annotations:
+    service.beta.kubernetes.io/do-loadbalancer-name: "example-cluster-postal-smtp"
+    service.beta.kubernetes.io/do-loadbalancer-protocol: "tcp"
+    service.beta.kubernetes.io/do-loadbalancer-algorithm: "round_robin"
+    service.beta.kubernetes.io/do-loadbalancer-size-slug: "lb-small"
+    external-dns.alpha.kubernetes.io/hostname: "smtp.example.com"
+spec:
+  selector:
+    app: postal-smtp
+  ports:
+  - name: smtp
+    port: 25
+    targetPort: 25
+    protocol: TCP
+  type: LoadBalancer
+---
+# OAuth2 Proxy for Postal web interface
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postal-oauth2-proxy
+  namespace: postal
+  labels:
+    app: postal-oauth2-proxy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: postal-oauth2-proxy
+  template:
+    metadata:
+      labels:
+        app: postal-oauth2-proxy
+    spec:
+      containers:
+      - name: oauth2-proxy
+        image: quay.io/oauth2-proxy/oauth2-proxy:v7.5.1
+        ports:
+        - containerPort: 4180
+          name: http
+        env:
+        - name: OAUTH2_PROXY_PROVIDER
+          value: "oidc"
+        - name: OAUTH2_PROXY_OIDC_ISSUER_URL
+          value: "https://auth.example.com/realms/mycompany"
+        - name: OAUTH2_PROXY_CLIENT_ID
+          value: "postal"
+        - name: OAUTH2_PROXY_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: postal-oauth2-proxy-secret
+              key: client-secret
+        - name: OAUTH2_PROXY_COOKIE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: postal-oauth2-proxy-secret
+              key: cookie-secret
+        - name: OAUTH2_PROXY_EMAIL_DOMAINS
+          value: "*"
+        - name: OAUTH2_PROXY_UPSTREAM
+          value: "http://postal-web.postal.svc.cluster.local"
+        - name: OAUTH2_PROXY_HTTP_ADDRESS
+          value: "0.0.0.0:4180"
+        - name: OAUTH2_PROXY_REDIRECT_URL
+          value: "https://postal.example.com/oauth2/callback"
+        - name: OAUTH2_PROXY_COOKIE_DOMAINS
+          value: ".example.com"
+        - name: OAUTH2_PROXY_WHITELIST_DOMAINS
+          value: ".example.com"
+        - name: OAUTH2_PROXY_COOKIE_SECURE
+          value: "true"
+        - name: OAUTH2_PROXY_COOKIE_HTTPONLY
+          value: "true"
+        - name: OAUTH2_PROXY_COOKIE_SAMESITE
+          value: "lax"
+        - name: OAUTH2_PROXY_SET_XAUTHREQUEST
+          value: "true"
+        - name: OAUTH2_PROXY_PASS_ACCESS_TOKEN
+          value: "true"
+        - name: OAUTH2_PROXY_PASS_AUTHORIZATION_HEADER
+          value: "true"
+        - name: OAUTH2_PROXY_SET_AUTHORIZATION_HEADER
+          value: "true"
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 2000
+          seccompProfile:
+            type: RuntimeDefault
+---
+# OAuth2 Proxy service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postal-oauth2-proxy
+  namespace: postal
+  labels:
+    app: postal-oauth2-proxy
+spec:
+  selector:
+    app: postal-oauth2-proxy
+  ports:
+  - name: http
+    port: 80
+    targetPort: 4180
+    protocol: TCP
+  type: ClusterIP
+---
+# OAuth2 Proxy secret
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: postal-oauth2-proxy-secret
+  namespace: postal
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: digitalocean-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: postal-oauth2-proxy-secret
+    creationPolicy: Owner
+  data:
+  - secretKey: client-secret
+    remoteRef:
+      key: postal-oidc-secret
+  - secretKey: cookie-secret
+    remoteRef:
+      key: postal-oauth2-cookie-secret
+---
+# Kong HTTPRoute for Postal (via OAuth2 proxy)
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: postal
+  namespace: postal
+spec:
+  parentRefs:
+  - name: kong-gateway
+    namespace: kong-system
+  hostnames:
+  - postal.example.com
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: postal-oauth2-proxy
+      port: 80
+---
+# TLS certificates for Postal
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: postal-tls
+  namespace: postal
+spec:
+  secretName: postal-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - postal.example.com
+  - smtp.example.com
+  - rp.example.com
+  - routes.example.com
+  - track.example.com
+---
+# ServiceMonitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postal
+  namespace: postal
+  labels:
+    app.kubernetes.io/name: postal
+spec:
+  selector:
+    matchLabels:
+      app: postal-web
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 60s
+    scrapeTimeout: 30s

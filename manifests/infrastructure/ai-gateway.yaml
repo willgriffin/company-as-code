@@ -1,0 +1,520 @@
+# AI Gateway with LiteLLM backend and Kong expense tracking
+
+---
+# AI Gateway route to LiteLLM proxy
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: ai-gateway
+  namespace: kong-system
+  annotations:
+    # Kong plugins for AI expense tracking
+    konghq.com/plugins: keycloak-oidc,expense-tracker,prometheus-metrics,basic-rate-limit
+spec:
+  parentRefs:
+  - name: kong-gateway
+    namespace: kong-system
+  hostnames:
+  - ai.example.com
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: litellm-proxy
+      port: 4000
+
+---
+# LiteLLM Proxy deployment for multi-provider AI access
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: litellm-proxy
+  namespace: kong-system
+  labels:
+    app: litellm-proxy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: litellm-proxy
+  template:
+    metadata:
+      labels:
+        app: litellm-proxy
+      annotations:
+        instrumentation.opentelemetry.io/inject-python: "opentelemetry-operator-system/default-instrumentation"
+    spec:
+      containers:
+      - name: litellm
+        image: ghcr.io/berriai/litellm:main-latest
+        ports:
+        - containerPort: 4000
+          name: http
+        env:
+        - name: LITELLM_MODE
+          value: "PRODUCTION"
+        - name: LITELLM_LOG_LEVEL
+          value: "INFO"
+        - name: LITELLM_DROP_PARAMS
+          value: "true"
+        - name: LITELLM_SUCCESS_CALLBACK
+          value: "webhook"
+        - name: LITELLM_FAILURE_CALLBACK
+          value: "webhook"
+        - name: LITELLM_WEBHOOK_URL
+          value: "http://expense-tracker.kong-system.svc.cluster.local:8080/litellm-webhook"
+        # Provider API keys from secrets
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secrets
+              key: openai-api-key
+              optional: true
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secrets
+              key: anthropic-api-key
+              optional: true
+        - name: COHERE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secrets
+              key: cohere-api-key
+              optional: true
+        volumeMounts:
+        - name: config
+          mountPath: /app/config.yaml
+          subPath: config.yaml
+          readOnly: true
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 4000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 4000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: litellm-config
+
+---
+# LiteLLM Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: litellm-proxy
+  namespace: kong-system
+  labels:
+    app: litellm-proxy
+spec:
+  selector:
+    app: litellm-proxy
+  ports:
+  - name: http
+    port: 4000
+    targetPort: 4000
+    protocol: TCP
+  type: ClusterIP
+
+---
+# LiteLLM Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-config
+  namespace: kong-system
+data:
+  config.yaml: |
+    model_list:
+      # OpenAI models
+      - model_name: gpt-4
+        litellm_params:
+          model: openai/gpt-4
+          api_key: os.environ/OPENAI_API_KEY
+          max_tokens: 4096
+        model_info:
+          cost_per_token:
+            input_cost_per_token: 0.00003
+            output_cost_per_token: 0.00006
+      
+      - model_name: gpt-3.5-turbo
+        litellm_params:
+          model: openai/gpt-3.5-turbo
+          api_key: os.environ/OPENAI_API_KEY
+          max_tokens: 4096
+        model_info:
+          cost_per_token:
+            input_cost_per_token: 0.0000015
+            output_cost_per_token: 0.000002
+      
+      # Anthropic models
+      - model_name: claude-3-opus
+        litellm_params:
+          model: anthropic/claude-3-opus-20240229
+          api_key: os.environ/ANTHROPIC_API_KEY
+          max_tokens: 4096
+        model_info:
+          cost_per_token:
+            input_cost_per_token: 0.000015
+            output_cost_per_token: 0.000075
+      
+      - model_name: claude-3-sonnet
+        litellm_params:
+          model: anthropic/claude-3-sonnet-20240229
+          api_key: os.environ/ANTHROPIC_API_KEY
+          max_tokens: 4096
+        model_info:
+          cost_per_token:
+            input_cost_per_token: 0.000003
+            output_cost_per_token: 0.000015
+      
+      # Cohere models
+      - model_name: command-r-plus
+        litellm_params:
+          model: cohere/command-r-plus
+          api_key: os.environ/COHERE_API_KEY
+        model_info:
+          cost_per_token:
+            input_cost_per_token: 0.000003
+            output_cost_per_token: 0.000015
+    
+    # General settings
+    general_settings:
+      master_key:
+        valueFrom:
+          secretKeyRef:
+            name: litellm-secrets
+            key: master-key
+      database_url: "redis://rfs-kong-redis.kong-system.svc.cluster.local:6379"
+      
+    # Budget and rate limiting
+    litellm_settings:
+      drop_params: true
+      success_callback: ["webhook"]
+      failure_callback: ["webhook"]
+      cache: true
+      cache_params:
+        type: "redis"
+        host: "rfs-kong-redis.kong-system.svc.cluster.local"
+        port: 6379
+
+---
+# LiteLLM secrets placeholder (managed by External Secrets)
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: litellm-secrets
+  namespace: kong-system
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: cluster-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: litellm-secrets
+    creationPolicy: Owner
+  data:
+  - secretKey: openai-api-key
+    remoteRef:
+      key: credentials
+      property: openai-api-key
+  - secretKey: anthropic-api-key
+    remoteRef:
+      key: credentials
+      property: anthropic-api-key
+  - secretKey: cohere-api-key
+    remoteRef:
+      key: credentials
+      property: cohere-api-key
+  - secretKey: master-key
+    remoteRef:
+      key: credentials
+      property: litellm-master-key
+
+---
+# Expense Tracker Service for LiteLLM integration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: expense-tracker
+  namespace: kong-system
+  labels:
+    app: expense-tracker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: expense-tracker
+  template:
+    metadata:
+      labels:
+        app: expense-tracker
+      annotations:
+        instrumentation.opentelemetry.io/inject-nodejs: "opentelemetry-operator-system/default-instrumentation"
+    spec:
+      containers:
+      - name: expense-tracker
+        image: node:18-alpine
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          cat > /app/package.json << 'EOF'
+          {
+            "name": "expense-tracker",
+            "version": "1.0.0",
+            "dependencies": {
+              "express": "^4.18.2",
+              "prom-client": "^14.2.0",
+              "redis": "^4.6.7"
+            }
+          }
+          EOF
+          
+          cat > /app/server.js << 'EOF'
+          const express = require('express');
+          const client = require('prom-client');
+          const redis = require('redis');
+          
+          const app = express();
+          app.use(express.json());
+          
+          // Redis client for budget storage
+          const redisClient = redis.createClient({
+            host: 'rfs-kong-redis.kong-system.svc.cluster.local',
+            port: 6379
+          });
+          
+          // Metrics
+          const register = new client.Registry();
+          const costCounter = new client.Counter({
+            name: 'ai_cost_total_usd',
+            help: 'Total AI cost in USD',
+            labelNames: ['user_id', 'organization_id', 'model', 'provider'],
+            registers: [register]
+          });
+          
+          const tokenCounter = new client.Counter({
+            name: 'ai_tokens_total',
+            help: 'Total AI tokens consumed',
+            labelNames: ['user_id', 'organization_id', 'model', 'provider', 'type'],
+            registers: [register]
+          });
+          
+          const requestCounter = new client.Counter({
+            name: 'ai_requests_total',
+            help: 'Total AI requests',
+            labelNames: ['user_id', 'organization_id', 'model', 'provider', 'status'],
+            registers: [register]
+          });
+          
+          // Extract user info from Kong headers
+          function extractUserInfo(headers) {
+            return {
+              userId: headers['x-user-id'] || headers['x-userinfo'] || 'anonymous',
+              organizationId: headers['x-organization-id'] || 'default',
+              email: headers['x-user-email'] || 'unknown'
+            };
+          }
+          
+          // LiteLLM webhook endpoint
+          app.post('/litellm-webhook', async (req, res) => {
+            try {
+              const { model, usage, cost, status, metadata } = req.body;
+              const userInfo = extractUserInfo(req.headers);
+              
+              console.log(`LiteLLM Usage - User: ${userInfo.userId}, Model: ${model}, Cost: $${cost}, Tokens: ${usage?.total_tokens}`);
+              
+              // Update metrics
+              if (cost) {
+                costCounter.inc({
+                  user_id: userInfo.userId,
+                  organization_id: userInfo.organizationId,
+                  model: model,
+                  provider: metadata?.provider || 'unknown'
+                }, parseFloat(cost));
+              }
+              
+              if (usage) {
+                tokenCounter.inc({
+                  user_id: userInfo.userId,
+                  organization_id: userInfo.organizationId,
+                  model: model,
+                  provider: metadata?.provider || 'unknown',
+                  type: 'input'
+                }, usage.prompt_tokens || 0);
+                
+                tokenCounter.inc({
+                  user_id: userInfo.userId,
+                  organization_id: userInfo.organizationId,
+                  model: model,
+                  provider: metadata?.provider || 'unknown',
+                  type: 'output'
+                }, usage.completion_tokens || 0);
+              }
+              
+              requestCounter.inc({
+                user_id: userInfo.userId,
+                organization_id: userInfo.organizationId,
+                model: model,
+                provider: metadata?.provider || 'unknown',
+                status: status || 'success'
+              });
+              
+              // Store in Redis for budget tracking
+              const dailyKey = `budget:${userInfo.organizationId}:${userInfo.userId}:${new Date().toISOString().split('T')[0]}`;
+              if (cost) {
+                await redisClient.incrByFloat(dailyKey, parseFloat(cost));
+                await redisClient.expire(dailyKey, 86400 * 30); // 30 days retention
+              }
+              
+              res.json({ status: 'ok', tracked: true });
+            } catch (error) {
+              console.error('Error processing LiteLLM webhook:', error);
+              res.status(500).json({ error: error.message });
+            }
+          });
+          
+          // Kong expense tracking webhook
+          app.post('/kong-webhook', async (req, res) => {
+            try {
+              const { request, response } = req.body;
+              const userInfo = extractUserInfo(request.headers);
+              
+              // Basic request tracking for non-AI endpoints
+              requestCounter.inc({
+                user_id: userInfo.userId,
+                organization_id: userInfo.organizationId,
+                model: 'api',
+                provider: 'internal',
+                status: response?.status < 400 ? 'success' : 'error'
+              });
+              
+              res.json({ status: 'ok' });
+            } catch (error) {
+              console.error('Error processing Kong webhook:', error);
+              res.status(500).json({ error: error.message });
+            }
+          });
+          
+          // Budget check endpoint
+          app.get('/budget/:organizationId/:userId', async (req, res) => {
+            try {
+              const { organizationId, userId } = req.params;
+              const dailyKey = `budget:${organizationId}:${userId}:${new Date().toISOString().split('T')[0]}`;
+              const monthlyKey = `budget:${organizationId}:${userId}:${new Date().toISOString().substr(0, 7)}`;
+              
+              const dailySpend = await redisClient.get(dailyKey) || 0;
+              const monthlySpend = await redisClient.get(monthlyKey) || 0;
+              
+              res.json({
+                daily_spend: parseFloat(dailySpend),
+                monthly_spend: parseFloat(monthlySpend),
+                limits: {
+                  daily: 50.00,
+                  monthly: 1000.00
+                }
+              });
+            } catch (error) {
+              res.status(500).json({ error: error.message });
+            }
+          });
+          
+          // Metrics endpoint
+          app.get('/metrics', async (req, res) => {
+            res.set('Content-Type', register.contentType);
+            res.end(await register.metrics());
+          });
+          
+          // Health check
+          app.get('/health', (req, res) => {
+            res.json({ status: 'healthy', redis: redisClient.isOpen });
+          });
+          
+          // Initialize Redis connection
+          redisClient.connect().catch(console.error);
+          
+          app.listen(8080, () => {
+            console.log('Expense Tracker listening on port 8080');
+          });
+          EOF
+          
+          cd /app && npm install && node server.js
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: REDIS_URL
+          value: "redis://rfs-kong-redis.kong-system.svc.cluster.local:6379"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+
+---
+# Service for Expense Tracker
+apiVersion: v1
+kind: Service
+metadata:
+  name: expense-tracker
+  namespace: kong-system
+  labels:
+    app: expense-tracker
+spec:
+  selector:
+    app: expense-tracker
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
+
+---
+# ServiceMonitor for Prometheus metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: expense-tracker
+  namespace: kong-system
+  labels:
+    app: expense-tracker
+spec:
+  selector:
+    matchLabels:
+      app: expense-tracker
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s

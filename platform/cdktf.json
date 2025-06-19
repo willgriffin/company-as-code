@@ -1,0 +1,17 @@
+{
+  "language": "typescript",
+  "app": "npm run compile && node dist/main.js",
+  "projectId": "startup-gitops-platform",
+  "sendCrashReports": false,
+  "terraformProviders": [
+    "digitalocean/digitalocean@~> 2.0",
+    "hashicorp/aws@~> 5.0",
+    "integrations/github@~> 5.0",
+    "hashicorp/kubernetes@~> 2.0"
+  ],
+  "terraformModules": [],
+  "context": {
+    "excludeStackIdFromLogicalIds": true,
+    "allowSepCharsInLogicalIds": true
+  }
+}

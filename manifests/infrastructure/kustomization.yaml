@@ -1,0 +1,104 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # Core infrastructure
+  - external-secrets.yaml
+  - cert-manager.yaml
+  - external-dns.yaml
+  
+  # Database and message queue operators
+  - database-operators.yaml
+  
+  # Identity management
+  - keycloak-operator.yaml
+  
+  # API Gateway and networking
+  - kong-gateway.yaml
+  - ai-gateway.yaml
+  
+  # Monitoring and observability
+  - monitoring-stack.yaml
+  
+  # Backup and disaster recovery
+  - velero-backup.yaml
+  
+  # User management (applied after Keycloak is ready)
+  - users-kustomization.yaml
+
+# Apply resources in dependency order
+patches:
+  # Ensure external-secrets is ready before other components
+  - target:
+      kind: HelmRelease
+      name: cert-manager
+    patch: |
+      - op: add
+        path: /spec/dependsOn
+        value:
+          - name: external-secrets
+            namespace: external-secrets-system
+  
+  - target:
+      kind: HelmRelease
+      name: external-dns
+    patch: |
+      - op: add
+        path: /spec/dependsOn
+        value:
+          - name: external-secrets
+            namespace: external-secrets-system
+  
+  # Kong Gateway depends on cert-manager
+  - target:
+      kind: HelmRelease
+      name: kong-gateway
+    patch: |
+      - op: add
+        path: /spec/dependsOn
+        value:
+          - name: cert-manager
+            namespace: cert-manager
+  
+  # Keycloak depends on database operators
+  - target:
+      kind: HelmRelease
+      name: keycloak-operator
+    patch: |
+      - op: add
+        path: /spec/dependsOn
+        value:
+          - name: cloudnative-pg
+            namespace: cnpg-system
+  
+  # Monitoring depends on Kong Gateway for routes
+  - target:
+      kind: HelmRelease
+      name: prometheus
+    patch: |
+      - op: add
+        path: /spec/dependsOn
+        value:
+          - name: kong-gateway
+            namespace: kong-system
+  
+  - target:
+      kind: HelmRelease
+      name: grafana
+    patch: |
+      - op: add
+        path: /spec/dependsOn
+        value:
+          - name: prometheus
+            namespace: monitoring
+  
+  # Velero can start in parallel
+  - target:
+      kind: HelmRelease
+      name: velero
+    patch: |
+      - op: add
+        path: /spec/dependsOn
+        value:
+          - name: external-secrets
+            namespace: external-secrets-system

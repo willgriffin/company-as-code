@@ -1,0 +1,80 @@
+# Job to wait for Keycloak realm to be ready before creating users
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: wait-for-realm
+  namespace: keycloak
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  template:
+    spec:
+      serviceAccountName: keycloak-operator
+      restartPolicy: OnFailure
+      containers:
+      - name: wait
+        image: bitnami/kubectl:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "Waiting for Keycloak to be ready..."
+          
+          # Wait for Keycloak deployment
+          kubectl wait --for=condition=available --timeout=600s deployment/keycloak -n keycloak
+          
+          echo "Waiting for realm {{SETUP_REPO_KEYCLOAK_REALM}} to be imported..."
+          
+          # Wait for realm import to complete
+          for i in {1..60}; do
+            if kubectl get keycloakrealmimport {{SETUP_REPO_KEYCLOAK_REALM}}-realm -n keycloak &> /dev/null; then
+              STATUS=$(kubectl get keycloakrealmimport {{SETUP_REPO_KEYCLOAK_REALM}}-realm -n keycloak -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')
+              if [ "$STATUS" = "True" ]; then
+                echo "✓ Realm {{SETUP_REPO_KEYCLOAK_REALM}} is ready"
+                exit 0
+              fi
+            fi
+            echo "  Waiting for realm import... ($i/60)"
+            sleep 5
+          done
+          
+          echo "✗ Timeout waiting for realm import"
+          exit 1
+---
+# ServiceAccount for the wait job
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keycloak-operator
+  namespace: keycloak
+---
+# Role for checking Keycloak resources
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: keycloak-operator
+  namespace: keycloak
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["k8s.keycloak.org"]
+  resources: ["keycloakrealmimports", "keycloakusers"]
+  verbs: ["get", "list", "watch"]
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: keycloak-operator
+  namespace: keycloak
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: keycloak-operator
+subjects:
+- kind: ServiceAccount
+  name: keycloak-operator
+  namespace: keycloak
