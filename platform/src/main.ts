@@ -89,14 +89,19 @@ const clusterStacks = config.environments.map(env => {
 });
 
 // Create Flux configuration stacks for each environment
-clusterStacks.map((clusterStack, index) => {
+const fluxStacks = clusterStacks.map((clusterStack, index) => {
   const env = config.environments[index];
-  return new FluxConfigurationStack(app, `${config.project.name}-${env.name}-flux`, {
+  const fluxStack = new FluxConfigurationStack(app, `${config.project.name}-${env.name}-flux`, {
     projectName: config.project.name,
     environment: env,
     config,
     kubeconfig: clusterStack.cluster.kubeConfig.get(0).rawConfig,
   });
+  
+  // Add dependency - flux stack waits for cluster stack to complete
+  fluxStack.addDependency(clusterStack);
+  
+  return fluxStack;
 });
 
 // Create GitHub secrets stack if repository is configured

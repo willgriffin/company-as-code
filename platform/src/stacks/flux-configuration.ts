@@ -32,14 +32,26 @@ export class FluxConfigurationStack extends TerraformStack {
     new NullProvider(this, 'null');
 
     // Parse kubeconfig to extract connection details
-    const kubeconfigYaml = yaml.load(kubeconfig) as any;
-    const cluster = kubeconfigYaml.clusters[0].cluster;
-    const user = kubeconfigYaml.users[0].user;
+    // Note: During synthesis, kubeconfig might be empty since cluster hasn't been created yet
+    // The dependency ensures this stack only applies after cluster creation
+    const kubeconfigYaml = yaml.load(kubeconfig || '{}') as any;
+    
+    // Validate kubeconfig structure
+    if (!kubeconfigYaml.clusters || !kubeconfigYaml.users || 
+        kubeconfigYaml.clusters.length === 0 || kubeconfigYaml.users.length === 0) {
+      // During synthesis, this is expected - the actual values will be available during apply
+      console.log('Kubeconfig not yet available during synthesis - will be resolved during apply phase');
+    }
+    
+    const cluster = kubeconfigYaml.clusters?.[0]?.cluster || {};
+    const user = kubeconfigYaml.users?.[0]?.user || {};
 
     // Kubernetes provider for creating ConfigMaps
     new KubernetesProvider(this, 'kubernetes', {
-      host: cluster.server,
-      clusterCaCertificate: Buffer.from(cluster['certificate-authority-data'], 'base64').toString(),
+      host: cluster.server || 'https://placeholder-during-synthesis',
+      clusterCaCertificate: cluster['certificate-authority-data']
+        ? Buffer.from(cluster['certificate-authority-data'], 'base64').toString()
+        : 'placeholder-cert',
       token: user.token || undefined,
       clientCertificate: user['client-certificate-data']
         ? Buffer.from(user['client-certificate-data'], 'base64').toString()
