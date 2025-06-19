@@ -143,6 +143,7 @@ jobs:
     - name: Test setup.ts dry-run
       run: tsx setup.ts --dry-run --skip-github --no-interactive
       env:
+        DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
         SETUP_PROJECT_NAME: "test-project"
         SETUP_DOMAIN: "test.example.com"
         SETUP_EMAIL: "test@example.com"
