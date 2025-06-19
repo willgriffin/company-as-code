@@ -348,28 +348,30 @@ class GitOpsSetup {
   }
 
   private async promptForConfirmation(): Promise<void> {
-    const { execSync } = await import('child_process');
+    const readline = await import('readline');
     
     this.log(`${colors.yellow}${colors.bold}Do you want to proceed with creating these resources?${colors.reset}`);
     this.log(`Type 'yes' to continue, 'no' to abort:`);
     
-    try {
-      const response = execSync('read -p "> " response && echo $response', { 
-        encoding: 'utf-8', 
-        stdio: ['inherit', 'pipe', 'inherit'],
-        shell: '/bin/bash'
-      }).trim().toLowerCase();
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
 
-      if (response !== 'yes' && response !== 'y') {
-        this.log(`${colors.yellow}Setup aborted by user${colors.reset}`);
-        process.exit(0);
-      }
-      
-      this.logSuccess('Confirmation received, proceeding with setup...');
-    } catch (error) {
-      // Fallback for environments where interactive input doesn't work
-      this.logWarning('Unable to prompt for confirmation, proceeding...');
-    }
+    return new Promise((resolve) => {
+      rl.question('> ', (answer) => {
+        rl.close();
+        const response = answer.trim().toLowerCase();
+        
+        if (response !== 'yes' && response !== 'y') {
+          this.log(`${colors.yellow}Setup aborted by user${colors.reset}`);
+          process.exit(0);
+        }
+        
+        this.logSuccess('Confirmation received, proceeding with setup...');
+        resolve();
+      });
+    });
   }
 
   private async setupS3StateBucket(): Promise<{ bucketName: string; region: string }> {
@@ -676,20 +678,22 @@ This will remove all template-specific files automatically.
       this.log(`\n${colors.yellow}${colors.bold}Create a PR to remove template files?${colors.reset}`);
       this.log(`Type 'yes' to continue, 'no' to cancel:`);
       
-      try {
-        const { execSync } = await import('child_process');
-        const response = execSync('read -p "> " response && echo $response', { 
-          encoding: 'utf-8', 
-          stdio: ['inherit', 'pipe', 'inherit'],
-          shell: '/bin/bash'
-        }).trim().toLowerCase();
+      const readline = await import('readline');
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
 
-        if (response !== 'yes' && response !== 'y') {
-          this.log(`${colors.yellow}Ejection cancelled${colors.reset}`);
-          return;
-        }
-      } catch (error) {
-        this.logWarning('Unable to prompt for confirmation, proceeding...');
+      const response = await new Promise<string>((resolve) => {
+        rl.question('> ', (answer) => {
+          rl.close();
+          resolve(answer.trim().toLowerCase());
+        });
+      });
+
+      if (response !== 'yes' && response !== 'y') {
+        this.log(`${colors.yellow}Ejection cancelled${colors.reset}`);
+        return;
       }
     }
 
@@ -722,7 +726,20 @@ This will remove all template-specific files automatically.
         // Ask to delete existing branch
         if (this.options.interactive && !this.options.assumeYes) {
           this.log(`Delete existing branch and create a new one? (y/N):`);
-          const response = this.exec('read -p "> " response && echo $response', true).toLowerCase();
+          
+          const readline = await import('readline');
+          const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+          });
+
+          const response = await new Promise<string>((resolve) => {
+            rl.question('> ', (answer) => {
+              rl.close();
+              resolve(answer.trim().toLowerCase());
+            });
+          });
+          
           if (response === 'y' || response === 'yes') {
             this.exec(`git branch -D ${branchName}`, true);
             this.logSuccess(`Deleted existing branch ${branchName}`);
