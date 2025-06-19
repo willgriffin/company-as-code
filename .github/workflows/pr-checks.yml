@@ -45,6 +45,8 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '22'
+        cache: 'pnpm'
+        cache-dependency-path: 'pnpm-lock.yaml'
       
     - name: Setup tools
       uses: ./.github/actions/setup-tools
@@ -89,6 +91,8 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '22'
+        cache: 'pnpm'
+        cache-dependency-path: 'pnpm-lock.yaml'
       
     - name: Setup tools
       uses: ./.github/actions/setup-tools
@@ -122,6 +126,8 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '22'
+        cache: 'pnpm'
+        cache-dependency-path: 'pnpm-lock.yaml'
         
     - name: Install pnpm
       uses: pnpm/action-setup@v2
