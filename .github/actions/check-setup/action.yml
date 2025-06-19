@@ -245,7 +245,16 @@ runs:
         # Check for obvious template placeholders that would prevent deployment
         echo "Checking for critical template placeholders..."
         
-        if grep -r "CHANGEME" --include="*.yml" --include="*.yaml" --include="*.tf" . >/dev/null 2>&1; then
+        # Search for CHANGEME placeholders but exclude legitimate automated replacement targets
+        # Exclude:
+        # - platform/src/stacks/ (contains replacement logic)
+        # - manifests/infrastructure/ (contains automated placeholders for flux-configuration)
+        # - docs/ (documentation only)
+        if grep -r -i "changeme" --include="*.yml" --include="*.yaml" --include="*.tf" \
+          --exclude-dir=docs \
+          --exclude-dir=platform \
+          --exclude-dir=manifests \
+          . >/dev/null 2>&1; then
           SETUP_COMPLETE=false
           MISSING_ITEMS="$MISSING_ITEMS- Critical template placeholders (CHANGEME) still present\n"
           echo "❌ Found CHANGEME placeholders that will prevent deployment"
