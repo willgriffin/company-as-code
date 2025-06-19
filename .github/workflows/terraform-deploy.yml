@@ -69,9 +69,6 @@ jobs:
     if: needs.check-setup.outputs.should-skip != 'true' && needs.check-setup.outputs.setup-complete == 'true'
     runs-on: ubuntu-latest
     environment: production
-    defaults:
-      run:
-        working-directory: platform
     
     steps:
       - name: Checkout
@@ -114,19 +111,27 @@ jobs:
           echo "GITHUB_REPOSITORY=${{ github.repository }}" >> "$GITHUB_ENV"
       
       - name: CDKTF Get
-        run: npx cdktf get
+        run: |
+          cd platform
+          npx cdktf get
       
       - name: CDKTF Plan
         if: github.event.inputs.action == 'plan' || github.event.inputs.action == ''
-        run: npx cdktf plan
+        run: |
+          cd platform
+          npx cdktf plan
       
       - name: CDKTF Deploy
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        run: npx cdktf deploy --auto-approve
+        run: |
+          cd platform
+          npx cdktf deploy --auto-approve
       
       - name: CDKTF Destroy
         if: github.event.inputs.action == 'destroy'
-        run: npx cdktf destroy --auto-approve
+        run: |
+          cd platform
+          npx cdktf destroy --auto-approve
       
       - name: Get kubeconfig from CDKTF output
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')

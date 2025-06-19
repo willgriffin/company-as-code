@@ -50,6 +50,8 @@ jobs:
       
     - name: Setup tools
       uses: ./.github/actions/setup-tools
+      with:
+        tools: 'actionlint'
       
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
@@ -61,17 +63,7 @@ jobs:
       run: pnpm run lint
       
     - name: Lint workflows
-      run: |
-        if ! command -v actionlint &> /dev/null; then
-          echo "Installing actionlint..."
-          mkdir -p .tools
-          cd .tools
-          curl -sSL https://github.com/rhysd/actionlint/releases/download/v1.7.4/actionlint_1.7.4_linux_amd64.tar.gz | tar xz
-          cd ..
-          ./.tools/actionlint
-        else
-          actionlint
-        fi
+      run: actionlint
       
     - name: Check code formatting
       run: pnpm run format:check
