@@ -122,10 +122,11 @@ class GitOpsSetup {
     }
 
     try {
-      return execSync(command, {
+      const result = execSync(command, {
         encoding: 'utf-8',
         stdio: silent ? 'pipe' : 'inherit',
-      }).trim();
+      });
+      return result ? result.toString().trim() : '';
     } catch (error: any) {
       throw new SetupError(`Command failed: ${command}\n${error.message}`, 'EXEC_FAILED');
     }
@@ -1129,7 +1130,7 @@ ${optionalFiles
     try {
       // Check if there are any git changes
       const status = this.exec('git status --porcelain', true);
-      if (!status || !status.trim()) {
+      if (!status || status.length === 0) {
         this.log('No changes to commit, skipping PR creation');
         return;
       }
@@ -1146,18 +1147,26 @@ ${optionalFiles
       // Generate deterministic branch name for setup PR
       const finalBranchName = `feat/setup-config`;
 
-      // Check if branch already exists and delete it (we want to recreate)
-      try {
-        this.exec(`git rev-parse --verify ${finalBranchName}`, true);
-        this.log(`Branch ${finalBranchName} already exists, deleting...`);
-        this.exec(`git branch -D ${finalBranchName}`, true);
-      } catch {
-        // Branch doesn't exist, which is fine
-      }
+      // Get current branch
+      const currentBranch = this.exec('git branch --show-current', true);
+      
+      // Check if we're already on the target branch
+      if (currentBranch === finalBranchName) {
+        this.log(`Already on branch: ${finalBranchName}`);
+      } else {
+        // Check if branch already exists and delete it (we want to recreate)
+        try {
+          this.exec(`git rev-parse --verify ${finalBranchName}`, true);
+          this.log(`Branch ${finalBranchName} already exists, deleting...`);
+          this.exec(`git branch -D ${finalBranchName}`, true);
+        } catch {
+          // Branch doesn't exist, which is fine
+        }
 
-      // Create and checkout new branch
-      this.exec(`git checkout -b ${finalBranchName}`);
-      this.log(`Created branch: ${finalBranchName}`);
+        // Create and checkout new branch
+        this.exec(`git checkout -b ${finalBranchName}`);
+        this.log(`Created branch: ${finalBranchName}`);
+      }
 
       // Add all changes
       this.exec('git add .');
