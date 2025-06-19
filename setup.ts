@@ -126,7 +126,7 @@ class GitOpsSetup {
     }
   }
 
-  private checkPrerequisites(): void {
+  private async checkPrerequisites(): Promise<void> {
     this.logStep('Checking Prerequisites');
 
     const tools = [
@@ -148,10 +148,10 @@ class GitOpsSetup {
     }
 
     // Check and setup authentication
-    this.checkAuthentication();
+    await this.checkAuthentication();
   }
 
-  private checkAuthentication(): void {
+  private async checkAuthentication(): Promise<void> {
     this.logStep('Checking Authentication');
 
     // Check DigitalOcean token
@@ -335,7 +335,7 @@ class GitOpsSetup {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as { account?: { email?: string; uuid?: string } };
         accountInfo.digitalOcean = {
           email: data.account?.email || 'Unknown',
           uuid: data.account?.uuid || 'Unknown'
@@ -936,7 +936,7 @@ ${optionalFiles.filter(f => existsSync(f)).map(f => `- \`${f}\``).join('\n')}`;
       this.log(`Environment: ${this.config.environments[0].name}\n`);
 
       // Step 1: Check prerequisites
-      this.checkPrerequisites();
+      await this.checkPrerequisites();
 
       // Step 2: Show confirmation dialog with account details
       await this.showConfirmationDialog();

@@ -9,12 +9,19 @@
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
     "outDir": "dist",
-    "rootDir": "src"
+    "allowSyntheticDefaultImports": true,
+    "lib": ["ES2022"]
   },
+  "include": [
+    "scripts/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "platform",
+    "setup.ts"
+  ],
   "references": [
-    {
-      "path": "./cli"
-    },
     {
       "path": "./platform"
     }
