@@ -61,7 +61,17 @@ jobs:
       run: pnpm run lint
       
     - name: Lint workflows
-      run: actionlint
+      run: |
+        if ! command -v actionlint &> /dev/null; then
+          echo "Installing actionlint..."
+          mkdir -p .tools
+          cd .tools
+          curl -sSL https://github.com/rhysd/actionlint/releases/download/v1.7.4/actionlint_1.7.4_linux_amd64.tar.gz | tar xz
+          cd ..
+          ./.tools/actionlint
+        else
+          actionlint
+        fi
       
     - name: Check code formatting
       run: pnpm run format:check
@@ -144,6 +154,9 @@ jobs:
       run: tsx setup.ts --dry-run --skip-github --no-interactive
       env:
         DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+        AWS_ACCESS_KEY_ID: "AKIAIOSFODNN7EXAMPLE"
+        AWS_SECRET_ACCESS_KEY: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+        AWS_DEFAULT_REGION: "us-east-1"
         SETUP_PROJECT_NAME: "test-project"
         SETUP_DOMAIN: "test.example.com"
         SETUP_EMAIL: "test@example.com"
