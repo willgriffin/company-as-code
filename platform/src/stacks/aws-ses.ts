@@ -34,7 +34,7 @@ export class AWSSESStack extends TerraformStack {
     });
 
     // SES Configuration Set
-    const configSet = new SesConfigurationSet(this, 'config-set', {
+    new SesConfigurationSet(this, 'config-set', {
       name: `${projectName}-email-config`,
     });
 
@@ -63,23 +63,20 @@ export class AWSSESStack extends TerraformStack {
         Statement: [
           {
             Effect: 'Allow',
-            Action: [
-              'ses:SendEmail',
-              'ses:SendRawEmail'
-            ],
+            Action: ['ses:SendEmail', 'ses:SendRawEmail'],
             Resource: '*',
             Condition: {
               StringEquals: {
                 'ses:FromAddress': [
                   `noreply@${config.project.domain}`,
                   `admin@${config.project.domain}`,
-                  config.project.email
-                ]
-              }
-            }
-          }
-        ]
-      })
+                  config.project.email,
+                ],
+              },
+            },
+          },
+        ],
+      }),
     });
 
     // Access key for SMTP
@@ -90,28 +87,28 @@ export class AWSSESStack extends TerraformStack {
     // Outputs
     new TerraformOutput(this, 'ses_domain_identity', {
       value: this.sesDomainIdentity.domain,
-      description: 'SES verified domain identity'
+      description: 'SES verified domain identity',
     });
 
     new TerraformOutput(this, 'ses_dkim_tokens', {
       value: this.sesDomainDkim.dkimTokens,
-      description: 'DKIM tokens for DNS configuration'
+      description: 'DKIM tokens for DNS configuration',
     });
 
     new TerraformOutput(this, 'ses_smtp_username', {
       value: this.accessKey.id,
-      description: 'SMTP username for SES'
+      description: 'SMTP username for SES',
     });
 
     new TerraformOutput(this, 'ses_smtp_password', {
       value: this.accessKey.sesSmtpPasswordV4,
       sensitive: true,
-      description: 'SMTP password for SES'
+      description: 'SMTP password for SES',
     });
 
     new TerraformOutput(this, 'ses_smtp_endpoint', {
       value: `email-smtp.${region}.amazonaws.com`,
-      description: 'SES SMTP endpoint'
+      description: 'SES SMTP endpoint',
     });
   }
 }

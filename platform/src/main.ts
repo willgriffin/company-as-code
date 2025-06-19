@@ -20,7 +20,7 @@ function loadConfig(): Config {
     '../../config.json',
     '../../config.js',
     '../../config.ts',
-    process.env.GITOPS_CONFIG_PATH
+    process.env.GITOPS_CONFIG_PATH,
   ].filter(Boolean);
 
   for (const configPath of configPaths) {
@@ -44,18 +44,20 @@ function loadConfig(): Config {
     project: {
       name: 'example-project',
       domain: 'example.com',
-      email: 'admin@example.com'
+      email: 'admin@example.com',
     },
-    environments: [{
-      name: 'production',
-      cluster: {
-        region: 'nyc3',
-        nodeSize: 's-2vcpu-4gb',
-        nodeCount: 3,
-        haControlPlane: false
+    environments: [
+      {
+        name: 'production',
+        cluster: {
+          region: 'nyc3',
+          nodeSize: 's-2vcpu-4gb',
+          nodeCount: 3,
+          haControlPlane: false,
+        },
+        domain: 'example.com',
       },
-      domain: 'example.com'
-    }]
+    ],
   };
 }
 
@@ -65,16 +67,16 @@ const app = new App();
 // Create shared infrastructure first
 // Note: S3 bucket for Terraform state is created by setup.ts as a prerequisite
 // Spaces bucket for application storage
-const spacesStack = new DigitalOceanSpacesStack(app, `${config.project.name}-spaces`, {
+new DigitalOceanSpacesStack(app, `${config.project.name}-spaces`, {
   projectName: config.project.name,
   config,
-  region: config.environments[0].cluster.region
+  region: config.environments[0].cluster.region,
 });
 
 // Create SES stack for email functionality
 const sesStack = new AWSSESStack(app, `${config.project.name}-ses`, {
   projectName: config.project.name,
-  config
+  config,
 });
 
 // Create stacks for each environment
@@ -82,25 +84,25 @@ const clusterStacks = config.environments.map(env => {
   return new DigitalOceanClusterStack(app, `${config.project.name}-${env.name}`, {
     projectName: config.project.name,
     environment: env,
-    config
+    config,
   });
 });
 
 // Create Flux configuration stacks for each environment
-const fluxStacks = clusterStacks.map((clusterStack, index) => {
+clusterStacks.map((clusterStack, index) => {
   const env = config.environments[index];
   return new FluxConfigurationStack(app, `${config.project.name}-${env.name}-flux`, {
     projectName: config.project.name,
     environment: env,
     config,
-    kubeconfig: clusterStack.cluster.kubeConfig.get(0).rawConfig
+    kubeconfig: clusterStack.cluster.kubeConfig.get(0).rawConfig,
   });
 });
 
 // Create GitHub secrets stack if repository is configured
 if (process.env.GITHUB_REPOSITORY) {
   const primaryCluster = clusterStacks[0];
-  
+
   const secrets = GitHubSecretsStack.createSecretsMap({
     kubeconfig: primaryCluster.cluster.kubeConfig.get(0).rawConfig,
     digitalOceanToken: process.env.DIGITALOCEAN_TOKEN!,
@@ -116,7 +118,7 @@ if (process.env.GITHUB_REPOSITORY) {
     projectName: config.project.name,
     config,
     repository: process.env.GITHUB_REPOSITORY,
-    secrets
+    secrets,
   });
 }
 

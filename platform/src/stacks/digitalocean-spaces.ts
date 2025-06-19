@@ -17,11 +17,11 @@ export class DigitalOceanSpacesStack extends TerraformStack {
   constructor(scope: Construct, id: string, props: DigitalOceanSpacesStackProps) {
     super(scope, id);
 
-    const { projectName, config, region = 'nyc3' } = props;
+    const { projectName, region = 'nyc3' } = props;
 
     // DigitalOcean provider - uses token only, no separate Spaces keys needed
     new DigitaloceanProvider(this, 'digitalocean', {
-      token: process.env.DIGITALOCEAN_TOKEN!
+      token: process.env.DIGITALOCEAN_TOKEN!,
     });
 
     // Application data bucket
@@ -30,17 +30,17 @@ export class DigitalOceanSpacesStack extends TerraformStack {
       region: region,
       acl: 'private',
       versioning: {
-        enabled: true
+        enabled: true,
       },
       lifecycleRule: [
         {
           id: 'backup-retention',
           enabled: true,
           noncurrentVersionExpiration: {
-            days: 30
-          }
-        }
-      ]
+            days: 30,
+          },
+        },
+      ],
     });
 
     // Bucket policy for application access
@@ -54,33 +54,29 @@ export class DigitalOceanSpacesStack extends TerraformStack {
             Sid: 'ApplicationAccess',
             Effect: 'Allow',
             Principal: {
-              AWS: '*'
+              AWS: '*',
             },
-            Action: [
-              's3:GetObject',
-              's3:PutObject',
-              's3:DeleteObject'
-            ],
+            Action: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject'],
             Resource: `arn:aws:s3:::${projectName}-app-data/*`,
             Condition: {
               StringEquals: {
-                's3:x-amz-acl': 'private'
-              }
-            }
-          }
-        ]
-      })
+                's3:x-amz-acl': 'private',
+              },
+            },
+          },
+        ],
+      }),
     });
 
     // Outputs
     new TerraformOutput(this, 'application_data_bucket', {
       value: this.applicationDataBucket.name,
-      description: 'Bucket for application data storage'
+      description: 'Bucket for application data storage',
     });
 
     new TerraformOutput(this, 'application_data_endpoint', {
       value: `https://${this.applicationDataBucket.name}.${region}.digitaloceanspaces.com`,
-      description: 'Endpoint for application data bucket'
+      description: 'Endpoint for application data bucket',
     });
   }
 }

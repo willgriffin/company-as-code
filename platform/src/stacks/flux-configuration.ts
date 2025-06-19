@@ -5,8 +5,6 @@ import { ConfigMapV1 } from '@cdktf/provider-kubernetes/lib/config-map-v1';
 import { NullProvider } from '@cdktf/provider-null/lib/provider';
 import { Resource } from '@cdktf/provider-null/lib/resource';
 import { Config, Environment } from '../config/schema';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { glob } from 'glob';
 import path from 'path';
 import * as yaml from 'js-yaml';
 
@@ -25,7 +23,7 @@ export class FluxConfigurationStack extends TerraformStack {
   constructor(scope: Construct, id: string, props: FluxConfigurationStackProps) {
     super(scope, id);
 
-    const { projectName, environment, config, kubeconfig } = props;
+    const { environment, config, kubeconfig } = props;
     this.config = config;
     this.environment = environment;
     this.kubeconfig = kubeconfig;
@@ -43,8 +41,12 @@ export class FluxConfigurationStack extends TerraformStack {
       host: cluster.server,
       clusterCaCertificate: Buffer.from(cluster['certificate-authority-data'], 'base64').toString(),
       token: user.token || undefined,
-      clientCertificate: user['client-certificate-data'] ? Buffer.from(user['client-certificate-data'], 'base64').toString() : undefined,
-      clientKey: user['client-key-data'] ? Buffer.from(user['client-key-data'], 'base64').toString() : undefined
+      clientCertificate: user['client-certificate-data']
+        ? Buffer.from(user['client-certificate-data'], 'base64').toString()
+        : undefined,
+      clientKey: user['client-key-data']
+        ? Buffer.from(user['client-key-data'], 'base64').toString()
+        : undefined,
     });
 
     // Step 1: One-time static configuration
@@ -56,7 +58,7 @@ export class FluxConfigurationStack extends TerraformStack {
     // Output information about the configuration
     new TerraformOutput(this, 'configuration_status', {
       value: 'Static manifests configured and infrastructure ConfigMap created',
-      description: 'Status of Flux configuration setup'
+      description: 'Status of Flux configuration setup',
     });
   }
 
@@ -65,7 +67,7 @@ export class FluxConfigurationStack extends TerraformStack {
     const clusterName = `${this.config.project.name}-${this.environment.name}`;
     const domain = this.config.project.domain;
     const region = this.environment.cluster.region;
-    
+
     const replacements = {
       // Basic patterns
       'example.com': domain,
@@ -73,11 +75,11 @@ export class FluxConfigurationStack extends TerraformStack {
       'example-cluster': clusterName,
       'my-cluster': clusterName,
       'admin@example.com': this.config.project.email,
-      
+
       // Regional patterns
       'nyc3.digitaloceanspaces.com': `${region}.digitaloceanspaces.com`,
       'example-cluster-backup.nyc3.digitaloceanspaces.com': `${clusterName}-backup.${region}.digitaloceanspaces.com`,
-      
+
       // Application subdomains
       'api.example.com': `api.${domain}`,
       'auth.example.com': `auth.${domain}`,
@@ -98,7 +100,7 @@ export class FluxConfigurationStack extends TerraformStack {
       'routes.example.com': `routes.${domain}`,
       'track.example.com': `track.${domain}`,
       'rp.example.com': `rp.${domain}`,
-      
+
       // Resource naming patterns
       'example-cluster-grafana-secret': `${clusterName}-grafana-secret`,
       'example-cluster-kong-gateway': `${clusterName}-kong-gateway`,
@@ -107,10 +109,10 @@ export class FluxConfigurationStack extends TerraformStack {
       'example-cluster-nextcloud': `${clusterName}-nextcloud`,
       'example-cluster-mailu': `${clusterName}-mailu`,
       'example-cluster-postal-smtp': `${clusterName}-postal-smtp`,
-      
+
       // Special patterns
       'sk-example-cluster-changeme': `sk-${clusterName}-${this.generateRandomSuffix()}`,
-      
+
       // URL patterns with protocol
       'https://auth.example.com': `https://auth.${domain}`,
       'https://cloud.example.com': `https://cloud.${domain}`,
@@ -123,22 +125,24 @@ export class FluxConfigurationStack extends TerraformStack {
       triggers: {
         // Trigger when config changes
         config_hash: this.generateConfigHash(),
-        always_run: Date.now().toString() // Force run on every apply for now
+        always_run: Date.now().toString(), // Force run on every apply for now
       },
-      provisioners: [{
-        type: 'local-exec',
-        command: this.generateReplacementScript(replacements)
-      }]
+      provisioners: [
+        {
+          type: 'local-exec',
+          command: this.generateReplacementScript(replacements),
+        },
+      ],
     });
   }
 
   private generateReplacementScript(replacements: Record<string, string>): string {
     const manifestsDir = path.resolve('..', 'manifests');
     let script = `#!/bin/bash\nset -euo pipefail\n\n`;
-    
+
     script += `echo "Configuring static manifests..."\n`;
     script += `MANIFESTS_DIR="${manifestsDir}"\n\n`;
-    
+
     // Check if manifests directory exists
     script += `if [[ ! -d "$MANIFESTS_DIR" ]]; then\n`;
     script += `  echo "Warning: Manifests directory not found at $MANIFESTS_DIR"\n`;
@@ -159,9 +163,8 @@ export class FluxConfigurationStack extends TerraformStack {
 
     // Perform replacements (sort by length descending to handle overlapping patterns)
     script += `echo "Applying static configuration replacements..."\n`;
-    const sortedReplacements = Object.entries(replacements)
-      .sort(([a], [b]) => b.length - a.length); // Longer patterns first
-    
+    const sortedReplacements = Object.entries(replacements).sort(([a], [b]) => b.length - a.length); // Longer patterns first
+
     for (const [from, to] of sortedReplacements) {
       // Escape special characters for sed
       const escapedFrom = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -180,9 +183,9 @@ export class FluxConfigurationStack extends TerraformStack {
     script += `else\n`;
     script += `  echo "✓ All example patterns successfully replaced"\n`;
     script += `fi\n\n`;
-    
+
     script += `echo "Static manifest configuration complete"\n`;
-    
+
     return script;
   }
 
@@ -193,9 +196,9 @@ export class FluxConfigurationStack extends TerraformStack {
       name: this.config.project.name,
       email: this.config.project.email,
       environment: this.environment.name,
-      region: this.environment.cluster.region
+      region: this.environment.cluster.region,
     });
-    
+
     return Buffer.from(configString).toString('base64').substring(0, 16);
   }
 
@@ -207,10 +210,10 @@ export class FluxConfigurationStack extends TerraformStack {
   private createInfrastructureConfigMap(): void {
     // Generate resource profiles based on cluster configuration
     const resourceProfiles = this.generateResourceProfiles();
-    
+
     // Generate storage configurations
     const storageConfig = this.generateStorageConfig();
-    
+
     // Generate networking configuration
     const networkingConfig = this.generateNetworkingConfig();
 
@@ -222,8 +225,8 @@ export class FluxConfigurationStack extends TerraformStack {
         networkingConfig,
         cluster: this.environment.cluster,
         domain: this.config.project.domain,
-        region: this.environment.cluster.region
-      })
+        region: this.environment.cluster.region,
+      }),
     };
 
     new ConfigMapV1(this, 'infrastructure-config', {
@@ -233,35 +236,39 @@ export class FluxConfigurationStack extends TerraformStack {
         labels: {
           'app.kubernetes.io/name': 'infrastructure-config',
           'app.kubernetes.io/part-of': 'flux-system',
-          'app.kubernetes.io/managed-by': 'cdktf'
-        }
+          'app.kubernetes.io/managed-by': 'cdktf',
+        },
       },
-      data: configMapData
+      data: configMapData,
     });
   }
 
   private generateResourceProfiles(): Record<string, any> {
-    const { nodeSize, nodeCount } = this.environment.cluster;
-    
+    const { nodeSize } = this.environment.cluster;
+
     // Base profiles that scale with cluster size
     const baseProfiles = {
       micro: { cpu: '100m', memory: '128Mi' },
       small: { cpu: '500m', memory: '512Mi' },
       medium: { cpu: '1000m', memory: '1Gi' },
       large: { cpu: '2000m', memory: '2Gi' },
-      xlarge: { cpu: '4000m', memory: '4Gi' }
+      xlarge: { cpu: '4000m', memory: '4Gi' },
     };
 
     // Adjust profiles based on node configuration
-    const memoryMultiplier = nodeSize.includes('4gb') ? 1 : 
-                           nodeSize.includes('8gb') ? 2 : 
-                           nodeSize.includes('16gb') ? 4 : 1;
+    const memoryMultiplier = nodeSize.includes('4gb')
+      ? 1
+      : nodeSize.includes('8gb')
+        ? 2
+        : nodeSize.includes('16gb')
+          ? 4
+          : 1;
 
     const scaledProfiles: Record<string, any> = {};
     for (const [profile, resources] of Object.entries(baseProfiles)) {
       scaledProfiles[profile] = {
         cpu: resources.cpu,
-        memory: this.scaleMemory(resources.memory, memoryMultiplier)
+        memory: this.scaleMemory(resources.memory, memoryMultiplier),
       };
     }
 
@@ -276,24 +283,24 @@ export class FluxConfigurationStack extends TerraformStack {
 
   private generateStorageConfig(): Record<string, any> {
     const region = this.environment.cluster.region;
-    
+
     return {
       classes: {
         fast: {
           storageClass: 'do-block-storage',
-          size: '10Gi'
+          size: '10Gi',
         },
         bulk: {
           storageClass: 'do-block-storage',
-          size: '100Gi'
+          size: '100Gi',
         },
         backup: {
           storageClass: 'do-block-storage',
-          size: '50Gi'
-        }
+          size: '50Gi',
+        },
       },
       region: region,
-      backupRegion: region // Could be different for disaster recovery
+      backupRegion: region, // Could be different for disaster recovery
     };
   }
 
@@ -301,14 +308,14 @@ export class FluxConfigurationStack extends TerraformStack {
     return {
       loadBalancer: {
         size: this.environment.cluster.nodeCount >= 5 ? 'lb-medium' : 'lb-small',
-        algorithm: 'round_robin'
+        algorithm: 'round_robin',
       },
       ingress: {
         className: 'kong',
         annotations: {
-          'cert-manager.io/cluster-issuer': 'letsencrypt-prod'
-        }
-      }
+          'cert-manager.io/cluster-issuer': 'letsencrypt-prod',
+        },
+      },
     };
   }
 
@@ -317,14 +324,20 @@ export class FluxConfigurationStack extends TerraformStack {
 # This ConfigMap provides dynamic values for Flux manifests
 
 resourceProfiles:
-${Object.entries(config.resourceProfiles).map(([name, resources]: [string, any]) => 
-  `  ${name}:\n    requests:\n      cpu: "${resources.cpu}"\n      memory: "${resources.memory}"\n    limits:\n      cpu: "${resources.cpu}"\n      memory: "${resources.memory}"`
-).join('\n')}
+${Object.entries(config.resourceProfiles)
+  .map(
+    ([name, resources]: [string, any]) =>
+      `  ${name}:\n    requests:\n      cpu: "${resources.cpu}"\n      memory: "${resources.memory}"\n    limits:\n      cpu: "${resources.cpu}"\n      memory: "${resources.memory}"`
+  )
+  .join('\n')}
 
 storage:
-${Object.entries(config.storageConfig.classes).map(([name, storage]: [string, any]) =>
-  `  ${name}:\n    storageClass: "${storage.storageClass}"\n    size: "${storage.size}"`
-).join('\n')}
+${Object.entries(config.storageConfig.classes)
+  .map(
+    ([name, storage]: [string, any]) =>
+      `  ${name}:\n    storageClass: "${storage.storageClass}"\n    size: "${storage.size}"`
+  )
+  .join('\n')}
 
 cluster:
   region: "${config.region}"

@@ -2,13 +2,13 @@
 
 /**
  * Setup script for GitOps template prerequisites
- * 
+ *
  * This script handles the foundational setup that CDKTF doesn't cover:
  * - AWS S3 bucket for Terraform state storage
  * - AWS SES credentials and IAM user setup
  * - GitHub secrets management
  * - Optional GitHub project board setup
- * 
+ *
  * Run this BEFORE deploying infrastructure with CDKTF.
  */
 
@@ -23,7 +23,7 @@ const colors = {
   blue: '\x1b[34m',
   yellow: '\x1b[33m',
   reset: '\x1b[0m',
-  bold: '\x1b[1m'
+  bold: '\x1b[1m',
 };
 
 interface Config {
@@ -72,9 +72,11 @@ interface SetupOptions {
   noPr?: boolean;
 }
 
-
 class SetupError extends Error {
-  constructor(message: string, public code?: string) {
+  constructor(
+    message: string,
+    public code?: string
+  ) {
     super(message);
     this.name = 'SetupError';
   }
@@ -113,16 +115,16 @@ class GitOpsSetup {
     if (this.options.verbose && !silent) {
       this.log(`${colors.blue}Running: ${command}${colors.reset}`);
     }
-    
+
     if (this.options.dryRun) {
       this.log(`${colors.yellow}[DRY-RUN] Would execute: ${command}${colors.reset}`);
       return '';
     }
 
     try {
-      return execSync(command, { 
+      return execSync(command, {
         encoding: 'utf-8',
-        stdio: silent ? 'pipe' : 'inherit'
+        stdio: silent ? 'pipe' : 'inherit',
       }).trim();
     } catch (error: any) {
       throw new SetupError(`Command failed: ${command}\n${error.message}`, 'EXEC_FAILED');
@@ -135,7 +137,7 @@ class GitOpsSetup {
     const tools = [
       { name: 'aws', command: 'aws --version', package: 'awscli' },
       { name: 'gh', command: 'gh --version', package: 'github-cli' },
-      { name: 'jq', command: 'jq --version', package: 'jq' }
+      { name: 'jq', command: 'jq --version', package: 'jq' },
     ];
 
     for (const tool of tools) {
@@ -144,7 +146,7 @@ class GitOpsSetup {
         this.logSuccess(`${tool.name} is available`);
       } catch {
         throw new SetupError(
-          `${tool.name} is not installed. Install with: nix-shell -p ${tool.package}`, 
+          `${tool.name} is not installed. Install with: nix-shell -p ${tool.package}`,
           'MISSING_TOOL'
         );
       }
@@ -173,10 +175,12 @@ class GitOpsSetup {
     } catch {
       if (this.options.interactive && !this.options.dryRun) {
         this.log(`${colors.yellow}AWS not authenticated. Running configuration...${colors.reset}`);
-        this.log(`${colors.blue}Get your AWS Access Keys from: https://console.aws.amazon.com/iam/home#/security_credentials${colors.reset}`);
+        this.log(
+          `${colors.blue}Get your AWS Access Keys from: https://console.aws.amazon.com/iam/home#/security_credentials${colors.reset}`
+        );
         this.log('You will need your AWS Access Key ID and Secret Access Key');
         this.exec('aws configure');
-        
+
         // Verify authentication worked
         try {
           this.exec('aws sts get-caller-identity', true);
@@ -188,10 +192,7 @@ class GitOpsSetup {
           );
         }
       } else {
-        throw new SetupError(
-          'AWS not authenticated. Run: aws configure',
-          'AUTH_FAILED'
-        );
+        throw new SetupError('AWS not authenticated. Run: aws configure', 'AUTH_FAILED');
       }
     }
 
@@ -206,13 +207,15 @@ class GitOpsSetup {
   private async checkGitHubAuthentication(): Promise<void> {
     // Determine which token to use (prefer GH_TOKEN for Codespaces)
     const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
-    
+
     if (!token) {
       if (this.options.interactive && !this.options.dryRun) {
         this.log(`${colors.yellow}No GitHub token found. Running gh auth login...${colors.reset}`);
-        this.log(`${colors.blue}This will open your web browser for GitHub authentication${colors.reset}`);
+        this.log(
+          `${colors.blue}This will open your web browser for GitHub authentication${colors.reset}`
+        );
         this.exec('gh auth login');
-        
+
         // Verify authentication worked
         try {
           this.exec('gh auth status', true);
@@ -235,9 +238,9 @@ class GitOpsSetup {
         const repoInfo = this.exec('gh repo view --json owner,name', true);
         const repo = JSON.parse(repoInfo);
         const repoFullName = `${repo.owner.login}/${repo.name}`;
-        
+
         this.logSuccess(`GitHub authenticated for repository: ${repoFullName}`);
-        
+
         // Test if we can create secrets (this requires admin permissions)
         try {
           // Try to get existing secrets (this also requires admin permissions)
@@ -246,8 +249,8 @@ class GitOpsSetup {
         } catch {
           throw new SetupError(
             `GitHub token lacks repository admin permissions required to manage secrets.\n` +
-            `For Codespaces: Set GH_TOKEN in your Codespaces secrets with 'repo' scope.\n` +
-            `For local development: Use 'gh auth login' with appropriate permissions.`,
+              `For Codespaces: Set GH_TOKEN in your Codespaces secrets with 'repo' scope.\n` +
+              `For local development: Use 'gh auth login' with appropriate permissions.`,
             'INSUFFICIENT_PERMISSIONS'
           );
         }
@@ -275,8 +278,10 @@ class GitOpsSetup {
     const accountInfo = await this.gatherAccountInfo();
 
     // Display comprehensive confirmation
-    this.log(`${colors.yellow}${colors.bold}⚠️  IMPORTANT: Please verify the accounts and resources to be created${colors.reset}\n`);
-    
+    this.log(
+      `${colors.yellow}${colors.bold}⚠️  IMPORTANT: Please verify the accounts and resources to be created${colors.reset}\n`
+    );
+
     this.log(`${colors.bold}${colors.blue}Project Configuration:${colors.reset}`);
     this.log(`  Name: ${this.config.project.name}`);
     this.log(`  Domain: ${this.config.project.domain}`);
@@ -284,10 +289,16 @@ class GitOpsSetup {
     this.log(`  Environment: ${this.config.environments[0].name}\n`);
 
     this.log(`${colors.bold}${colors.blue}Account Details:${colors.reset}`);
-    this.log(`  ${colors.bold}DigitalOcean:${colors.reset} ${accountInfo.digitalOcean.email} (${accountInfo.digitalOcean.uuid})`);
-    this.log(`  ${colors.bold}AWS:${colors.reset} ${accountInfo.aws.account} (${accountInfo.aws.user})`);
+    this.log(
+      `  ${colors.bold}DigitalOcean:${colors.reset} ${accountInfo.digitalOcean.email} (${accountInfo.digitalOcean.uuid})`
+    );
+    this.log(
+      `  ${colors.bold}AWS:${colors.reset} ${accountInfo.aws.account} (${accountInfo.aws.user})`
+    );
     if (!this.options.skipGithub) {
-      this.log(`  ${colors.bold}GitHub:${colors.reset} ${accountInfo.github.user} (${accountInfo.github.account})`);
+      this.log(
+        `  ${colors.bold}GitHub:${colors.reset} ${accountInfo.github.user} (${accountInfo.github.account})`
+      );
     }
     this.log('');
 
@@ -296,7 +307,7 @@ class GitOpsSetup {
     this.log(`    • Terraform State Bucket: ${this.config.project.name}-terraform-state`);
     this.log(`    • Versioning: Enabled`);
     this.log(`    • Encryption: AES256`);
-    
+
     this.log(`  ${colors.bold}AWS SES:${colors.reset}`);
     this.log(`    • IAM User: ${this.config.project.name}-ses-smtp`);
     this.log(`    • IAM Policy: ${this.config.project.name}-ses-policy`);
@@ -332,16 +343,16 @@ class GitOpsSetup {
       // DigitalOcean account info via API
       const response = await fetch('https://api.digitalocean.com/v2/account', {
         headers: {
-          'Authorization': `Bearer ${process.env.DIGITALOCEAN_TOKEN}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${process.env.DIGITALOCEAN_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
       });
 
       if (response.ok) {
-        const data = await response.json() as { account?: { email?: string; uuid?: string } };
+        const data = (await response.json()) as { account?: { email?: string; uuid?: string } };
         accountInfo.digitalOcean = {
           email: data.account?.email || 'Unknown',
-          uuid: data.account?.uuid || 'Unknown'
+          uuid: data.account?.uuid || 'Unknown',
         };
       } else {
         throw new Error(`API response: ${response.status}`);
@@ -352,16 +363,22 @@ class GitOpsSetup {
 
     try {
       // AWS account info
-      const awsAccount = this.exec('aws sts get-caller-identity --query "[Account,Arn]" --output text', true).split('\t');
+      const awsAccount = this.exec(
+        'aws sts get-caller-identity --query "[Account,Arn]" --output text',
+        true
+      ).split('\t');
       const account = awsAccount[0]?.trim() || 'Unknown';
       const arn = awsAccount[1]?.trim() || 'Unknown';
-      const user = arn.includes('user/') ? arn.split('user/')[1] : 
-                   arn.includes('role/') ? arn.split('role/')[1] : 'Unknown';
-      
+      const user = arn.includes('user/')
+        ? arn.split('user/')[1]
+        : arn.includes('role/')
+          ? arn.split('role/')[1]
+          : 'Unknown';
+
       accountInfo.aws = {
         account: account,
         user: user,
-        arn: arn
+        arn: arn,
       };
     } catch {
       accountInfo.aws = { account: 'Unknown', user: 'Unknown', arn: 'Unknown' };
@@ -375,11 +392,11 @@ class GitOpsSetup {
         const repoInfo = this.exec('gh repo view --json owner,name', true);
         const repo = JSON.parse(repoInfo);
         const repoName = `${repo.owner.login}/${repo.name}`;
-        
+
         accountInfo.github = {
           user: ghUser,
           account: repo.owner.login,
-          repo: repoName
+          repo: repoName,
         };
       } catch {
         accountInfo.github = { user: 'Unknown', account: 'Unknown', repo: 'Unknown' };
@@ -391,25 +408,27 @@ class GitOpsSetup {
 
   private async promptForConfirmation(): Promise<void> {
     const readline = await import('readline');
-    
-    this.log(`${colors.yellow}${colors.bold}Do you want to proceed with creating these resources?${colors.reset}`);
+
+    this.log(
+      `${colors.yellow}${colors.bold}Do you want to proceed with creating these resources?${colors.reset}`
+    );
     this.log(`Type 'yes' to continue, 'no' to abort:`);
-    
+
     const rl = readline.createInterface({
       input: process.stdin,
-      output: process.stdout
+      output: process.stdout,
     });
 
-    return new Promise((resolve) => {
-      rl.question('> ', (answer) => {
+    return new Promise(resolve => {
+      rl.question('> ', answer => {
         rl.close();
         const response = answer.trim().toLowerCase();
-        
+
         if (response !== 'yes' && response !== 'y') {
           this.log(`${colors.yellow}Setup aborted by user${colors.reset}`);
           process.exit(0);
         }
-        
+
         this.logSuccess('Confirmation received, proceeding with setup...');
         resolve();
       });
@@ -429,54 +448,62 @@ class GitOpsSetup {
     } catch {
       // Create bucket
       this.log(`Creating S3 bucket: ${bucketName}`);
-      
+
       // Create bucket with versioning
       if (region === 'us-east-1') {
         this.exec(`aws s3api create-bucket --bucket ${bucketName}`);
       } else {
-        this.exec(`aws s3api create-bucket --bucket ${bucketName} --region ${region} --create-bucket-configuration LocationConstraint=${region}`);
+        this.exec(
+          `aws s3api create-bucket --bucket ${bucketName} --region ${region} --create-bucket-configuration LocationConstraint=${region}`
+        );
       }
-      
+
       // Enable versioning
-      this.exec(`aws s3api put-bucket-versioning --bucket ${bucketName} --versioning-configuration Status=Enabled`);
-      
+      this.exec(
+        `aws s3api put-bucket-versioning --bucket ${bucketName} --versioning-configuration Status=Enabled`
+      );
+
       // Enable encryption
-      this.exec(`aws s3api put-bucket-encryption --bucket ${bucketName} --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'`);
-      
+      this.exec(
+        `aws s3api put-bucket-encryption --bucket ${bucketName} --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'`
+      );
+
       // Add lifecycle policy for old versions
       const lifecyclePolicy = {
-        Rules: [{
-          ID: 'terraform-state-cleanup',
-          Status: 'Enabled',
-          NoncurrentVersionExpiration: {
-            NoncurrentDays: 90
-          }
-        }]
+        Rules: [
+          {
+            ID: 'terraform-state-cleanup',
+            Status: 'Enabled',
+            NoncurrentVersionExpiration: {
+              NoncurrentDays: 90,
+            },
+          },
+        ],
       };
-      
-      this.exec(`aws s3api put-bucket-lifecycle-configuration --bucket ${bucketName} --lifecycle-configuration '${JSON.stringify(lifecyclePolicy)}'`);
-      
+
+      this.exec(
+        `aws s3api put-bucket-lifecycle-configuration --bucket ${bucketName} --lifecycle-configuration '${JSON.stringify(lifecyclePolicy)}'`
+      );
+
       this.logSuccess(`Created S3 bucket: ${bucketName} with versioning and encryption`);
     }
 
     return { bucketName, region };
   }
 
-
   private generateSesSmtpPassword(secretKey: string): string {
     const message = 'SendRawEmail';
     const versionInBytes = Buffer.from([0x04]);
     const signatureInBytes = Buffer.concat([versionInBytes, Buffer.from(secretKey, 'utf-8')]);
-    
+
     const hmac = createHmac('sha256', signatureInBytes);
     hmac.update(message);
-    
+
     return hmac.digest('base64');
   }
 
   private async setupSesCredentials(): Promise<{ username: string; password: string }> {
     this.logStep('Setting up AWS SES SMTP Credentials');
-
 
     const domain = this.config.project.domain;
     const userName = `${this.config.project.name}-ses-smtp`;
@@ -488,18 +515,18 @@ class GitOpsSetup {
       Statement: [
         {
           Effect: 'Allow',
-          Action: [
-            'ses:SendEmail',
-            'ses:SendRawEmail'
-          ],
-          Resource: `arn:aws:ses:*:*:identity/${domain}`
-        }
-      ]
+          Action: ['ses:SendEmail', 'ses:SendRawEmail'],
+          Resource: `arn:aws:ses:*:*:identity/${domain}`,
+        },
+      ],
     };
 
     this.log(`Creating IAM policy: ${policyName}`);
     try {
-      this.exec(`aws iam create-policy --policy-name ${policyName} --policy-document '${JSON.stringify(policyDocument)}'`, true);
+      this.exec(
+        `aws iam create-policy --policy-name ${policyName} --policy-document '${JSON.stringify(policyDocument)}'`,
+        true
+      );
       this.logSuccess(`Created IAM policy: ${policyName}`);
     } catch {
       this.logWarning(`IAM policy ${policyName} may already exist`);
@@ -517,9 +544,12 @@ class GitOpsSetup {
     // Attach policy to user
     const accountId = this.exec('aws sts get-caller-identity --query Account --output text', true);
     const policyArn = `arn:aws:iam::${accountId}:policy/${policyName}`;
-    
+
     try {
-      this.exec(`aws iam attach-user-policy --user-name ${userName} --policy-arn ${policyArn}`, true);
+      this.exec(
+        `aws iam attach-user-policy --user-name ${userName} --policy-arn ${policyArn}`,
+        true
+      );
       this.logSuccess(`Attached policy to user: ${userName}`);
     } catch {
       this.logWarning(`Policy may already be attached to ${userName}`);
@@ -527,18 +557,24 @@ class GitOpsSetup {
 
     // Delete any existing access keys and create new ones
     this.log(`Managing access keys for: ${userName}`);
-    
+
     // List existing access keys
     try {
-      const existingKeys = this.exec(`aws iam list-access-keys --user-name ${userName} --query 'AccessKeyMetadata[].AccessKeyId' --output text`, true);
-      
+      const existingKeys = this.exec(
+        `aws iam list-access-keys --user-name ${userName} --query 'AccessKeyMetadata[].AccessKeyId' --output text`,
+        true
+      );
+
       if (existingKeys.trim()) {
         const keyIds = existingKeys.trim().split(/\s+/);
         this.log(`Found ${keyIds.length} existing access key(s), removing them...`);
-        
+
         for (const keyId of keyIds) {
           try {
-            this.exec(`aws iam delete-access-key --user-name ${userName} --access-key-id ${keyId}`, true);
+            this.exec(
+              `aws iam delete-access-key --user-name ${userName} --access-key-id ${keyId}`,
+              true
+            );
             this.logSuccess(`Deleted existing access key: ${keyId}`);
           } catch (error) {
             this.logWarning(`Could not delete access key ${keyId}: ${error}`);
@@ -555,9 +591,12 @@ class GitOpsSetup {
     let secretKey: string;
 
     try {
-      const keyOutput = this.exec(`aws iam create-access-key --user-name ${userName} --query 'AccessKey.[AccessKeyId,SecretAccessKey]' --output text`, true);
+      const keyOutput = this.exec(
+        `aws iam create-access-key --user-name ${userName} --query 'AccessKey.[AccessKeyId,SecretAccessKey]' --output text`,
+        true
+      );
       [accessKey, secretKey] = keyOutput.split('\t');
-      
+
       this.logSuccess(`Created new access keys for: ${userName}`);
     } catch {
       throw new SetupError(`Failed to create access keys for ${userName}`, 'SES_KEY_FAILED');
@@ -624,19 +663,26 @@ class GitOpsSetup {
       { name: 'status:new-issue', color: 'f9f9f9', description: 'New issue that needs triage' },
       { name: 'status:backlog', color: 'eeeeee', description: 'Issue is in backlog' },
       { name: 'status:ready', color: 'yellow', description: 'Issue is ready to be worked on' },
-      { name: 'status:in-progress', color: 'blue', description: 'Issue is currently being worked on' },
+      {
+        name: 'status:in-progress',
+        color: 'blue',
+        description: 'Issue is currently being worked on',
+      },
       { name: 'status:blocked', color: 'red', description: 'Issue is blocked' },
       { name: 'status:done', color: 'green', description: 'Issue has been completed' },
       { name: 'type:feature', color: 'blue', description: 'New feature request' },
       { name: 'type:bug', color: 'red', description: 'Bug report' },
       { name: 'type:enhancement', color: 'yellow', description: 'Enhancement to existing feature' },
-      { name: 'type:documentation', color: 'purple', description: 'Documentation update' }
+      { name: 'type:documentation', color: 'purple', description: 'Documentation update' },
     ];
 
     this.log('Creating workflow labels...');
     for (const label of labels) {
       try {
-        this.exec(`gh label create "${label.name}" --color ${label.color} --description "${label.description}"`, true);
+        this.exec(
+          `gh label create "${label.name}" --color ${label.color} --description "${label.description}"`,
+          true
+        );
         this.logSuccess(`Created label: ${label.name}`);
       } catch {
         this.logWarning(`Label ${label.name} may already exist`);
@@ -707,11 +753,16 @@ This will remove all template-specific files automatically.
     try {
       // Create template-cleanup label if it doesn't exist
       try {
-        this.exec('gh label create "template-cleanup" --description "Issues related to template cleanup and ejection" --color "5319e7"', true);
+        this.exec(
+          'gh label create "template-cleanup" --description "Issues related to template cleanup and ejection" --color "5319e7"',
+          true
+        );
         this.log('Created template-cleanup label');
       } catch {
         // Label might already exist, continue silently
-        this.log(`${colors.yellow}Label 'template-cleanup' already exists; skipping creation.${colors.reset}`);
+        this.log(
+          `${colors.yellow}Label 'template-cleanup' already exists; skipping creation.${colors.reset}`
+        );
       }
 
       // Use heredoc to avoid shell interpretation of backticks
@@ -719,17 +770,16 @@ This will remove all template-specific files automatically.
 ${issueBody}
 EOF
 )" --label "template-cleanup"`;
-      
+
       const result = this.exec(command, true);
       if (result && typeof result === 'string') {
         this.logSuccess(`Created template cleanup issue: ${result.trim()}`);
       } else {
         this.logWarning('Failed to retrieve result from GitHub CLI command');
       }
-      
     } catch (error: any) {
       this.logWarning('Failed to create template cleanup issue');
-      
+
       // Provide specific error context
       if (error.message.includes('not found')) {
         this.logWarning('GitHub CLI (gh) not found. Install with: nix-shell -p github-cli');
@@ -740,29 +790,29 @@ EOF
       } else {
         this.logWarning(`Unexpected error: ${error.message}`);
       }
-      
-      this.logWarning('You can create the cleanup issue manually or re-run setup with proper authentication');
+
+      this.logWarning(
+        'You can create the cleanup issue manually or re-run setup with proper authentication'
+      );
     }
   }
 
   private async ejectTemplate(): Promise<void> {
     this.logStep('Template Ejection Mode');
-    
-    this.log(`${colors.yellow}${colors.bold}⚠️ This will create a pull request to remove template-specific files${colors.reset}\n`);
-    
+
+    this.log(
+      `${colors.yellow}${colors.bold}⚠️ This will create a pull request to remove template-specific files${colors.reset}\n`
+    );
+
     const filesToRemove = [
       'setup.ts',
       'platform/config.json.example',
       'initial-setup.sh',
       '.github/workflows/create-setup-issue.yml',
-      'HYBRID-WORKFLOW.md'
+      'HYBRID-WORKFLOW.md',
     ];
 
-    const optionalFiles = [
-      'README.md',
-      'WORKFLOW.md',
-      'docs/workflow-requirements.md'
-    ];
+    const optionalFiles = ['README.md', 'WORKFLOW.md', 'docs/workflow-requirements.md'];
 
     this.log(`${colors.bold}${colors.blue}Files to be removed:${colors.reset}`);
     for (const file of filesToRemove) {
@@ -773,7 +823,9 @@ EOF
       }
     }
 
-    this.log(`\n${colors.bold}${colors.blue}Optional files (you may want to update):${colors.reset}`);
+    this.log(
+      `\n${colors.bold}${colors.blue}Optional files (you may want to update):${colors.reset}`
+    );
     for (const file of optionalFiles) {
       if (existsSync(file)) {
         this.log(`  • ${file} ${colors.blue}(update to reflect your project)${colors.reset}`);
@@ -782,17 +834,19 @@ EOF
 
     // Interactive confirmation unless --yes flag
     if (!this.options.assumeYes) {
-      this.log(`\n${colors.yellow}${colors.bold}Create a PR to remove template files?${colors.reset}`);
+      this.log(
+        `\n${colors.yellow}${colors.bold}Create a PR to remove template files?${colors.reset}`
+      );
       this.log(`Type 'yes' to continue, 'no' to cancel:`);
-      
+
       const readline = await import('readline');
       const rl = readline.createInterface({
         input: process.stdin,
-        output: process.stdout
+        output: process.stdout,
       });
 
-      const response = await new Promise<string>((resolve) => {
-        rl.question('> ', (answer) => {
+      const response = await new Promise<string>(resolve => {
+        rl.question('> ', answer => {
           rl.close();
           resolve(answer.trim().toLowerCase());
         });
@@ -823,39 +877,43 @@ EOF
     // Create cleanup branch
     const branchName = 'chore/eject-template-artifacts';
     this.log(`\n${colors.blue}Creating branch: ${branchName}${colors.reset}`);
-    
+
     try {
       // Check if branch already exists
       try {
         this.exec(`git rev-parse --verify ${branchName}`, true);
         this.logWarning(`Branch ${branchName} already exists`);
-        
+
         // Ask to delete existing branch
         if (this.options.interactive && !this.options.assumeYes) {
           this.log(`Delete existing branch and create a new one? (y/N):`);
-          
+
           const readline = await import('readline');
           const rl = readline.createInterface({
             input: process.stdin,
-            output: process.stdout
+            output: process.stdout,
           });
 
-          const response = await new Promise<string>((resolve) => {
-            rl.question('> ', (answer) => {
+          const response = await new Promise<string>(resolve => {
+            rl.question('> ', answer => {
               rl.close();
               resolve(answer.trim().toLowerCase());
             });
           });
-          
+
           if (response === 'y' || response === 'yes') {
             this.exec(`git branch -D ${branchName}`, true);
             this.logSuccess(`Deleted existing branch ${branchName}`);
           } else {
-            this.logError('Cannot proceed with existing branch. Please delete it manually or choose a different name.');
+            this.logError(
+              'Cannot proceed with existing branch. Please delete it manually or choose a different name.'
+            );
             return;
           }
         } else {
-          this.logError(`Branch ${branchName} already exists. Delete it first or use a different name.`);
+          this.logError(
+            `Branch ${branchName} already exists. Delete it first or use a different name.`
+          );
           return;
         }
       } catch {
@@ -874,7 +932,7 @@ EOF
     this.log(`\n${colors.blue}Removing template files...${colors.reset}`);
     let removedCount = 0;
     const removedFiles: string[] = [];
-    
+
     for (const file of filesToRemove) {
       if (existsSync(file)) {
         try {
@@ -898,7 +956,7 @@ EOF
     // Stage changes
     try {
       this.exec('git add -A', true);
-      
+
       // Create commit
       const commitMessage = `chore: eject GitOps template artifacts
 
@@ -906,7 +964,7 @@ Removed template-specific files after successful setup:
 ${removedFiles.map(f => `- ${f}`).join('\n')}
 
 Repository is now ready for independent development.`;
-      
+
       this.exec(`git commit -m "${commitMessage}"`, true);
       this.logSuccess('Created commit');
     } catch (error) {
@@ -928,7 +986,7 @@ Repository is now ready for independent development.`;
 
     // Create PR using gh CLI
     this.log(`\n${colors.blue}Creating pull request...${colors.reset}`);
-    
+
     const prBody = `## Template Ejection
 
 This PR removes template-specific files after repository setup is complete.
@@ -943,10 +1001,16 @@ ${removedFiles.map(f => `- \`${f}\``).join('\n')}
 
 ### Note
 The following files may need manual updates:
-${optionalFiles.filter(f => existsSync(f)).map(f => `- \`${f}\``).join('\n')}`;
+${optionalFiles
+  .filter(f => existsSync(f))
+  .map(f => `- \`${f}\``)
+  .join('\n')}`;
 
     try {
-      const prUrl = this.exec(`gh pr create --title "chore: eject GitOps template artifacts" --body "${prBody.replace(/"/g, '\\"')}" --head ${branchName}`, true);
+      const prUrl = this.exec(
+        `gh pr create --title "chore: eject GitOps template artifacts" --body "${prBody.replace(/"/g, '\\"')}" --head ${branchName}`,
+        true
+      );
       this.logSuccess('Created pull request');
       this.log(`\n${colors.green}Pull request URL: ${prUrl}${colors.reset}`);
     } catch (error) {
@@ -1003,7 +1067,7 @@ ${optionalFiles.filter(f => existsSync(f)).map(f => `- \`${f}\``).join('\n')}`;
         SES_SMTP_USERNAME: sesConfig.username,
         SES_SMTP_PASSWORD: sesConfig.password,
         ADMIN_EMAIL: this.config.project.email,
-        DOMAIN: this.config.project.domain
+        DOMAIN: this.config.project.domain,
       };
 
       await this.setGitHubSecrets(secrets);
@@ -1026,7 +1090,6 @@ ${optionalFiles.filter(f => existsSync(f)).map(f => `- \`${f}\``).join('\n')}`;
         this.log('2. Wait for infrastructure deployment to complete');
         this.log('3. Access your applications at the configured domains');
       }
-
     } catch (error) {
       if (error instanceof SetupError) {
         this.logError(`Setup failed: ${error.message}`);
@@ -1114,7 +1177,7 @@ EOF
 )"`;
 
       const prResult = this.exec(prCommand, true);
-      
+
       if (prResult && typeof prResult === 'string') {
         const prUrl = prResult.trim();
         this.logSuccess(`Created setup PR: ${prUrl}`);
@@ -1126,10 +1189,9 @@ EOF
       } else {
         this.logWarning('PR created but could not retrieve URL');
       }
-
     } catch (error: any) {
       this.logWarning('Failed to create setup PR');
-      
+
       if (error.message.includes('not found')) {
         this.logWarning('GitHub CLI (gh) not found. Install with: nix-shell -p github-cli');
       } else if (error.message.includes('permission') || error.message.includes('auth')) {
@@ -1137,7 +1199,7 @@ EOF
       } else {
         this.logWarning(`Unexpected error: ${error.message}`);
       }
-      
+
       this.logWarning('You can manually create a PR with the current changes');
     }
   }
@@ -1157,7 +1219,7 @@ EOF
     const projectName = this.config.project.name;
     const domain = this.config.project.domain;
     const environment = this.config.environments[0];
-    
+
     return `## Initial Repository Setup
 
 This PR contains the initial configuration for **${projectName}** generated by the GitOps template setup process.
@@ -1214,7 +1276,7 @@ async function loadOrCreateConfig(configPath?: string): Promise<Config> {
     '../config.json',
     '../config.js',
     '../config.ts',
-    process.env.GITOPS_CONFIG_PATH
+    process.env.GITOPS_CONFIG_PATH,
   ].filter(Boolean);
 
   for (const path of paths) {
@@ -1237,14 +1299,14 @@ async function loadOrCreateConfig(configPath?: string): Promise<Config> {
 
   // No config found, create interactively
   console.log(`${colors.yellow}No configuration file found.${colors.reset}`);
-  console.log('Let\'s create one interactively.\n');
-  
+  console.log("Let's create one interactively.\n");
+
   return await createConfigInteractively();
 }
 
 async function createConfigInteractively(): Promise<Config> {
   console.log(`${colors.bold}${colors.blue}Configuration Setup${colors.reset}`);
-  console.log('Let\'s create your infrastructure configuration.\n');
+  console.log("Let's create your infrastructure configuration.\n");
 
   // Environment variable defaults (SETUP_* vars take precedence)
   const envDefaults = {
@@ -1254,14 +1316,17 @@ async function createConfigInteractively(): Promise<Config> {
     description: process.env.SETUP_DESCRIPTION,
     region: process.env.SETUP_REGION || process.env.DO_REGION || 'nyc3',
     nodeSize: process.env.SETUP_NODE_SIZE || process.env.NODE_SIZE || 's-2vcpu-4gb',
-    nodeCount: process.env.SETUP_NODE_COUNT ? parseInt(process.env.SETUP_NODE_COUNT) : 
-               process.env.NODE_COUNT ? parseInt(process.env.NODE_COUNT) : 3,
-    environment: process.env.SETUP_ENVIRONMENT || process.env.ENVIRONMENT || 'production'
+    nodeCount: process.env.SETUP_NODE_COUNT
+      ? parseInt(process.env.SETUP_NODE_COUNT)
+      : process.env.NODE_COUNT
+        ? parseInt(process.env.NODE_COUNT)
+        : 3,
+    environment: process.env.SETUP_ENVIRONMENT || process.env.ENVIRONMENT || 'production',
   };
 
   const readline = require('readline').createInterface({
     input: process.stdin,
-    output: process.stdout
+    output: process.stdout,
   });
 
   const prompt = (question: string, defaultValue?: string): Promise<string> => {
@@ -1275,62 +1340,52 @@ async function createConfigInteractively(): Promise<Config> {
 
   try {
     const projectName = await prompt(
-      'Project name (lowercase, hyphens only)', 
+      'Project name (lowercase, hyphens only)',
       envDefaults.projectName || 'my-startup'
     );
 
-    const domain = await prompt(
-      'Primary domain', 
-      envDefaults.domain || 'example.com'
-    );
+    const domain = await prompt('Primary domain', envDefaults.domain || 'example.com');
 
     const email = await prompt(
-      'Admin email (for SSL certificates)', 
+      'Admin email (for SSL certificates)',
       envDefaults.email || `admin@${domain}`
     );
 
     const description = await prompt(
-      'Project description (optional)', 
+      'Project description (optional)',
       envDefaults.description || `GitOps infrastructure for ${projectName}`
     );
 
     const environment = await prompt(
-      'Environment name (staging/production)', 
+      'Environment name (staging/production)',
       envDefaults.environment
     );
 
-    const region = await prompt(
-      'DigitalOcean region', 
-      envDefaults.region
-    );
+    const region = await prompt('DigitalOcean region', envDefaults.region);
 
-    const nodeSize = await prompt(
-      'Node size', 
-      envDefaults.nodeSize
-    );
+    const nodeSize = await prompt('Node size', envDefaults.nodeSize);
 
-    const nodeCountStr = await prompt(
-      'Node count', 
-      envDefaults.nodeCount.toString()
-    );
+    const nodeCountStr = await prompt('Node count', envDefaults.nodeCount.toString());
 
     const config: Config = {
       project: {
         name: projectName,
         domain: domain,
         email: email,
-        description: description || undefined
+        description: description || undefined,
       },
-      environments: [{
-        name: environment as 'staging' | 'production',
-        cluster: {
-          region: region,
-          nodeSize: nodeSize,
-          nodeCount: parseInt(nodeCountStr),
-          haControlPlane: parseInt(nodeCountStr) >= 3
+      environments: [
+        {
+          name: environment as 'staging' | 'production',
+          cluster: {
+            region: region,
+            nodeSize: nodeSize,
+            nodeCount: parseInt(nodeCountStr),
+            haControlPlane: parseInt(nodeCountStr) >= 3,
+          },
+          domain: domain,
         },
-        domain: domain
-      }]
+      ],
     };
 
     // Save config
@@ -1344,7 +1399,7 @@ async function createConfigInteractively(): Promise<Config> {
 
     writeFileSync(configPath, JSON.stringify(config, null, 2));
     console.log(`${colors.green}Configuration saved to ${configPath}${colors.reset}\n`);
-    
+
     return config;
   } finally {
     readline.close();
@@ -1458,7 +1513,7 @@ async function main(): Promise<void> {
 
   try {
     // For eject mode, we don't need a valid config
-    const config = options.eject ? {} as Config : await loadOrCreateConfig(options.config);
+    const config = options.eject ? ({} as Config) : await loadOrCreateConfig(options.config);
     const setup = new GitOpsSetup(config, options);
     await setup.run();
   } catch (error) {

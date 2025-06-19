@@ -25,7 +25,7 @@ export class GitHubSecretsStack extends TerraformStack {
     });
 
     // Create action secrets
-    this.actionSecrets = Object.entries(secrets).map(([key, value], index) => {
+    this.actionSecrets = Object.entries(secrets).map(([key, value]) => {
       return new ActionsSecret(this, `secret-${key.toLowerCase()}`, {
         repository,
         secretName: key,
