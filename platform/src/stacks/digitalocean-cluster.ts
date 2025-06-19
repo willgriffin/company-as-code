@@ -23,7 +23,7 @@ export class DigitalOceanClusterStack extends TerraformStack {
   constructor(scope: Construct, id: string, props: DigitalOceanClusterStackProps) {
     super(scope, id);
 
-    const { projectName, environment, config } = props;
+    const { projectName, environment } = props;
     const clusterName = `${projectName}-${environment.name}`;
 
     // DigitalOcean provider
@@ -40,20 +40,17 @@ export class DigitalOceanClusterStack extends TerraformStack {
         name: `${clusterName}-default-pool`,
         size: environment.cluster.nodeSize,
         nodeCount: environment.cluster.nodeCount,
-        autoScale: environment.cluster.minNodes !== undefined || environment.cluster.maxNodes !== undefined,
+        autoScale:
+          environment.cluster.minNodes !== undefined || environment.cluster.maxNodes !== undefined,
         minNodes: environment.cluster.minNodes || Math.max(1, environment.cluster.nodeCount - 1),
         maxNodes: environment.cluster.maxNodes || environment.cluster.nodeCount + 2,
       },
-      tags: [
-        projectName,
-        environment.name,
-        'managed-by-cdktf'
-      ],
+      tags: [projectName, environment.name, 'managed-by-cdktf'],
       maintenancePolicy: {
         startTime: '04:00',
-        day: 'sunday'
+        day: 'sunday',
       },
-      ha: environment.cluster.haControlPlane || false
+      ha: environment.cluster.haControlPlane || false,
     });
 
     // Additional node pool for applications (if more than 2 nodes)
@@ -63,23 +60,22 @@ export class DigitalOceanClusterStack extends TerraformStack {
         name: `${clusterName}-app-pool`,
         size: environment.cluster.nodeSize,
         nodeCount: Math.max(1, environment.cluster.nodeCount - 1),
-        autoScale: environment.cluster.minNodes !== undefined || environment.cluster.maxNodes !== undefined,
+        autoScale:
+          environment.cluster.minNodes !== undefined || environment.cluster.maxNodes !== undefined,
         minNodes: environment.cluster.minNodes ? Math.max(1, environment.cluster.minNodes - 1) : 1,
         maxNodes: environment.cluster.maxNodes || environment.cluster.nodeCount,
-        tags: [
-          projectName,
-          environment.name,
-          'app-workloads'
-        ],
+        tags: [projectName, environment.name, 'app-workloads'],
         labels: {
           'node-type': 'application',
-          'environment': environment.name
+          environment: environment.name,
         },
-        taint: [{
-          key: 'workload-type',
-          value: 'application',
-          effect: 'NoSchedule'
-        }]
+        taint: [
+          {
+            key: 'workload-type',
+            value: 'application',
+            effect: 'NoSchedule',
+          },
+        ],
       });
     }
 
@@ -95,7 +91,7 @@ export class DigitalOceanClusterStack extends TerraformStack {
           entryProtocol: 'http',
           entryPort: 80,
           targetProtocol: 'http',
-          targetPort: 80
+          targetPort: 80,
         },
         {
           entryProtocol: 'https',
@@ -103,7 +99,7 @@ export class DigitalOceanClusterStack extends TerraformStack {
           targetProtocol: 'https',
           targetPort: 443,
           certificateId: '', // Will be updated with cert-manager
-        }
+        },
       ],
       healthcheck: {
         protocol: 'http',
@@ -112,15 +108,15 @@ export class DigitalOceanClusterStack extends TerraformStack {
         checkIntervalSeconds: 10,
         responseTimeoutSeconds: 5,
         unhealthyThreshold: 3,
-        healthyThreshold: 2
+        healthyThreshold: 2,
       },
-      dropletTag: `${clusterName}-worker`
+      dropletTag: `${clusterName}-worker`,
     });
 
     // Domain management
     this.domain = new Domain(this, 'domain', {
       name: environment.domain,
-      ipAddress: this.loadBalancer.ip
+      ipAddress: this.loadBalancer.ip,
     });
 
     // Application DNS records are managed by external-dns based on ingress annotations
@@ -131,54 +127,54 @@ export class DigitalOceanClusterStack extends TerraformStack {
       type: 'A',
       name: '*',
       value: this.loadBalancer.ip,
-      ttl: 300
+      ttl: 300,
     });
 
     // Outputs
     new TerraformOutput(this, 'cluster_id', {
       value: this.cluster.id,
-      description: 'The ID of the Kubernetes cluster'
+      description: 'The ID of the Kubernetes cluster',
     });
 
     new TerraformOutput(this, 'cluster_name', {
       value: this.cluster.name,
-      description: 'The name of the Kubernetes cluster'
+      description: 'The name of the Kubernetes cluster',
     });
 
     new TerraformOutput(this, 'cluster_endpoint', {
       value: this.cluster.endpoint,
-      description: 'The endpoint of the Kubernetes cluster'
+      description: 'The endpoint of the Kubernetes cluster',
     });
 
     new TerraformOutput(this, 'cluster_status', {
       value: this.cluster.status,
-      description: 'The status of the Kubernetes cluster'
+      description: 'The status of the Kubernetes cluster',
     });
 
     new TerraformOutput(this, 'cluster_region', {
       value: this.cluster.region,
-      description: 'The region of the Kubernetes cluster'
+      description: 'The region of the Kubernetes cluster',
     });
 
     new TerraformOutput(this, 'kubeconfig', {
       value: this.cluster.kubeConfig,
       sensitive: true,
-      description: 'The kubeconfig for the cluster'
+      description: 'The kubeconfig for the cluster',
     });
 
     new TerraformOutput(this, 'load_balancer_ip', {
       value: this.loadBalancer.ip,
-      description: 'The IP address of the load balancer'
+      description: 'The IP address of the load balancer',
     });
 
     new TerraformOutput(this, 'domain_name', {
       value: this.domain.name,
-      description: 'The configured domain name'
+      description: 'The configured domain name',
     });
 
     new TerraformOutput(this, 'application_urls', {
       value: ['auth', 'chat', 'files', 'mail'].map(sub => `https://${sub}.${environment.domain}`),
-      description: 'URLs for deployed applications (DNS managed by external-dns)'
+      description: 'URLs for deployed applications (DNS managed by external-dns)',
     });
   }
 }

@@ -1,6 +1,7 @@
 ---
 name: 'Setup GitOps Tools'
 description: >-
+  Install and cache GitOps tools like kubectl, flux, yq, gomplate, and doctl
 inputs:
   tools:
     description: >-
@@ -49,27 +50,11 @@ runs:
           /usr/local/bin/doctl
         key: ${{ runner.os }}-tools-${{ hashFiles('tool-versions.txt') }}
 
-      if: >-
-        steps.cache-tools.outputs.cache-hit != 'true' &&
-      uses: nick-fields/retry@v2
-      with:
-        timeout_minutes: 5
-        max_attempts: 3
-        retry_wait_seconds: 5
-        shell: bash
-        command: |
-
     - name: Install SOPS
-      if: >-
-        steps.cache-tools.outputs.cache-hit != 'true' &&
-      uses: nick-fields/retry@v2
-      with:
-        timeout_minutes: 5
-        max_attempts: 3
-        retry_wait_seconds: 10
-        shell: bash
-        command: |
-          echo "✅ SOPS installed"
+      if: steps.cache-tools.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        echo "✅ SOPS installed"
 
     - name: Install yq
       if: >-
@@ -177,9 +162,6 @@ runs:
         echo "Verifying tool installations..."
         TOOLS="${{ inputs.tools }}"
 
-        fi
-
-        fi
 
         if command -v yq >/dev/null 2>&1 && [[ "$TOOLS" == *"yq"* ]]; then
           echo "✅ yq: $(yq --version)"

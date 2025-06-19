@@ -98,12 +98,12 @@ jobs:
       - name: Get GitHub repository info
         id: github
         run: |
-          echo "owner=${GITHUB_REPOSITORY_OWNER}" >> $GITHUB_OUTPUT
-          echo "repo=${GITHUB_REPOSITORY#*/}" >> $GITHUB_OUTPUT
+          echo "owner=${GITHUB_REPOSITORY_OWNER}" >> "$GITHUB_OUTPUT"
+          echo "repo=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
       
       - name: Set GitHub repository environment
         run: |
-          echo "GITHUB_REPOSITORY=${{ github.repository }}" >> $GITHUB_ENV
+          echo "GITHUB_REPOSITORY=${{ github.repository }}" >> "$GITHUB_ENV"
       
       - name: CDKTF Get
         run: npx cdktf get
@@ -167,7 +167,7 @@ jobs:
           fi
           
           # Encode for GitHub secret
-          echo "KUBECONFIG_BASE64=$(echo "$KUBECONFIG_CONTENT" | base64 -w 0)" >> $GITHUB_ENV
+          echo "KUBECONFIG_BASE64=$(echo "$KUBECONFIG_CONTENT" | base64 -w 0)" >> "$GITHUB_ENV"
       
       - name: Update kubeconfig secret
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
@@ -250,7 +250,7 @@ jobs:
           
           # Get Kong Gateway LoadBalancer IP
           KONG_IP=$(kubectl get svc -n kong-system kong-gateway-proxy -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
-          echo "kong_ip=$KONG_IP" >> $GITHUB_OUTPUT
+          echo "kong_ip=$KONG_IP" >> "$GITHUB_OUTPUT"
           
           echo "=== Services ==="
           kubectl get svc -A | grep LoadBalancer || echo "No LoadBalancer services found"

@@ -27,6 +27,9 @@ jobs:
     - name: Lint code
       run: pnpm run lint
       
+    - name: Lint workflows
+      run: actionlint
+      
     - name: Check code formatting
       run: pnpm run format:check
       
