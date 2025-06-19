@@ -36,6 +36,18 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'pnpm'
+        cache-dependency-path: 'pnpm-lock.yaml'
+        
+    - name: Install PNPM
+      uses: pnpm/action-setup@v2
+      with:
+        version: 9
+      
     - name: Setup tools
       uses: ./.github/actions/setup-tools
       
@@ -69,6 +81,18 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'pnpm'
+        cache-dependency-path: 'pnpm-lock.yaml'
+        
+    - name: Install PNPM
+      uses: pnpm/action-setup@v2
+      with:
+        version: 9
       
     - name: Setup tools
       uses: ./.github/actions/setup-tools
