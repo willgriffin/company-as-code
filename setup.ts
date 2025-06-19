@@ -707,6 +707,7 @@ This will remove all template-specific files automatically.
         this.log('Created template-cleanup label');
       } catch {
         // Label might already exist, continue silently
+        this.log(`${colors.yellow}Label 'template-cleanup' already exists; skipping creation.${colors.reset}`);
       }
 
       // Use heredoc to avoid shell interpretation of backticks
@@ -716,7 +717,11 @@ EOF
 )" --label "template-cleanup"`;
       
       const result = this.exec(command, true);
-      this.logSuccess(`Created template cleanup issue: ${result.trim()}`);
+      if (result && typeof result === 'string') {
+        this.logSuccess(`Created template cleanup issue: ${result.trim()}`);
+      } else {
+        this.logWarning('Failed to retrieve result from GitHub CLI command');
+      }
       
     } catch (error: any) {
       this.logWarning('Failed to create template cleanup issue');
