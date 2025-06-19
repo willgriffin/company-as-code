@@ -114,32 +114,32 @@ jobs:
       - name: CDKTF Get
         run: |
           cd platform
-          pnpm exec cdktf get
+          npx cdktf get
       
       - name: CDKTF Plan
         if: github.event.inputs.action == 'plan' || github.event.inputs.action == ''
         run: |
           cd platform
-          pnpm exec cdktf plan
+          npx cdktf plan
       
       - name: CDKTF Deploy
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
           cd platform
-          pnpm exec cdktf deploy --auto-approve
+          npx cdktf deploy --auto-approve
       
       - name: CDKTF Destroy
         if: github.event.inputs.action == 'destroy'
         run: |
           cd platform
-          pnpm exec cdktf destroy --auto-approve
+          npx cdktf destroy --auto-approve
       
       - name: Get kubeconfig from CDKTF output
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
           # Extract kubeconfig from CDKTF output
           cd platform
-          if ! pnpm exec cdktf output > cdktf-output.json; then
+          if ! npx cdktf output > cdktf-output.json; then
             echo "Error: Failed to get CDKTF output"
             exit 1
           fi
