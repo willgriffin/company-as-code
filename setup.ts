@@ -192,13 +192,21 @@ class GitOpsSetup {
       }
     }
 
-    // Check GitHub authentication  
-    try {
-      this.exec('gh auth status', true);
-      this.logSuccess('GitHub authenticated');
-    } catch {
-      if (this.options.interactive && !this.options.dryRun && !this.options.skipGithub) {
-        this.log(`${colors.yellow}GitHub not authenticated. Running login...${colors.reset}`);
+    // Check GitHub authentication and permissions
+    if (!this.options.skipGithub) {
+      await this.checkGitHubAuthentication();
+    } else {
+      this.logWarning('GitHub authentication skipped (--skip-github flag)');
+    }
+  }
+
+  private async checkGitHubAuthentication(): Promise<void> {
+    // Determine which token to use (prefer GH_TOKEN for Codespaces)
+    const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+    
+    if (!token) {
+      if (this.options.interactive && !this.options.dryRun) {
+        this.log(`${colors.yellow}No GitHub token found. Running gh auth login...${colors.reset}`);
         this.log(`${colors.blue}This will open your web browser for GitHub authentication${colors.reset}`);
         this.exec('gh auth login');
         
@@ -212,11 +220,40 @@ class GitOpsSetup {
             'AUTH_FAILED'
           );
         }
-      } else if (this.options.skipGithub) {
-        this.logWarning('GitHub authentication skipped (--skip-github flag)');
       } else {
         throw new SetupError(
-          'GitHub not authenticated. Run: gh auth login',
+          'No GitHub token found. Set GH_TOKEN (for Codespaces) or GITHUB_TOKEN environment variable, or run: gh auth login',
+          'AUTH_FAILED'
+        );
+      }
+    } else {
+      // Test token permissions by trying to get repo info
+      try {
+        const repoInfo = this.exec('gh repo view --json owner,name', true);
+        const repo = JSON.parse(repoInfo);
+        const repoFullName = `${repo.owner.login}/${repo.name}`;
+        
+        this.logSuccess(`GitHub authenticated for repository: ${repoFullName}`);
+        
+        // Test if we can create secrets (this requires admin permissions)
+        try {
+          // Try to get existing secrets (this also requires admin permissions)
+          this.exec('gh secret list', true);
+          this.logSuccess('GitHub token has repository admin permissions');
+        } catch {
+          throw new SetupError(
+            `GitHub token lacks repository admin permissions required to manage secrets.\n` +
+            `For Codespaces: Set GH_TOKEN in your Codespaces secrets with 'repo' scope.\n` +
+            `For local development: Use 'gh auth login' with appropriate permissions.`,
+            'INSUFFICIENT_PERMISSIONS'
+          );
+        }
+      } catch (error) {
+        if (error instanceof SetupError) {
+          throw error;
+        }
+        throw new SetupError(
+          'GitHub authentication failed. Please check your token or run: gh auth login',
           'AUTH_FAILED'
         );
       }
@@ -1145,6 +1182,13 @@ ENVIRONMENT VARIABLES (for defaults):
   SETUP_NODE_SIZE        Kubernetes node size (overrides NODE_SIZE)
   SETUP_NODE_COUNT       Number of nodes (overrides NODE_COUNT)
   SETUP_ENVIRONMENT      Environment name (overrides ENVIRONMENT)
+
+REQUIRED ENVIRONMENT VARIABLES:
+  DIGITALOCEAN_TOKEN     DigitalOcean API token
+  AWS_ACCESS_KEY_ID      AWS access key
+  AWS_SECRET_ACCESS_KEY  AWS secret access key
+  GH_TOKEN              GitHub token with repo admin permissions (Codespaces)
+  GITHUB_TOKEN          GitHub token with repo admin permissions (fallback)
 
 The script will automatically prompt for login if credentials are missing.
 `);
