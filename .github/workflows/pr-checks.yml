@@ -7,83 +7,78 @@ on:
     branches: [ main ]
 
 jobs:
+  check-setup:
+    name: Check Repository Setup
+    runs-on: ubuntu-latest
+    outputs:
+      should-skip: ${{ steps.setup-check.outputs.should-skip }}
+      is-setup: ${{ steps.setup-check.outputs.is-setup }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Check if repository is set up
+        id: setup-check
+        uses: ./.github/actions/check-repository-setup
+        env:
+          PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+          SETUP_COMPLETE: ${{ secrets.SETUP_COMPLETE }}
+
   validate:
     name: Validate Code Quality
+    needs: check-setup
+    if: needs.check-setup.outputs.should-skip != 'true'
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Check if repository is set up
-      id: setup-check
-      uses: ./.github/actions/check-repository-setup
-      env:
-        PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
-        SETUP_COMPLETE: ${{ secrets.SETUP_COMPLETE }}
-      
     - name: Setup tools
-      if: steps.setup-check.outputs.should-skip != 'true'
       uses: ./.github/actions/setup-tools
       
     - name: Install dependencies
-      if: steps.setup-check.outputs.should-skip != 'true'
       run: pnpm install --frozen-lockfile
       
     - name: Type check
-      if: steps.setup-check.outputs.should-skip != 'true'
       run: pnpm run typecheck
       
     - name: Lint code
-      if: steps.setup-check.outputs.should-skip != 'true'
       run: pnpm run lint
       
     - name: Lint workflows
-      if: steps.setup-check.outputs.should-skip != 'true'
       run: actionlint
       
     - name: Check code formatting
-      if: steps.setup-check.outputs.should-skip != 'true'
       run: pnpm run format:check
       
     - name: Build project
-      if: steps.setup-check.outputs.should-skip != 'true'
       run: pnpm run build
       
     - name: Run tests
-      if: steps.setup-check.outputs.should-skip != 'true'
       run: pnpm run test
 
   security:
     name: Security Scan
+    needs: check-setup
+    if: needs.check-setup.outputs.should-skip != 'true'
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Check if repository is set up
-      id: setup-check
-      uses: ./.github/actions/check-repository-setup
-      env:
-        PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
-        SETUP_COMPLETE: ${{ secrets.SETUP_COMPLETE }}
-      
     - name: Setup tools
-      if: steps.setup-check.outputs.should-skip != 'true'
       uses: ./.github/actions/setup-tools
       
     - name: Install dependencies
-      if: steps.setup-check.outputs.should-skip != 'true'
       run: pnpm install --frozen-lockfile
       
     - name: Run security audit
-      if: steps.setup-check.outputs.should-skip != 'true'
       run: pnpm audit --audit-level moderate
       continue-on-error: true
       
     - name: Check for secrets in code
-      if: steps.setup-check.outputs.should-skip != 'true'
       uses: trufflesecurity/trufflehog@main
       with:
         path: ./
@@ -93,41 +88,31 @@ jobs:
 
   setup-validation:
     name: Validate Setup Script
+    needs: check-setup
+    if: needs.check-setup.outputs.should-skip != 'true'
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Check if repository is set up
-      id: setup-check
-      uses: ./.github/actions/check-repository-setup
-      env:
-        PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
-        SETUP_COMPLETE: ${{ secrets.SETUP_COMPLETE }}
-      
     - name: Setup Node.js
-      if: steps.setup-check.outputs.should-skip != 'true'
       uses: actions/setup-node@v4
       with:
         node-version: '22'
         
     - name: Install pnpm
-      if: steps.setup-check.outputs.should-skip != 'true'
       uses: pnpm/action-setup@v2
       with:
         version: 9
         
     - name: Install tsx
-      if: steps.setup-check.outputs.should-skip != 'true'
       run: npm install -g tsx
       
     - name: Validate setup.ts syntax
-      if: steps.setup-check.outputs.should-skip != 'true'
       run: tsx --check setup.ts
       
     - name: Test setup.ts dry-run
-      if: steps.setup-check.outputs.should-skip != 'true'
       run: tsx setup.ts --dry-run --skip-github --no-interactive
       env:
         SETUP_PROJECT_NAME: "test-project"
