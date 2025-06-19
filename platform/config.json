@@ -1,0 +1,20 @@
+{
+  "project": {
+    "name": "happyvertical",
+    "domain": "happyvertical.com",
+    "email": "willgriffin@gmail.com",
+    "description": "happyvertical as code"
+  },
+  "environments": [
+    {
+      "name": "production",
+      "cluster": {
+        "region": "nyc3",
+        "nodeSize": "s-2vcpu-4gb",
+        "nodeCount": 3,
+        "haControlPlane": true
+      },
+      "domain": "happyvertical.com"
+    }
+  ]
+}
