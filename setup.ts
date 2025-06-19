@@ -68,7 +68,10 @@ interface SetupOptions {
   interactive?: boolean;
   assumeYes?: boolean;
   eject?: boolean;
+  createPr?: boolean;
+  noPr?: boolean;
 }
+
 
 class SetupError extends Error {
   constructor(message: string, public code?: string) {
@@ -1012,10 +1015,16 @@ ${optionalFiles.filter(f => existsSync(f)).map(f => `- \`${f}\``).join('\n')}`;
 
       this.logStep('Setup Complete');
       this.logSuccess('All prerequisites have been configured');
-      this.log(`\n${colors.yellow}Next steps:${colors.reset}`);
-      this.log('1. Run: npx tsx platform/src/main.ts (or use CDKTF CLI)');
-      this.log('2. Wait for infrastructure deployment to complete');
-      this.log('3. Access your applications at the configured domains');
+
+      // Create PR if requested and changes exist
+      if (this.shouldCreatePR()) {
+        await this.createSetupPR();
+      } else {
+        this.log(`\n${colors.yellow}Next steps:${colors.reset}`);
+        this.log('1. Run: npx tsx platform/src/main.ts (or use CDKTF CLI)');
+        this.log('2. Wait for infrastructure deployment to complete');
+        this.log('3. Access your applications at the configured domains');
+      }
 
     } catch (error) {
       if (error instanceof SetupError) {
@@ -1028,6 +1037,167 @@ ${optionalFiles.filter(f => existsSync(f)).map(f => `- \`${f}\``).join('\n')}`;
       }
       process.exit(1);
     }
+  }
+
+  private shouldCreatePR(): boolean {
+    // Don't create PR in dry-run mode
+    if (this.options.dryRun) {
+      return false;
+    }
+
+    // Explicit --no-pr flag disables PR creation
+    if (this.options.noPr) {
+      return false;
+    }
+
+    // Explicit --create-pr flag enables PR creation
+    if (this.options.createPr) {
+      return true;
+    }
+
+    // Default behavior: create PR if not skipping GitHub
+    return !this.options.skipGithub;
+  }
+
+  private async createSetupPR(): Promise<void> {
+    this.logStep('Creating Setup PR');
+
+    try {
+      // Check if there are any git changes
+      const status = this.exec('git status --porcelain', true);
+      if (!status.trim()) {
+        this.log('No changes to commit, skipping PR creation');
+        return;
+      }
+
+      // Validate GitHub authentication
+      try {
+        this.exec('gh auth status', true);
+      } catch (error) {
+        this.logWarning('GitHub authentication required for PR creation. Run: gh auth login');
+        this.logWarning('Skipping PR creation - you can manually create a PR later');
+        return;
+      }
+
+      // Generate deterministic branch name based on project configuration
+      const projectSlug = this.config.project.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+      const finalBranchName = `setup/${projectSlug}-initial-configuration`;
+
+      // Check if branch already exists and delete it (we want to recreate)
+      try {
+        this.exec(`git rev-parse --verify ${finalBranchName}`, true);
+        this.log(`Branch ${finalBranchName} already exists, deleting...`);
+        this.exec(`git branch -D ${finalBranchName}`, true);
+      } catch {
+        // Branch doesn't exist, which is fine
+      }
+
+      // Create and checkout new branch
+      this.exec(`git checkout -b ${finalBranchName}`);
+      this.log(`Created branch: ${finalBranchName}`);
+
+      // Add all changes
+      this.exec('git add .');
+
+      // Create commit
+      const commitMessage = this.generateCommitMessage();
+      this.exec(`git commit -m "${commitMessage}"`);
+
+      // Push branch
+      this.exec(`git push -u origin ${finalBranchName}`);
+
+      // Create PR
+      const prDescription = this.generatePRDescription();
+      const prCommand = `gh pr create --title "feat: initial repository setup and configuration" --body "$(cat <<'EOF'
+${prDescription}
+EOF
+)"`;
+
+      const prResult = this.exec(prCommand, true);
+      
+      if (prResult && typeof prResult === 'string') {
+        const prUrl = prResult.trim();
+        this.logSuccess(`Created setup PR: ${prUrl}`);
+        this.log(`\n${colors.bold}${colors.green}🎉 Setup complete!${colors.reset}`);
+        this.log(`${colors.blue}Next steps:${colors.reset}`);
+        this.log(`1. Review the PR: ${prUrl}`);
+        this.log(`2. Merge when ready to finalize setup`);
+        this.log(`3. Deploy infrastructure using the workflows`);
+      } else {
+        this.logWarning('PR created but could not retrieve URL');
+      }
+
+    } catch (error: any) {
+      this.logWarning('Failed to create setup PR');
+      
+      if (error.message.includes('not found')) {
+        this.logWarning('GitHub CLI (gh) not found. Install with: nix-shell -p github-cli');
+      } else if (error.message.includes('permission') || error.message.includes('auth')) {
+        this.logWarning('GitHub authentication issue. Run: gh auth login');
+      } else {
+        this.logWarning(`Unexpected error: ${error.message}`);
+      }
+      
+      this.logWarning('You can manually create a PR with the current changes');
+    }
+  }
+
+  private generateCommitMessage(): string {
+    const projectName = this.config.project.name;
+    const domain = this.config.project.domain;
+    return `feat: initial repository setup for ${projectName}
+
+- Configured project for domain: ${domain}
+- Set up GitHub repository secrets
+- Generated platform configuration
+- Completed GitOps template setup`;
+  }
+
+  private generatePRDescription(): string {
+    const projectName = this.config.project.name;
+    const domain = this.config.project.domain;
+    const environment = this.config.environments[0];
+    
+    return `## Initial Repository Setup
+
+This PR contains the initial configuration for **${projectName}** generated by the GitOps template setup process.
+
+### Configuration Summary
+- **Project Name:** ${projectName}
+- **Domain:** ${domain}
+- **Environment:** ${environment.name}
+- **Region:** ${environment.cluster.region}
+- **Cluster Size:** ${environment.cluster.nodeCount}x ${environment.cluster.nodeSize}
+
+### Changes Included
+- ✅ Generated \`platform/config.json\` with project configuration
+- ✅ Configured GitHub repository secrets for deployment
+- ✅ Set up infrastructure parameters for CDKTF
+- ✅ Prepared GitOps manifests with project-specific values
+
+### Next Steps
+1. **Review this PR** to ensure all configuration is correct
+2. **Merge this PR** to finalize the setup
+3. **Deploy infrastructure** by running the deployment workflows
+4. **Verify applications** are accessible at configured domains
+
+### Infrastructure Deployment
+After merging this PR:
+- The \`terraform-deploy\` workflow will provision your DigitalOcean Kubernetes cluster
+- The \`flux-bootstrap\` workflow will set up GitOps and deploy applications
+- Your applications will be available at:
+  - Auth: https://auth.${domain}
+  - Cloud: https://cloud.${domain}
+  - Chat: https://chat.${domain}
+  - Mail: https://mail.${domain}
+
+### Support
+- 📖 [Deployment Guide](docs/DEPLOYMENT.md)
+- 📖 [Application Setup](docs/APPLICATIONS.md)
+- 🔧 [Configuration Reference](docs/CONFIGURATION.md)
+
+---
+*This PR was created automatically by the GitOps template setup process.*`;
   }
 }
 
@@ -1195,6 +1365,8 @@ OPTIONS:
   --skip-project      Skip GitHub project setup only
   --no-interactive    Skip automatic login prompts (fail if not authenticated)
   --yes               Skip confirmation dialog (auto-approve)
+  --create-pr         Force creation of setup PR after completion
+  --no-pr             Disable automatic PR creation
   --eject             Create PR to remove template artifacts (advanced)
   --verbose           Show detailed command output
   --help              Show this help message
@@ -1206,6 +1378,8 @@ EXAMPLES:
   npx tsx setup.ts --no-interactive    # Fail if credentials missing (CI mode)
   npx tsx setup.ts --skip-github       # Skip all GitHub setup
   npx tsx setup.ts --config config.ts  # Use TypeScript config file
+  npx tsx setup.ts --create-pr         # Force creation of setup PR
+  npx tsx setup.ts --no-pr             # Skip PR creation
   npx tsx setup.ts --eject             # Create PR to remove template files
 
 This script sets up prerequisites for CDKTF deployment:
@@ -1262,6 +1436,12 @@ async function main(): Promise<void> {
         break;
       case '--eject':
         options.eject = true;
+        break;
+      case '--create-pr':
+        options.createPr = true;
+        break;
+      case '--no-pr':
+        options.noPr = true;
         break;
       case '--verbose':
         options.verbose = true;
