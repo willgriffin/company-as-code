@@ -90,7 +90,6 @@ The `check-setup` action validates:
    - API keys for integrations
 
 3. **No critical template placeholders remain**
-   - No `CHANGEME` placeholders in workflow files
    - Configuration files have been properly customized
 
 ## How to Configure
@@ -110,7 +109,7 @@ The `check-setup` action validates:
 
 ### Common Issues
 - **Missing secrets:** Check that all required secrets are configured with correct names
-- **Template values:** Ensure `config.yaml` doesn't contain `example.com` or `CHANGEME`
+- **Template values:** Ensure `config.yaml` doesn't contain `example.com`
 - **Permissions:** Verify GitHub Actions has necessary permissions in repository settings
 
 ### Validation
