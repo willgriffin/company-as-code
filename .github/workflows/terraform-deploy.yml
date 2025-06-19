@@ -33,12 +33,20 @@ jobs:
     name: Check Repository Setup
     runs-on: ubuntu-latest
     outputs:
-      setup-complete: ${{ steps.check.outputs.setup-complete }}
+      setup-complete: ${{ steps.setup-check.outputs.is-setup }}
+      should-skip: ${{ steps.setup-check.outputs.should-skip }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       
-      - name: Check setup status
+      - name: Check if repository is set up
+        id: setup-check
+        uses: ./.github/actions/check-repository-status
+        env:
+          PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+      
+      - name: Check setup status (detailed)
+        if: steps.setup-check.outputs.should-skip != 'true'
         id: check
         uses: ./.github/actions/check-setup
         with:
@@ -58,6 +66,7 @@ jobs:
   deploy-infrastructure:
     name: Deploy Infrastructure with CDKTF
     needs: check-setup
+    if: needs.check-setup.outputs.should-skip != 'true' && needs.check-setup.outputs.setup-complete == 'true'
     runs-on: ubuntu-latest
     environment: production
     defaults:

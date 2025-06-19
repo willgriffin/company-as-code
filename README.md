@@ -53,6 +53,8 @@ pnpm --version  # Install with: npm install -g pnpm
 ./setup.ts
 ```
 
+> **Note**: The setup script automatically creates a conventional commit (`feat: initial repository setup`) and PR for the initial configuration. All workflows except "Create Setup Issue" are automatically skipped for template repositories until setup is complete.
+
 ### 3. Interactive Setup (Recommended)
 
 The `setup.ts` script provides an interactive setup that will:

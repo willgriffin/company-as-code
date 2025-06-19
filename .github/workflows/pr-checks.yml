@@ -7,8 +7,29 @@ on:
     branches: [ main ]
 
 jobs:
+  check-status:
+    name: Check Repository Status
+    runs-on: ubuntu-latest
+    outputs:
+      should-skip: ${{ steps.status-check.outputs.should-skip }}
+      is-setup: ${{ steps.status-check.outputs.is-setup }}
+      is-deployed: ${{ steps.status-check.outputs.is-deployed }}
+      status: ${{ steps.status-check.outputs.status }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Check repository status
+        id: status-check
+        uses: ./.github/actions/check-repository-status
+        env:
+          PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+          KUBECONFIG: ${{ secrets.KUBECONFIG }}
+
   validate:
     name: Validate Code Quality
+    needs: check-status
+    if: needs.check-status.outputs.should-skip != 'true'
     runs-on: ubuntu-latest
     
     steps:
@@ -41,6 +62,8 @@ jobs:
 
   security:
     name: Security Scan
+    needs: check-status
+    if: needs.check-status.outputs.should-skip != 'true'
     runs-on: ubuntu-latest
     
     steps:
@@ -67,6 +90,8 @@ jobs:
 
   setup-validation:
     name: Validate Setup Script
+    needs: check-status
+    if: needs.check-status.outputs.should-skip != 'true'
     runs-on: ubuntu-latest
     
     steps:
