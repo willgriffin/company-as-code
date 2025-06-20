@@ -22,7 +22,7 @@ export class DigitalOceanSpacesStack extends TerraformStack {
     const { projectName, region = 'nyc3' } = props;
 
     // DigitalOcean provider - uses main token only
-    const provider = new DigitaloceanProvider(this, 'digitalocean', {
+    new DigitaloceanProvider(this, 'digitalocean', {
       token: process.env.DIGITALOCEAN_TOKEN!,
     });
 

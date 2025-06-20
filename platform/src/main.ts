@@ -89,7 +89,7 @@ const clusterStacks = config.environments.map(env => {
 });
 
 // Create Flux configuration stacks for each environment
-const fluxStacks = clusterStacks.map((clusterStack, index) => {
+clusterStacks.map((clusterStack, index) => {
   const env = config.environments[index];
   const fluxStack = new FluxConfigurationStack(app, `${config.project.name}-${env.name}-flux`, {
     projectName: config.project.name,
