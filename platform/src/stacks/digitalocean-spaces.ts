@@ -3,7 +3,6 @@ import { TerraformStack, TerraformOutput } from 'cdktf';
 import { DigitaloceanProvider } from '@cdktf/provider-digitalocean/lib/provider';
 import { SpacesBucket } from '@cdktf/provider-digitalocean/lib/spaces-bucket';
 import { SpacesBucketPolicy } from '@cdktf/provider-digitalocean/lib/spaces-bucket-policy';
-import { SpacesKey } from '@cdktf/provider-digitalocean/lib/spaces-key';
 import { Config } from '../config/schema';
 
 export interface DigitalOceanSpacesStackProps {
@@ -16,7 +15,6 @@ export interface DigitalOceanSpacesStackProps {
 
 export class DigitalOceanSpacesStack extends TerraformStack {
   public readonly applicationDataBucket: SpacesBucket;
-  public readonly spacesKey: SpacesKey;
 
   constructor(scope: Construct, id: string, props: DigitalOceanSpacesStackProps) {
     super(scope, id);
@@ -45,17 +43,6 @@ export class DigitalOceanSpacesStack extends TerraformStack {
           noncurrentVersionExpiration: {
             days: 30,
           },
-        },
-      ],
-    });
-
-    // Create Spaces access key for application access after bucket exists
-    this.spacesKey = new SpacesKey(this, 'spaces-key', {
-      name: `${projectName}-app-access-key`,
-      grant: [
-        {
-          bucket: this.applicationDataBucket.name,
-          permission: 'fullaccess',
         },
       ],
     });
@@ -94,18 +81,6 @@ export class DigitalOceanSpacesStack extends TerraformStack {
     new TerraformOutput(this, 'application_data_endpoint', {
       value: `https://${this.applicationDataBucket.name}.${region}.digitaloceanspaces.com`,
       description: 'Endpoint for application data bucket',
-    });
-
-    new TerraformOutput(this, 'spaces_access_key_id', {
-      value: this.spacesKey.accessKey,
-      sensitive: true,
-      description: 'Spaces access key ID for application access',
-    });
-
-    new TerraformOutput(this, 'spaces_secret_access_key', {
-      value: this.spacesKey.secretKey,
-      sensitive: true,
-      description: 'Spaces secret access key for application access',
     });
   }
 }
