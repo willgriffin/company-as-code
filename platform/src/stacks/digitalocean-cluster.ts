@@ -1,5 +1,5 @@
 import { Construct } from 'constructs';
-import { TerraformStack, TerraformOutput } from 'cdktf';
+import { TerraformStack, TerraformOutput, S3Backend } from 'cdktf';
 import { DigitaloceanProvider } from '@cdktf/provider-digitalocean/lib/provider';
 import { KubernetesCluster } from '@cdktf/provider-digitalocean/lib/kubernetes-cluster';
 import { KubernetesNodePool } from '@cdktf/provider-digitalocean/lib/kubernetes-node-pool';
@@ -27,6 +27,14 @@ export class DigitalOceanClusterStack extends TerraformStack {
 
     const { projectName, environment } = props;
     const clusterName = `${projectName}-${environment.name}`;
+
+    // Configure S3 backend for Terraform state
+    new S3Backend(this, {
+      bucket: process.env.TERRAFORM_STATE_BUCKET!,
+      key: `${projectName}/${environment.name}-cluster.tfstate`,
+      region: process.env.TERRAFORM_STATE_REGION!,
+      encrypt: true,
+    });
 
     // DigitalOcean provider
     new DigitaloceanProvider(this, 'digitalocean', {

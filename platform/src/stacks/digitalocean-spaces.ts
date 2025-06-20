@@ -1,5 +1,5 @@
 import { Construct } from 'constructs';
-import { TerraformStack, TerraformOutput } from 'cdktf';
+import { TerraformStack, TerraformOutput, S3Backend } from 'cdktf';
 import { DigitaloceanProvider } from '@cdktf/provider-digitalocean/lib/provider';
 import { SpacesBucket } from '@cdktf/provider-digitalocean/lib/spaces-bucket';
 import { SpacesBucketPolicy } from '@cdktf/provider-digitalocean/lib/spaces-bucket-policy';
@@ -20,6 +20,14 @@ export class DigitalOceanSpacesStack extends TerraformStack {
     super(scope, id);
 
     const { projectName, region = 'nyc3', spacesAccessKeyId, spacesSecretAccessKey } = props;
+
+    // Configure S3 backend for Terraform state
+    new S3Backend(this, {
+      bucket: process.env.TERRAFORM_STATE_BUCKET!,
+      key: `${projectName}/spaces.tfstate`,
+      region: process.env.TERRAFORM_STATE_REGION!,
+      encrypt: true,
+    });
 
     // DigitalOcean provider with Spaces credentials from setup stack
     new DigitaloceanProvider(this, 'digitalocean', {

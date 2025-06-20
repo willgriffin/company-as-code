@@ -1,5 +1,5 @@
 import { Construct } from 'constructs';
-import { TerraformStack } from 'cdktf';
+import { TerraformStack, S3Backend } from 'cdktf';
 import { GithubProvider } from '@cdktf/provider-github/lib/provider';
 import { ActionsSecret } from '@cdktf/provider-github/lib/actions-secret';
 import { Config } from '../config/schema';
@@ -17,7 +17,15 @@ export class GitHubSecretsStack extends TerraformStack {
   constructor(scope: Construct, id: string, props: GitHubSecretsStackProps) {
     super(scope, id);
 
-    const { repository, secrets } = props;
+    const { projectName, repository, secrets } = props;
+
+    // Configure S3 backend for Terraform state
+    new S3Backend(this, {
+      bucket: process.env.TERRAFORM_STATE_BUCKET!,
+      key: `${projectName}/github-secrets.tfstate`,
+      region: process.env.TERRAFORM_STATE_REGION!,
+      encrypt: true,
+    });
 
     // GitHub provider
     new GithubProvider(this, 'github', {

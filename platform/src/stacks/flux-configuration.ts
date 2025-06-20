@@ -1,5 +1,5 @@
 import { Construct } from 'constructs';
-import { TerraformStack, TerraformOutput } from 'cdktf';
+import { TerraformStack, TerraformOutput, S3Backend } from 'cdktf';
 import { KubernetesProvider } from '@cdktf/provider-kubernetes/lib/provider';
 import { ConfigMapV1 } from '@cdktf/provider-kubernetes/lib/config-map-v1';
 import { NullProvider } from '@cdktf/provider-null/lib/provider';
@@ -23,10 +23,18 @@ export class FluxConfigurationStack extends TerraformStack {
   constructor(scope: Construct, id: string, props: FluxConfigurationStackProps) {
     super(scope, id);
 
-    const { environment, config, kubeconfig } = props;
+    const { projectName, environment, config, kubeconfig } = props;
     this.config = config;
     this.environment = environment;
     this.kubeconfig = kubeconfig;
+
+    // Configure S3 backend for Terraform state
+    new S3Backend(this, {
+      bucket: process.env.TERRAFORM_STATE_BUCKET!,
+      key: `${projectName}/${environment.name}-flux.tfstate`,
+      region: process.env.TERRAFORM_STATE_REGION!,
+      encrypt: true,
+    });
 
     // Null provider for executing local commands
     new NullProvider(this, 'null');

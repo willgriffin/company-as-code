@@ -1,5 +1,5 @@
 import { Construct } from 'constructs';
-import { TerraformStack, TerraformOutput } from 'cdktf';
+import { TerraformStack, TerraformOutput, S3Backend } from 'cdktf';
 import { AwsProvider } from '@cdktf/provider-aws/lib/provider';
 import { SesDomainIdentity } from '@cdktf/provider-aws/lib/ses-domain-identity';
 import { SesDomainDkim } from '@cdktf/provider-aws/lib/ses-domain-dkim';
@@ -25,6 +25,14 @@ export class AWSSESStack extends TerraformStack {
     super(scope, id);
 
     const { projectName, config, region = 'us-east-1' } = props;
+
+    // Configure S3 backend for Terraform state
+    new S3Backend(this, {
+      bucket: process.env.TERRAFORM_STATE_BUCKET!,
+      key: `${projectName}/ses.tfstate`,
+      region: process.env.TERRAFORM_STATE_REGION!,
+      encrypt: true,
+    });
 
     // AWS provider
     new AwsProvider(this, 'aws', {
