@@ -40,6 +40,8 @@ rm -f doctl-*
 echo "All tools installed successfully!"
 echo "Verifying installations..."
 
+npm install -g @anthropic-ai/claude-code
+
 yq --version
 flux version --client
 gomplate --version

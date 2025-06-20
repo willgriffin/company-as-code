@@ -498,7 +498,6 @@ class GitOpsSetup {
     return { bucketName, region };
   }
 
-
   private async setupDigitalOceanDomain(): Promise<void> {
     this.logStep('Setting up DigitalOcean Domain');
 
@@ -507,8 +506,11 @@ class GitOpsSetup {
 
     try {
       // Check if domain already exists
-      const checkResult = this.exec(`doctl compute domain get ${domain} --format Name --no-header`, true);
-      
+      const checkResult = this.exec(
+        `doctl compute domain get ${domain} --format Name --no-header`,
+        true
+      );
+
       if (checkResult && checkResult.trim() === domain) {
         this.logSuccess(`Domain ${domain} already exists - skipping creation`);
         return;
@@ -522,17 +524,18 @@ class GitOpsSetup {
       // Create the domain in DigitalOcean
       this.exec(`doctl compute domain create ${domain}`, true);
       this.logSuccess(`Created domain: ${domain}`);
-      
-      this.log(`${colors.yellow}Note: DNS records will be managed by CDKTF deployment${colors.reset}`);
-      this.log(`${colors.yellow}Make sure to point your domain's nameservers to DigitalOcean:${colors.reset}`);
+
+      this.log(
+        `${colors.yellow}Note: DNS records will be managed by CDKTF deployment${colors.reset}`
+      );
+      this.log(
+        `${colors.yellow}Make sure to point your domain's nameservers to DigitalOcean:${colors.reset}`
+      );
       this.log('  - ns1.digitalocean.com');
       this.log('  - ns2.digitalocean.com');
       this.log('  - ns3.digitalocean.com');
     } catch (error) {
-      throw new SetupError(
-        `Failed to create domain ${domain}: ${error}`,
-        'DOMAIN_CREATION_FAILED'
-      );
+      throw new SetupError(`Failed to create domain ${domain}: ${error}`, 'DOMAIN_CREATION_FAILED');
     }
   }
 

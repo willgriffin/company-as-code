@@ -107,10 +107,10 @@ clusterStacks.map((clusterStack, index) => {
     config,
     kubeconfig: clusterStack.cluster.kubeConfig.get(0).rawConfig,
   });
-  
+
   // Add dependency - flux stack waits for cluster stack to complete
   fluxStack.addDependency(clusterStack);
-  
+
   return fluxStack;
 });
 
@@ -138,7 +138,7 @@ if (process.env.GITHUB_REPOSITORY) {
 
   // GitHub secrets depend on cluster being created first
   githubSecretsStack.addDependency(primaryCluster);
-  
+
   // GitHub secrets also depend on SES if it exists
   if (sesStack) {
     githubSecretsStack.addDependency(sesStack);

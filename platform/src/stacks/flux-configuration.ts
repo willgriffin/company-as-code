@@ -43,16 +43,22 @@ export class FluxConfigurationStack extends TerraformStack {
     // Note: During synthesis, kubeconfig might be empty since cluster hasn't been created yet
     // The dependency ensures this stack only applies after cluster creation
     const kubeconfigYaml = yaml.load(kubeconfig || '{}') as any;
-    
+
     // Validate kubeconfig structure
-    if (!kubeconfigYaml.clusters || !kubeconfigYaml.users || 
-        kubeconfigYaml.clusters.length === 0 || kubeconfigYaml.users.length === 0) {
+    if (
+      !kubeconfigYaml.clusters ||
+      !kubeconfigYaml.users ||
+      kubeconfigYaml.clusters.length === 0 ||
+      kubeconfigYaml.users.length === 0
+    ) {
       // During synthesis, this is expected - the actual values will be available during apply
       // Note: This log is intentional for debugging CDKTF synthesis ordering
       // eslint-disable-next-line no-console
-      console.log('Kubeconfig not yet available during synthesis - will be resolved during apply phase');
+      console.log(
+        'Kubeconfig not yet available during synthesis - will be resolved during apply phase'
+      );
     }
-    
+
     const cluster = kubeconfigYaml.clusters?.[0]?.cluster || {};
     const user = kubeconfigYaml.users?.[0]?.user || {};
 
