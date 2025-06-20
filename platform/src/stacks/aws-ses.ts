@@ -52,6 +52,7 @@ export class AWSSESStack extends TerraformStack {
     this.sesUser = new IamUser(this, 'ses-smtp-user', {
       name: `${projectName}-ses-smtp`,
       path: '/ses/',
+      forceDestroy: true,
     });
 
     // IAM policy for SES sending
