@@ -19,7 +19,7 @@ export class DigitalOceanSpacesStack extends TerraformStack {
 
     const { projectName, region = 'nyc3' } = props;
 
-    // DigitalOcean provider - uses token only, no separate Spaces keys needed
+    // DigitalOcean provider - uses token only for Spaces bucket creation
     new DigitaloceanProvider(this, 'digitalocean', {
       token: process.env.DIGITALOCEAN_TOKEN!,
     });
