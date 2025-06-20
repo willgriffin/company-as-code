@@ -10,6 +10,8 @@ export interface DigitalOceanSpacesStackProps {
   projectName: string;
   config: Config;
   region?: string;
+  spacesAccessKeyId: string;
+  spacesSecretAccessKey: string;
 }
 
 export class DigitalOceanSpacesStack extends TerraformStack {
@@ -19,11 +21,13 @@ export class DigitalOceanSpacesStack extends TerraformStack {
   constructor(scope: Construct, id: string, props: DigitalOceanSpacesStackProps) {
     super(scope, id);
 
-    const { projectName, region = 'nyc3' } = props;
+    const { projectName, region = 'nyc3', spacesAccessKeyId, spacesSecretAccessKey } = props;
 
-    // DigitalOcean provider - uses main token only
+    // DigitalOcean provider with Spaces credentials from setup stack
     new DigitaloceanProvider(this, 'digitalocean', {
       token: process.env.DIGITALOCEAN_TOKEN!,
+      spacesAccessId: spacesAccessKeyId,
+      spacesSecretKey: spacesSecretAccessKey,
     });
 
     // Application data bucket using the main provider (no separate Spaces credentials needed)

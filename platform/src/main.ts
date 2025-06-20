@@ -1,6 +1,7 @@
 import { App } from 'cdktf';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { SetupStack } from './stacks/setup';
 import { DigitalOceanClusterStack } from './stacks/digitalocean-cluster';
 import { DigitalOceanSpacesStack } from './stacks/digitalocean-spaces';
 import { AWSSESStack } from './stacks/aws-ses';
@@ -64,14 +65,23 @@ function loadConfig(): Config {
 const config = loadConfig();
 const app = new App();
 
-// Create shared infrastructure first
-// Note: S3 bucket for Terraform state is created by setup.ts as a prerequisite
-// Spaces bucket for application storage
-new DigitalOceanSpacesStack(app, `${config.project.name}-spaces`, {
+// Create setup stack first - handles foundational resources like Spaces keys
+const setupStack = new SetupStack(app, `${config.project.name}-setup`, {
+  projectName: config.project.name,
+  config,
+});
+
+// Create Spaces stack using keys from setup stack
+const spacesStack = new DigitalOceanSpacesStack(app, `${config.project.name}-spaces`, {
   projectName: config.project.name,
   config,
   region: config.environments[0].cluster.region,
+  spacesAccessKeyId: setupStack.spacesKey.accessKey,
+  spacesSecretAccessKey: setupStack.spacesKey.secretKey,
 });
+
+// Spaces stack depends on setup stack
+spacesStack.addDependency(setupStack);
 
 // Create SES stack for email functionality
 const sesStack = new AWSSESStack(app, `${config.project.name}-ses`, {
