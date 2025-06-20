@@ -26,20 +26,7 @@ export class DigitalOceanSpacesStack extends TerraformStack {
       token: process.env.DIGITALOCEAN_TOKEN!,
     });
 
-    // Create Spaces access key first
-    this.spacesKey = new SpacesKey(this, 'spaces-key', {
-      name: `${projectName}-app-access-key`,
-    });
-
-    // Create another provider instance with the generated Spaces credentials
-    const spacesProvider = new DigitaloceanProvider(this, 'digitalocean-spaces', {
-      token: process.env.DIGITALOCEAN_TOKEN!,
-      spacesAccessId: this.spacesKey.accessKey,
-      spacesSecretKey: this.spacesKey.secretKey,
-      alias: 'spaces',
-    });
-
-    // Application data bucket using the Spaces provider
+    // Application data bucket using the main provider (no separate Spaces credentials needed)
     this.applicationDataBucket = new SpacesBucket(this, 'application-data', {
       name: `${projectName}-app-data`,
       region: region,
@@ -56,7 +43,17 @@ export class DigitalOceanSpacesStack extends TerraformStack {
           },
         },
       ],
-      provider: spacesProvider,
+    });
+
+    // Create Spaces access key for application access after bucket exists
+    this.spacesKey = new SpacesKey(this, 'spaces-key', {
+      name: `${projectName}-app-access-key`,
+      grant: [
+        {
+          bucket: this.applicationDataBucket.name,
+          permission: 'fullaccess',
+        },
+      ],
     });
 
     // Bucket policy for application access
@@ -82,7 +79,6 @@ export class DigitalOceanSpacesStack extends TerraformStack {
           },
         ],
       }),
-      provider: spacesProvider,
     });
 
     // Outputs
