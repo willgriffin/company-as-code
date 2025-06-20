@@ -151,6 +151,7 @@ class GitOpsSetup {
       { name: 'aws', command: 'aws --version', package: 'awscli' },
       { name: 'gh', command: 'gh --version', package: 'github-cli' },
       { name: 'jq', command: 'jq --version', package: 'jq' },
+      { name: 'doctl', command: 'doctl version', package: 'doctl' },
     ];
 
     for (const tool of tools) {
@@ -666,6 +667,43 @@ class GitOpsSetup {
     return { username: accessKey, password: smtpPassword };
   }
 
+  private async setupDigitalOceanDomain(): Promise<void> {
+    this.logStep('Setting up DigitalOcean Domain');
+
+    const domain = this.config.project.domain;
+    this.log(`Checking domain: ${domain}`);
+
+    try {
+      // Check if domain already exists
+      const checkResult = this.exec(`doctl compute domain get ${domain} --format Name --no-header`, true);
+      
+      if (checkResult && checkResult.trim() === domain) {
+        this.logSuccess(`Domain ${domain} already exists - skipping creation`);
+        return;
+      }
+    } catch (error) {
+      // Domain doesn't exist, we'll create it
+      this.log(`Domain ${domain} doesn't exist, creating...`);
+    }
+
+    try {
+      // Create the domain in DigitalOcean
+      this.exec(`doctl compute domain create ${domain}`, true);
+      this.logSuccess(`Created domain: ${domain}`);
+      
+      this.log(`${colors.yellow}Note: DNS records will be managed by CDKTF deployment${colors.reset}`);
+      this.log(`${colors.yellow}Make sure to point your domain's nameservers to DigitalOcean:${colors.reset}`);
+      this.log('  - ns1.digitalocean.com');
+      this.log('  - ns2.digitalocean.com');
+      this.log('  - ns3.digitalocean.com');
+    } catch (error) {
+      throw new SetupError(
+        `Failed to create domain ${domain}: ${error}`,
+        'DOMAIN_CREATION_FAILED'
+      );
+    }
+  }
+
   private async setGitHubSecrets(secrets: Record<string, string>): Promise<void> {
     this.logStep('Setting GitHub Repository Secrets');
 
@@ -1102,7 +1140,10 @@ ${optionalFiles
       // Step 4: Setup SES credentials
       const sesConfig = await this.setupSesCredentials();
 
-      // Step 5: Set GitHub secrets
+      // Step 5: Setup DigitalOcean domain
+      await this.setupDigitalOceanDomain();
+
+      // Step 6: Set GitHub secrets
       const secrets: Record<string, string> = {
         PROJECT_NAME: this.config.project.name,
         DIGITALOCEAN_TOKEN: process.env.DIGITALOCEAN_TOKEN || '',
@@ -1118,10 +1159,10 @@ ${optionalFiles
 
       await this.setGitHubSecrets(secrets);
 
-      // Step 6: Setup GitHub project (optional)
+      // Step 7: Setup GitHub project (optional)
       await this.setupGitHubProject();
 
-      // Step 7: Create cleanup issue for template ejection
+      // Step 8: Create cleanup issue for template ejection
       await this.createCleanupIssue();
 
       this.logStep('Setup Complete');

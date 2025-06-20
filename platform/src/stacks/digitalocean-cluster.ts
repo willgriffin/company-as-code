@@ -4,7 +4,7 @@ import { DigitaloceanProvider } from '@cdktf/provider-digitalocean/lib/provider'
 import { KubernetesCluster } from '@cdktf/provider-digitalocean/lib/kubernetes-cluster';
 import { KubernetesNodePool } from '@cdktf/provider-digitalocean/lib/kubernetes-node-pool';
 import { Loadbalancer } from '@cdktf/provider-digitalocean/lib/loadbalancer';
-import { Domain } from '@cdktf/provider-digitalocean/lib/domain';
+import { DataDigitaloceanDomain } from '@cdktf/provider-digitalocean/lib/data-digitalocean-domain';
 import { Record } from '@cdktf/provider-digitalocean/lib/record';
 import { Certificate } from '@cdktf/provider-digitalocean/lib/certificate';
 import { Config, Environment } from '../config/schema';
@@ -19,7 +19,7 @@ export class DigitalOceanClusterStack extends TerraformStack {
   public readonly cluster: KubernetesCluster;
   public readonly nodePool?: KubernetesNodePool;
   public readonly loadBalancer: Loadbalancer;
-  public readonly domain: Domain;
+  public readonly domain: DataDigitaloceanDomain;
   public readonly certificate: Certificate;
 
   constructor(scope: Construct, id: string, props: DigitalOceanClusterStackProps) {
@@ -89,8 +89,8 @@ export class DigitalOceanClusterStack extends TerraformStack {
       });
     }
 
-    // Domain management (create first without IP)
-    this.domain = new Domain(this, 'domain', {
+    // Domain management (reference existing domain created by setup.ts)
+    this.domain = new DataDigitaloceanDomain(this, 'domain', {
       name: environment.domain,
     });
 
