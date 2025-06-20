@@ -101,6 +101,13 @@ jobs:
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.TERRAFORM_STATE_REGION }}
       
+      - name: Install DigitalOcean CLI
+        run: |
+          # Install doctl for cleanup operations
+          curl -sL https://github.com/digitalocean/doctl/releases/download/v1.117.0/doctl-1.117.0-linux-amd64.tar.gz | tar -xzv
+          sudo mv doctl /usr/local/bin
+          doctl auth init --access-token ${{ env.DIGITALOCEAN_TOKEN }}
+      
       - name: Get GitHub repository info
         id: github
         run: |
@@ -122,24 +129,61 @@ jobs:
           cd platform
           pnpm run synth
       
-      - name: Clean up conflicting AWS resources
+      - name: Clean up existing infrastructure
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
-          # Clean up any existing SES resources that might conflict with CDKTF
+          echo "Cleaning up existing infrastructure to prepare for new stack structure..."
           PROJECT_NAME="${{ secrets.PROJECT_NAME }}"
+          
           if [ -n "$PROJECT_NAME" ]; then
+            # Clean up DigitalOcean resources
+            echo "Cleaning up DigitalOcean resources..."
+            
+            # Delete Kubernetes cluster if it exists
+            CLUSTER_NAME="${PROJECT_NAME}-production"
+            if doctl kubernetes cluster get "$CLUSTER_NAME" >/dev/null 2>&1; then
+              echo "Deleting Kubernetes cluster: $CLUSTER_NAME"
+              doctl kubernetes cluster delete "$CLUSTER_NAME" --force 2>/dev/null || true
+              # Wait a bit for cluster deletion to process
+              sleep 30
+            fi
+            
+            # Delete domain if it exists  
+            DOMAIN_NAME="${{ secrets.DOMAIN }}"
+            if [ -n "$DOMAIN_NAME" ] && doctl compute domain get "$DOMAIN_NAME" >/dev/null 2>&1; then
+              echo "Deleting domain: $DOMAIN_NAME"
+              doctl compute domain delete "$DOMAIN_NAME" --force 2>/dev/null || true
+            fi
+            
+            # Clean up load balancers
+            doctl compute load-balancer list --format Name,ID --no-header | grep "$PROJECT_NAME" | while read -r lb_name lb_id; do
+              echo "Deleting load balancer: $lb_name ($lb_id)"
+              doctl compute load-balancer delete "$lb_id" --force 2>/dev/null || true
+            done
+            
+            # Clean up Spaces buckets
+            doctl spaces bucket list --format Name --no-header | grep "$PROJECT_NAME" | while read -r bucket_name; do
+              echo "Deleting Spaces bucket: $bucket_name"
+              doctl spaces bucket delete "$bucket_name" --force 2>/dev/null || true
+            done
+            
+            # Clean up Spaces keys
+            doctl spaces access list --format Name,AccessKeyId --no-header | grep "$PROJECT_NAME" | while read -r key_name key_id; do
+              echo "Deleting Spaces key: $key_name ($key_id)"
+              doctl spaces access delete "$key_id" --force 2>/dev/null || true
+            done
+            
+            # Clean up AWS SES resources
+            echo "Cleaning up AWS SES resources..."
             USER_NAME="${PROJECT_NAME}-ses-smtp"
             CONFIG_SET_NAME="${PROJECT_NAME}-email-config"
             POLICY_NAME="${PROJECT_NAME}-ses-policy"
             
-            echo "Cleaning up existing SES resources for project: $PROJECT_NAME"
-            
             # Clean up IAM user and related resources
-            echo "Cleaning up IAM user: $USER_NAME"
-            
-            # List and delete all access keys for the user
             if aws iam get-user --user-name "$USER_NAME" >/dev/null 2>&1; then
-              echo "User $USER_NAME exists, cleaning up access keys..."
+              echo "Cleaning up IAM user: $USER_NAME"
+              
+              # Delete access keys
               aws iam list-access-keys --user-name "$USER_NAME" --query 'AccessKeyMetadata[].AccessKeyId' --output text 2>/dev/null | tr '\t' '\n' | while read -r access_key; do
                 if [ -n "$access_key" ]; then
                   echo "Deleting access key: $access_key"
@@ -148,33 +192,21 @@ jobs:
               done
               
               # Delete user policies
-              echo "Deleting user policies..."
               aws iam delete-user-policy --user-name "$USER_NAME" --policy-name SESSendingPolicy 2>/dev/null || true
               aws iam delete-user-policy --user-name "$USER_NAME" --policy-name "${POLICY_NAME}" 2>/dev/null || true
               
-              # Detach any managed policies
-              aws iam list-attached-user-policies --user-name "$USER_NAME" --query 'AttachedPolicies[].PolicyArn' --output text 2>/dev/null | tr '\t' '\n' | while read -r policy_arn; do
-                if [ -n "$policy_arn" ]; then
-                  echo "Detaching policy: $policy_arn"
-                  aws iam detach-user-policy --user-name "$USER_NAME" --policy-arn "$policy_arn" 2>/dev/null || true
-                fi
-              done
-              
               # Delete the user
-              echo "Deleting user: $USER_NAME"
               aws iam delete-user --user-name "$USER_NAME" 2>/dev/null || true
             fi
             
             # Clean up SES configuration set
-            echo "Cleaning up SES configuration set: $CONFIG_SET_NAME"
             aws ses delete-configuration-set --configuration-set-name "$CONFIG_SET_NAME" 2>/dev/null || true
             
             # Clean up IAM policy if it exists
-            echo "Cleaning up IAM policy: $POLICY_NAME"
             POLICY_ARN="arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/${POLICY_NAME}"
             aws iam delete-policy --policy-arn "$POLICY_ARN" 2>/dev/null || true
             
-            echo "Cleanup completed for project: $PROJECT_NAME"
+            echo "Cleanup completed - ready for fresh deployment"
           fi
       
       - name: CDKTF Deploy
