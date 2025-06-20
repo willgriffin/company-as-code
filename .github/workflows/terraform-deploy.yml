@@ -125,24 +125,56 @@ jobs:
       - name: Clean up conflicting AWS resources
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
-          # Clean up any existing IAM users that might conflict
+          # Clean up any existing SES resources that might conflict with CDKTF
           PROJECT_NAME="${{ secrets.PROJECT_NAME }}"
           if [ -n "$PROJECT_NAME" ]; then
             USER_NAME="${PROJECT_NAME}-ses-smtp"
+            CONFIG_SET_NAME="${PROJECT_NAME}-email-config"
+            POLICY_NAME="${PROJECT_NAME}-ses-policy"
+            
+            echo "Cleaning up existing SES resources for project: $PROJECT_NAME"
+            
+            # Clean up IAM user and related resources
+            echo "Cleaning up IAM user: $USER_NAME"
             
             # List and delete all access keys for the user
-            aws iam list-access-keys --user-name "$USER_NAME" --query 'AccessKeyMetadata[].AccessKeyId' --output text 2>/dev/null | tr '\t' '\n' | while read -r access_key; do
-              if [ -n "$access_key" ]; then
-                echo "Deleting access key: $access_key"
-                aws iam delete-access-key --user-name "$USER_NAME" --access-key-id "$access_key" 2>/dev/null || true
-              fi
-            done
+            if aws iam get-user --user-name "$USER_NAME" >/dev/null 2>&1; then
+              echo "User $USER_NAME exists, cleaning up access keys..."
+              aws iam list-access-keys --user-name "$USER_NAME" --query 'AccessKeyMetadata[].AccessKeyId' --output text 2>/dev/null | tr '\t' '\n' | while read -r access_key; do
+                if [ -n "$access_key" ]; then
+                  echo "Deleting access key: $access_key"
+                  aws iam delete-access-key --user-name "$USER_NAME" --access-key-id "$access_key" 2>/dev/null || true
+                fi
+              done
+              
+              # Delete user policies
+              echo "Deleting user policies..."
+              aws iam delete-user-policy --user-name "$USER_NAME" --policy-name SESSendingPolicy 2>/dev/null || true
+              aws iam delete-user-policy --user-name "$USER_NAME" --policy-name "${POLICY_NAME}" 2>/dev/null || true
+              
+              # Detach any managed policies
+              aws iam list-attached-user-policies --user-name "$USER_NAME" --query 'AttachedPolicies[].PolicyArn' --output text 2>/dev/null | tr '\t' '\n' | while read -r policy_arn; do
+                if [ -n "$policy_arn" ]; then
+                  echo "Detaching policy: $policy_arn"
+                  aws iam detach-user-policy --user-name "$USER_NAME" --policy-arn "$policy_arn" 2>/dev/null || true
+                fi
+              done
+              
+              # Delete the user
+              echo "Deleting user: $USER_NAME"
+              aws iam delete-user --user-name "$USER_NAME" 2>/dev/null || true
+            fi
             
-            # Delete user policy and user
-            aws iam delete-user-policy --user-name "$USER_NAME" --policy-name SESSendingPolicy 2>/dev/null || true
-            aws iam delete-user --user-name "$USER_NAME" 2>/dev/null || true
+            # Clean up SES configuration set
+            echo "Cleaning up SES configuration set: $CONFIG_SET_NAME"
+            aws ses delete-configuration-set --configuration-set-name "$CONFIG_SET_NAME" 2>/dev/null || true
             
-            echo "Cleanup completed for user: $USER_NAME"
+            # Clean up IAM policy if it exists
+            echo "Cleaning up IAM policy: $POLICY_NAME"
+            POLICY_ARN="arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/${POLICY_NAME}"
+            aws iam delete-policy --policy-arn "$POLICY_ARN" 2>/dev/null || true
+            
+            echo "Cleanup completed for project: $PROJECT_NAME"
           fi
       
       - name: CDKTF Deploy
