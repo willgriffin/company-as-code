@@ -6,6 +6,7 @@ import { KubernetesNodePool } from '@cdktf/provider-digitalocean/lib/kubernetes-
 import { Loadbalancer } from '@cdktf/provider-digitalocean/lib/loadbalancer';
 import { Domain } from '@cdktf/provider-digitalocean/lib/domain';
 import { Record } from '@cdktf/provider-digitalocean/lib/record';
+import { Certificate } from '@cdktf/provider-digitalocean/lib/certificate';
 import { Config, Environment } from '../config/schema';
 
 export interface DigitalOceanClusterStackProps {
@@ -19,6 +20,7 @@ export class DigitalOceanClusterStack extends TerraformStack {
   public readonly nodePool?: KubernetesNodePool;
   public readonly loadBalancer: Loadbalancer;
   public readonly domain: Domain;
+  public readonly certificate: Certificate;
 
   constructor(scope: Construct, id: string, props: DigitalOceanClusterStackProps) {
     super(scope, id);
@@ -79,6 +81,18 @@ export class DigitalOceanClusterStack extends TerraformStack {
       });
     }
 
+    // Domain management (create first without IP)
+    this.domain = new Domain(this, 'domain', {
+      name: environment.domain,
+    });
+
+    // Create Let's Encrypt certificate for the domain
+    this.certificate = new Certificate(this, 'lb-certificate', {
+      name: `${clusterName}-lb-cert`,
+      type: 'lets_encrypt',
+      domains: [environment.domain, `*.${environment.domain}`],
+    });
+
     // Load balancer for ingress
     this.loadBalancer = new Loadbalancer(this, 'ingress-lb', {
       name: `${clusterName}-ingress`,
@@ -98,7 +112,7 @@ export class DigitalOceanClusterStack extends TerraformStack {
           entryPort: 443,
           targetProtocol: 'https',
           targetPort: 443,
-          certificateId: '', // Will be updated with cert-manager
+          certificateId: this.certificate.id,
         },
       ],
       healthcheck: {
@@ -113,10 +127,13 @@ export class DigitalOceanClusterStack extends TerraformStack {
       dropletTag: `${clusterName}-worker`,
     });
 
-    // Domain management
-    this.domain = new Domain(this, 'domain', {
-      name: environment.domain,
-      ipAddress: this.loadBalancer.ip,
+    // Create root A record pointing to load balancer
+    new Record(this, 'root-record', {
+      domain: this.domain.name,
+      type: 'A',
+      name: '@',
+      value: this.loadBalancer.ip,
+      ttl: 300,
     });
 
     // Application DNS records are managed by external-dns based on ingress annotations

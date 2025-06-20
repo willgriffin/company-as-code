@@ -119,12 +119,20 @@ if (process.env.GITHUB_REPOSITORY) {
     sesSmtpPassword: sesStack ? sesStack.accessKey.sesSmtpPasswordV4 : undefined,
   });
 
-  new GitHubSecretsStack(app, `${config.project.name}-github-secrets`, {
+  const githubSecretsStack = new GitHubSecretsStack(app, `${config.project.name}-github-secrets`, {
     projectName: config.project.name,
     config,
     repository: process.env.GITHUB_REPOSITORY,
     secrets,
   });
+
+  // GitHub secrets depend on cluster being created first
+  githubSecretsStack.addDependency(primaryCluster);
+  
+  // GitHub secrets also depend on SES if it exists
+  if (sesStack) {
+    githubSecretsStack.addDependency(sesStack);
+  }
 }
 
 app.synth();
