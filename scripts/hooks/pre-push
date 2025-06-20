@@ -1,20 +1,14 @@
 #!/bin/bash
 #
-# Pre-commit hook to run lint on staged files
+# Pre-push hook to run lint and build
 #
 
-# Get list of staged TypeScript/JavaScript files
-STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx|js|jsx)$')
-
-if [ -z "$STAGED_FILES" ]; then
-  exit 0
-fi
-
-echo "Running lint on staged files..."
+echo "Running pre-push checks..."
 
 # Check if we're in a workspace environment (has pnpm-workspace.yaml)
 if [ -f "pnpm-workspace.yaml" ]; then
   # Run lint using pnpm workspace command
+  echo "Running lint..."
   pnpm run lint
   LINT_EXIT_CODE=$?
   
@@ -26,6 +20,7 @@ if [ -f "pnpm-workspace.yaml" ]; then
   fi
 else
   # Fallback to npm
+  echo "Running lint..."
   npm run lint
   LINT_EXIT_CODE=$?
   
@@ -37,16 +32,16 @@ else
   fi
 fi
 
-# If lint fails, prevent commit
+# If lint fails, prevent push
 if [ $LINT_EXIT_CODE -ne 0 ]; then
-  echo "❌ Lint failed. Please fix the issues before committing."
+  echo "❌ Lint failed. Please fix the issues before pushing."
   echo "You can run 'pnpm run lint:fix' to auto-fix some issues."
   exit 1
 fi
 
-# If build fails, prevent commit
+# If build fails, prevent push
 if [ $BUILD_EXIT_CODE -ne 0 ]; then
-  echo "❌ Build failed. Please fix the issues before committing."
+  echo "❌ Build failed. Please fix the issues before pushing."
   exit 1
 fi
 
