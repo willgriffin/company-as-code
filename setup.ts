@@ -5,7 +5,6 @@
  *
  * This script handles the foundational setup that CDKTF doesn't cover:
  * - AWS S3 bucket for Terraform state storage
- * - AWS SES credentials and IAM user setup
  * - GitHub secrets management
  * - Optional GitHub project board setup
  *
@@ -322,11 +321,6 @@ class GitOpsSetup {
     this.log(`    • Versioning: Enabled`);
     this.log(`    • Encryption: AES256`);
 
-    this.log(`  ${colors.bold}AWS SES:${colors.reset}`);
-    this.log(`    • IAM User: ${this.config.project.name}-ses-smtp`);
-    this.log(`    • IAM Policy: ${this.config.project.name}-ses-policy`);
-    this.log(`    • Domain: ${this.config.project.domain} (verification required)`);
-
     if (!this.options.skipGithub) {
       this.log(`  ${colors.bold}GitHub Repository:${colors.reset} ${accountInfo.github.repo}`);
       this.log(`    • Repository secrets (credentials and configuration)`);
@@ -338,7 +332,6 @@ class GitOpsSetup {
 
     this.log(`${colors.bold}${colors.blue}Estimated Costs:${colors.reset}`);
     this.log(`  • AWS S3 (Terraform state): ~$0.02/month (minimal storage)`);
-    this.log(`  • AWS SES: $0 (free tier: 62,000 emails/month)`);
     this.log(`  • GitHub: $0 (using existing repository)`);
     this.log('');
 
@@ -505,167 +498,6 @@ class GitOpsSetup {
     return { bucketName, region };
   }
 
-  private generateSesSmtpPassword(secretKey: string): string {
-    if (!secretKey || typeof secretKey !== 'string') {
-      throw new SetupError(
-        'Invalid secret key provided for SMTP password generation',
-        'INVALID_SECRET_KEY'
-      );
-    }
-
-    const message = 'SendRawEmail';
-    const versionInBytes = Buffer.from([0x04]);
-    const signatureInBytes = Buffer.concat([versionInBytes, Buffer.from(secretKey, 'utf-8')]);
-
-    const hmac = createHmac('sha256', signatureInBytes);
-    hmac.update(message);
-
-    return hmac.digest('base64');
-  }
-
-  private async setupSesCredentials(): Promise<{ username: string; password: string }> {
-    this.logStep('Setting up AWS SES SMTP Credentials');
-
-    const domain = this.config.project.domain;
-    const userName = `${this.config.project.name}-ses-smtp`;
-    const policyName = `${this.config.project.name}-ses-policy`;
-
-    // Create IAM policy for SES
-    const policyDocument = {
-      Version: '2012-10-17',
-      Statement: [
-        {
-          Effect: 'Allow',
-          Action: ['ses:SendEmail', 'ses:SendRawEmail'],
-          Resource: `arn:aws:ses:*:*:identity/${domain}`,
-        },
-      ],
-    };
-
-    this.log(`Creating IAM policy: ${policyName}`);
-    try {
-      this.exec(
-        `aws iam create-policy --policy-name ${policyName} --policy-document '${JSON.stringify(policyDocument)}'`,
-        true
-      );
-      this.logSuccess(`Created IAM policy: ${policyName}`);
-    } catch {
-      this.logWarning(`IAM policy ${policyName} may already exist`);
-    }
-
-    // Create IAM user
-    this.log(`Creating IAM user: ${userName}`);
-    try {
-      this.exec(`aws iam create-user --user-name ${userName}`, true);
-      this.logSuccess(`Created IAM user: ${userName}`);
-    } catch {
-      this.logWarning(`IAM user ${userName} may already exist`);
-    }
-
-    // Attach policy to user
-    const accountId = this.exec('aws sts get-caller-identity --query Account --output text', true);
-    const policyArn = `arn:aws:iam::${accountId}:policy/${policyName}`;
-
-    try {
-      this.exec(
-        `aws iam attach-user-policy --user-name ${userName} --policy-arn ${policyArn}`,
-        true
-      );
-      this.logSuccess(`Attached policy to user: ${userName}`);
-    } catch {
-      this.logWarning(`Policy may already be attached to ${userName}`);
-    }
-
-    // Delete any existing access keys and create new ones
-    this.log(`Managing access keys for: ${userName}`);
-
-    // List existing access keys
-    try {
-      const existingKeys = this.exec(
-        `aws iam list-access-keys --user-name ${userName} --query 'AccessKeyMetadata[].AccessKeyId' --output text`,
-        true
-      );
-
-      if (existingKeys.trim()) {
-        const keyIds = existingKeys.trim().split(/\s+/);
-        this.log(`Found ${keyIds.length} existing access key(s), removing them...`);
-
-        for (const keyId of keyIds) {
-          try {
-            this.exec(
-              `aws iam delete-access-key --user-name ${userName} --access-key-id ${keyId}`,
-              true
-            );
-            this.logSuccess(`Deleted existing access key: ${keyId}`);
-          } catch (error) {
-            this.logWarning(`Could not delete access key ${keyId}: ${error}`);
-          }
-        }
-      }
-    } catch {
-      // User might not exist yet, which is fine
-    }
-
-    // Create new access keys
-    this.log(`Creating new access keys for: ${userName}`);
-    let accessKey: string;
-    let secretKey: string;
-
-    try {
-      const keyOutput = this.exec(
-        `aws iam create-access-key --user-name ${userName} --query 'AccessKey.[AccessKeyId,SecretAccessKey]' --output text`,
-        true
-      );
-
-      if (!keyOutput || typeof keyOutput !== 'string') {
-        throw new SetupError(`Failed to get access key output for ${userName}`, 'SES_KEY_FAILED');
-      }
-
-      const keyParts = keyOutput.split('\t');
-      if (keyParts.length !== 2) {
-        throw new SetupError(
-          `Invalid access key output format for ${userName}. Expected tab-separated AccessKeyId and SecretAccessKey`,
-          'SES_KEY_FAILED'
-        );
-      }
-
-      [accessKey, secretKey] = keyParts;
-
-      if (!accessKey || !secretKey) {
-        throw new SetupError(
-          `Failed to parse access keys for ${userName}. AccessKey or SecretKey is empty`,
-          'SES_KEY_FAILED'
-        );
-      }
-
-      this.logSuccess(`Created new access keys for: ${userName}`);
-    } catch (error) {
-      if (error instanceof SetupError) {
-        throw error;
-      }
-      throw new SetupError(
-        `Failed to create access keys for ${userName}: ${error}`,
-        'SES_KEY_FAILED'
-      );
-    }
-
-    // Generate SMTP password
-    const smtpPassword = this.generateSesSmtpPassword(secretKey);
-
-    this.log(`\n${colors.yellow}SES Setup Complete:${colors.reset}`);
-    this.log(`Domain: ${domain}`);
-    this.log(`SMTP Username: ${accessKey}`);
-    this.log(`Access Key: ${accessKey}`);
-    this.log(`Secret Key: ${secretKey}`);
-    this.log(`SMTP Password: ${smtpPassword}`);
-
-    this.log(`\n${colors.yellow}Next steps for SES:${colors.reset}`);
-    this.log(`1. Verify domain in AWS SES console`);
-    this.log(`2. Set up DKIM records`);
-    this.log(`3. Request production access if needed`);
-
-    return { username: accessKey, password: smtpPassword };
-  }
 
   private async setupDigitalOceanDomain(): Promise<void> {
     this.logStep('Setting up DigitalOcean Domain');
@@ -1137,13 +969,10 @@ ${optionalFiles
       // Step 3: Setup S3 bucket for Terraform state
       const s3Config = await this.setupS3StateBucket();
 
-      // Step 4: Setup SES credentials
-      const sesConfig = await this.setupSesCredentials();
-
-      // Step 5: Setup DigitalOcean domain
+      // Step 4: Setup DigitalOcean domain
       await this.setupDigitalOceanDomain();
 
-      // Step 6: Set GitHub secrets
+      // Step 5: Set GitHub secrets
       const secrets: Record<string, string> = {
         PROJECT_NAME: this.config.project.name,
         DIGITALOCEAN_TOKEN: process.env.DIGITALOCEAN_TOKEN || '',
@@ -1151,18 +980,16 @@ ${optionalFiles
         TERRAFORM_STATE_REGION: s3Config.region,
         AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID || '',
         AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || '',
-        SES_SMTP_USERNAME: sesConfig.username,
-        SES_SMTP_PASSWORD: sesConfig.password,
         ADMIN_EMAIL: this.config.project.email,
         DOMAIN: this.config.project.domain,
       };
 
       await this.setGitHubSecrets(secrets);
 
-      // Step 7: Setup GitHub project (optional)
+      // Step 6: Setup GitHub project (optional)
       await this.setupGitHubProject();
 
-      // Step 8: Create cleanup issue for template ejection
+      // Step 7: Create cleanup issue for template ejection
       await this.createCleanupIssue();
 
       this.logStep('Setup Complete');
@@ -1534,7 +1361,7 @@ EXAMPLES:
 
 This script sets up prerequisites for CDKTF deployment:
 - AWS S3 bucket for Terraform state (with versioning and encryption)
-- AWS SES credentials for email functionality
+- DigitalOcean domain creation (if needed)
 - GitHub repository secrets
 - Optional GitHub project labels and workflow
 

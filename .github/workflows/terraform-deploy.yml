@@ -55,8 +55,6 @@ jobs:
           digitalocean-token: ${{ secrets.DIGITALOCEAN_TOKEN }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          ses-smtp-username: ${{ secrets.SES_SMTP_USERNAME }}
-          ses-smtp-password: ${{ secrets.SES_SMTP_PASSWORD }}
           terraform-state-bucket: ${{ secrets.TERRAFORM_STATE_BUCKET }}
           terraform-state-region: ${{ secrets.TERRAFORM_STATE_REGION }}
           project-name: ${{ secrets.PROJECT_NAME }}
