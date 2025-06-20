@@ -26,7 +26,12 @@ export class SetupStack extends TerraformStack {
     // This key will be used by other stacks to create buckets and manage Spaces resources
     this.spacesKey = new SpacesKey(this, 'infrastructure-spaces-key', {
       name: `${projectName}-infrastructure-key`,
-      // No specific grants - this gives it permission to create buckets and manage Spaces
+      grant: [
+        {
+          bucket: '', // Empty string grants access to all buckets and bucket creation
+          permission: 'fullaccess',
+        },
+      ],
     });
 
     // Outputs for other stacks to use
