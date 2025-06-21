@@ -539,6 +539,99 @@ class GitOpsSetup {
     }
   }
 
+  private async setupDigitalOceanSpaces(): Promise<{
+    accessKeyId: string;
+    secretAccessKey: string;
+    bucketName: string;
+  }> {
+    this.logStep('Setting up DigitalOcean Spaces');
+
+    const bucketName = `${this.config.project.name}-app-data`;
+    const region = this.config.environments[0].cluster.region;
+    const keyName = `${this.config.project.name}-app-access`;
+
+    // Create Spaces access keys
+    this.log('Creating Spaces access keys...');
+    let accessKeyId: string;
+    let secretAccessKey: string;
+
+    try {
+      // Create Spaces access key with full access to the bucket
+      const keyResult = this.exec(
+        `doctl spaces keys create ${keyName} --grants "bucket=${bucketName};permission=fullaccess" --format AccessKeyId,SecretAccessKey --no-header`,
+        true
+      );
+
+      const [keyId, secret] = keyResult.split('\t');
+      accessKeyId = keyId.trim();
+      secretAccessKey = secret.trim();
+
+      this.logSuccess('Created Spaces access keys');
+    } catch (error) {
+      throw new SetupError(
+        `Failed to create Spaces access keys: ${error}`,
+        'SPACES_KEY_CREATION_FAILED'
+      );
+    }
+
+    // Check if bucket already exists and create if needed
+    try {
+      this.log(`Checking if bucket ${bucketName} exists...`);
+
+      // Use AWS CLI with Spaces endpoint to check bucket
+      const checkCommand = `aws s3 ls s3://${bucketName} --endpoint-url https://${region}.digitaloceanspaces.com`;
+
+      try {
+        // Set credentials for AWS CLI and check bucket
+        const checkCommandWithEnv = `AWS_ACCESS_KEY_ID='${accessKeyId}' AWS_SECRET_ACCESS_KEY='${secretAccessKey}' ${checkCommand}`;
+        this.exec(checkCommandWithEnv, true);
+        this.logSuccess(`Spaces bucket "${bucketName}" already exists`);
+      } catch (bucketCheckError) {
+        // Bucket doesn't exist, create it
+        this.log(`Creating Spaces bucket: ${bucketName}`);
+
+        // Create bucket
+        const createCommand =
+          region === 'us-east-1'
+            ? `aws s3api create-bucket --bucket ${bucketName} --endpoint-url https://${region}.digitaloceanspaces.com`
+            : `aws s3api create-bucket --bucket ${bucketName} --endpoint-url https://${region}.digitaloceanspaces.com --create-bucket-configuration LocationConstraint=${region}`;
+
+        const createCommandWithEnv = `AWS_ACCESS_KEY_ID='${accessKeyId}' AWS_SECRET_ACCESS_KEY='${secretAccessKey}' ${createCommand}`;
+        this.exec(createCommandWithEnv, true);
+
+        // Enable versioning
+        const versioningCommand = `aws s3api put-bucket-versioning --bucket ${bucketName} --endpoint-url https://${region}.digitaloceanspaces.com --versioning-configuration Status=Enabled`;
+        const versioningCommandWithEnv = `AWS_ACCESS_KEY_ID='${accessKeyId}' AWS_SECRET_ACCESS_KEY='${secretAccessKey}' ${versioningCommand}`;
+        this.exec(versioningCommandWithEnv, true);
+
+        // Set lifecycle policy for old versions
+        const lifecyclePolicy = {
+          Rules: [
+            {
+              ID: 'app-data-cleanup',
+              Status: 'Enabled',
+              NoncurrentVersionExpiration: {
+                NoncurrentDays: 30,
+              },
+            },
+          ],
+        };
+
+        const lifecycleCommand = `aws s3api put-bucket-lifecycle-configuration --bucket ${bucketName} --endpoint-url https://${region}.digitaloceanspaces.com --lifecycle-configuration '${JSON.stringify(lifecyclePolicy)}'`;
+        const lifecycleCommandWithEnv = `AWS_ACCESS_KEY_ID='${accessKeyId}' AWS_SECRET_ACCESS_KEY='${secretAccessKey}' ${lifecycleCommand}`;
+        this.exec(lifecycleCommandWithEnv, true);
+
+        this.logSuccess(
+          `Created Spaces bucket: ${bucketName} with versioning and lifecycle policy`
+        );
+      }
+    } catch (error) {
+      throw new SetupError(`Failed to setup Spaces bucket: ${error}`, 'SPACES_BUCKET_SETUP_FAILED');
+    }
+
+    return { accessKeyId, secretAccessKey, bucketName };
+  }
+
   private async setGitHubSecrets(secrets: Record<string, string>): Promise<void> {
     this.logStep('Setting GitHub Repository Secrets');
 
@@ -975,7 +1068,10 @@ ${optionalFiles
       // Step 4: Setup DigitalOcean domain
       await this.setupDigitalOceanDomain();
 
-      // Step 5: Set GitHub secrets
+      // Step 5: Setup DigitalOcean Spaces
+      const spacesConfig = await this.setupDigitalOceanSpaces();
+
+      // Step 6: Set GitHub secrets
       const secrets: Record<string, string> = {
         PROJECT_NAME: this.config.project.name,
         DIGITALOCEAN_TOKEN: process.env.DIGITALOCEAN_TOKEN || '',
@@ -983,16 +1079,19 @@ ${optionalFiles
         TERRAFORM_STATE_REGION: s3Config.region,
         AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID || '',
         AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || '',
+        NEXTCLOUD_BUCKET_ACCESS_KEY_ID: spacesConfig.accessKeyId,
+        NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY: spacesConfig.secretAccessKey,
+        NEXTCLOUD_BUCKET_NAME: spacesConfig.bucketName,
         ADMIN_EMAIL: this.config.project.email,
         DOMAIN: this.config.project.domain,
       };
 
       await this.setGitHubSecrets(secrets);
 
-      // Step 6: Setup GitHub project (optional)
+      // Step 7: Setup GitHub project (optional)
       await this.setupGitHubProject();
 
-      // Step 7: Create cleanup issue for template ejection
+      // Step 8: Create cleanup issue for template ejection
       await this.createCleanupIssue();
 
       this.logStep('Setup Complete');
