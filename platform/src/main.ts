@@ -65,7 +65,8 @@ const config = loadConfig();
 const app = new App();
 
 // Create Spaces stack using credentials from repository secrets
-const spacesStack = new DigitalOceanSpacesStack(app, `${config.project.name}-spaces`, {
+// This stack imports the existing bucket and manages bucket policies and outputs
+new DigitalOceanSpacesStack(app, `${config.project.name}-spaces`, {
   projectName: config.project.name,
   config,
   region: config.environments[0].cluster.region,
