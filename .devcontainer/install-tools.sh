@@ -23,7 +23,7 @@ sudo chmod +x /usr/local/bin/yq
 
 # Install Flux CLI
 echo "Installing Flux CLI v${FLUX_VERSION}..."
-curl -s https://fluxcd.io/install.sh | sudo bash -s -- --version="${FLUX_VERSION}"
+curl -s https://fluxcd.io/install.sh | sudo FLUX_VERSION="${FLUX_VERSION}" bash
 
 # Install gomplate
 echo "Installing gomplate v${GOMPLATE_VERSION}..."
@@ -39,8 +39,6 @@ rm -f doctl-*
 
 echo "All tools installed successfully!"
 echo "Verifying installations..."
-
-npm install -g @anthropic-ai/claude-code
 
 yq --version
 flux version --client
@@ -59,5 +57,8 @@ fi
 if [ -f "platform/package.json" ]; then
     cd platform && npm install && cd ..
 fi
+
+# Create bash alias for claude
+echo "alias claude='npx @anthropic-ai/claude-code'" >> ~/.bashrc
 
 echo "Development environment ready!"
