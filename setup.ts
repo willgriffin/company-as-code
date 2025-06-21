@@ -651,7 +651,7 @@ class GitOpsSetup {
         const checkCommandWithEnv = `AWS_ACCESS_KEY_ID='${accessKeyId}' AWS_SECRET_ACCESS_KEY='${secretAccessKey}' ${checkCommand}`;
         this.exec(checkCommandWithEnv, true);
         this.logSuccess(`Spaces bucket "${bucketName}" already exists`);
-        return { accessKeyId, secretAccessKey, bucketName, secretsAlreadyExist };
+        return { accessKeyId, secretAccessKey, bucketName, secretsAlreadyExist: secretsExist };
       } catch (bucketCheckError) {
         // Bucket doesn't exist, create it
         this.log(`Creating Spaces bucket: ${bucketName}`);
@@ -695,7 +695,7 @@ class GitOpsSetup {
       throw new SetupError(`Failed to setup Spaces bucket: ${error}`, 'SPACES_BUCKET_SETUP_FAILED');
     }
 
-    return { accessKeyId, secretAccessKey, bucketName, secretsAlreadyExist };
+    return { accessKeyId, secretAccessKey, bucketName, secretsAlreadyExist: secretsExist };
   }
 
   private async setGitHubSecrets(secrets: Record<string, string>): Promise<void> {
