@@ -134,14 +134,14 @@ jobs:
         run: |
           cd platform
           echo "📋 Running CDKTF plan..."
-          npx cdktf plan happyvertical-setup happyvertical-spaces happyvertical-ses happyvertical-production happyvertical-production-flux happyvertical-github-secrets
+          pnpm run plan
       
       - name: CDKTF Deploy
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
           cd platform
           echo "🚀 Deploying infrastructure with CDKTF..."
-          npx cdktf deploy happyvertical-setup happyvertical-spaces happyvertical-ses happyvertical-production happyvertical-production-flux happyvertical-github-secrets --auto-approve
+          pnpm run deploy
       
       - name: Verify State Storage
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
@@ -154,57 +154,31 @@ jobs:
         if: github.event.inputs.action == 'destroy'
         run: |
           cd platform
-          npx cdktf destroy happyvertical-setup happyvertical-spaces happyvertical-ses happyvertical-production happyvertical-production-flux happyvertical-github-secrets --auto-approve
+          echo "🗑️ Destroying infrastructure with CDKTF..."
+          pnpm run destroy
       
       - name: Get kubeconfig from CDKTF output
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
-          # Extract kubeconfig from CDKTF output
           cd platform
-          if ! npx cdktf output > cdktf-output.json; then
-            echo "Error: Failed to get CDKTF output"
+          echo "📋 Extracting kubeconfig from CDKTF output..."
+          
+          # Generate CDKTF output file
+          if ! pnpm run output > cdktf-output.json; then
+            echo "❌ Failed to get CDKTF output"
             exit 1
           fi
           
-          # Validate output file exists and is not empty
-          if [[ ! -s cdktf-output.json ]]; then
-            echo "Error: CDKTF output file is empty or missing"
+          # Extract and encode kubeconfig using our script
+          KUBECONFIG_BASE64=$(node scripts/extract-kubeconfig.js --base64)
+          
+          if [[ -z "$KUBECONFIG_BASE64" ]]; then
+            echo "❌ Failed to extract kubeconfig"
             exit 1
           fi
           
-          # Get the kubeconfig from the cluster stack output
-          # Validate PROJECT_NAME secret is set to avoid misconfiguration
-          if [[ -z "${{ secrets.PROJECT_NAME }}" ]]; then
-            echo "Error: PROJECT_NAME secret is not set" >&2
-            echo "This secret is required to determine the correct CDKTF stack name" >&2
-            echo "Please set the PROJECT_NAME secret in your repository settings" >&2
-            exit 1
-          fi
-          
-          PROJECT_NAME="${{ secrets.PROJECT_NAME }}"
-          STACK_NAME="${PROJECT_NAME}-production"
-          
-          # Validate stack exists in output
-          if ! jq -e --arg stack "$STACK_NAME" 'has($stack)' cdktf-output.json > /dev/null; then
-            echo "Error: Stack '$STACK_NAME' not found in CDKTF output"
-            echo "Available stacks:"
-            jq -r 'keys[]' cdktf-output.json
-            exit 1
-          fi
-          
-          # Extract kubeconfig with validation
-          KUBECONFIG_CONTENT=$(jq -r --arg stack "$STACK_NAME" '.[$stack].kubeconfig' cdktf-output.json)
-          
-          # Validate kubeconfig content
-          if [[ "$KUBECONFIG_CONTENT" == "null" || -z "$KUBECONFIG_CONTENT" ]]; then
-            echo "Error: Kubeconfig not found in stack output"
-            echo "Available outputs for stack '$STACK_NAME':"
-            jq -r --arg stack "$STACK_NAME" '.[$stack] | keys[]' cdktf-output.json
-            exit 1
-          fi
-          
-          # Encode for GitHub secret
-          echo "KUBECONFIG_BASE64=$(echo "$KUBECONFIG_CONTENT" | base64 -w 0)" >> "$GITHUB_ENV"
+          echo "KUBECONFIG_BASE64=$KUBECONFIG_BASE64" >> "$GITHUB_ENV"
+          echo "✅ Kubeconfig extracted and encoded"
       
       - name: Update kubeconfig secret
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
