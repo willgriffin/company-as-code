@@ -1,0 +1,131 @@
+name: 'Validate Terraform State Backend'
+description: 'Validates S3 backend configuration and initializes Terraform for CDKTF stacks'
+inputs:
+  terraform-state-bucket:
+    description: 'S3 bucket for Terraform state'
+    required: true
+  terraform-state-region:
+    description: 'AWS region for Terraform state bucket'
+    required: true
+  working-directory:
+    description: 'Working directory for CDKTF (default: platform)'
+    required: false
+    default: 'platform'
+outputs:
+  state-files-count:
+    description: 'Number of state files found in S3'
+    value: ${{ steps.validate.outputs.state-files-count }}
+  backend-validated:
+    description: 'Whether backend validation passed'
+    value: ${{ steps.validate.outputs.backend-validated }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate S3 Backend and Initialize Terraform
+      id: validate
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        TERRAFORM_STATE_BUCKET: ${{ inputs.terraform-state-bucket }}
+        TERRAFORM_STATE_REGION: ${{ inputs.terraform-state-region }}
+      run: |
+        echo "🔍 Validating S3 backend configuration..."
+        
+        # Check required environment variables
+        if [[ -z "$TERRAFORM_STATE_BUCKET" ]]; then
+          echo "❌ TERRAFORM_STATE_BUCKET is not set"
+          exit 1
+        fi
+        
+        if [[ -z "$TERRAFORM_STATE_REGION" ]]; then
+          echo "❌ TERRAFORM_STATE_REGION is not set"
+          exit 1
+        fi
+        
+        echo "✅ Environment variables configured:"
+        echo "  - Bucket: $TERRAFORM_STATE_BUCKET"
+        echo "  - Region: $TERRAFORM_STATE_REGION"
+        
+        # Test S3 bucket access
+        echo "🧪 Testing S3 bucket access..."
+        if aws s3 ls "s3://$TERRAFORM_STATE_BUCKET" >/dev/null 2>&1; then
+          echo "✅ S3 bucket is accessible"
+        else
+          echo "❌ Cannot access S3 bucket: $TERRAFORM_STATE_BUCKET"
+          echo "Please ensure:"
+          echo "  1. Bucket exists and is in region $TERRAFORM_STATE_REGION"
+          echo "  2. AWS credentials have s3:ListBucket permission"
+          echo "  3. Bucket name is correct in repository secrets"
+          exit 1
+        fi
+        
+        # Check bucket versioning
+        echo "🔄 Checking bucket versioning..."
+        VERSIONING=$(aws s3api get-bucket-versioning --bucket "$TERRAFORM_STATE_BUCKET" --query 'Status' --output text 2>/dev/null || echo "None")
+        if [[ "$VERSIONING" == "Enabled" ]]; then
+          echo "✅ Bucket versioning is enabled"
+        else
+          echo "⚠️ Bucket versioning is not enabled (recommended for state files)"
+        fi
+        
+        # List existing state files
+        echo "📋 Existing state files in bucket:"
+        EXISTING_STATE=$(aws s3 ls "s3://$TERRAFORM_STATE_BUCKET/" --recursive | grep '\.tfstate$' || echo "")
+        if [[ -n "$EXISTING_STATE" ]]; then
+          echo "$EXISTING_STATE"
+          STATE_COUNT=$(echo "$EXISTING_STATE" | wc -l)
+        else
+          echo "  No state files found"
+          STATE_COUNT=0
+        fi
+        
+        # Generate CDKTF to create terraform directories
+        echo "🔧 Generating CDKTF configurations..."
+        pnpm run synth
+        
+        # Initialize Terraform backends for all stacks
+        echo "🔧 Initializing Terraform backends for all stacks..."
+        INIT_SUCCESS=true
+        
+        # Find all generated terraform directories
+        STACK_DIRS=$(find cdktf.out -type d -name "stacks" 2>/dev/null | head -1)
+        if [[ -d "$STACK_DIRS" ]]; then
+          for stack_dir in "$STACK_DIRS"/*; do
+            if [[ -d "$stack_dir" && -f "$stack_dir/main.tf" ]]; then
+              stack_name=$(basename "$stack_dir")
+              echo "📁 Initializing stack: $stack_name"
+              
+              cd "$stack_dir"
+              
+              # Initialize terraform with explicit backend configuration
+              if terraform init \
+                -backend-config="bucket=$TERRAFORM_STATE_BUCKET" \
+                -backend-config="region=$TERRAFORM_STATE_REGION" \
+                -backend-config="encrypt=true" \
+                -input=false \
+                -no-color; then
+                echo "✅ Stack $stack_name initialized successfully"
+              else
+                echo "❌ Failed to initialize stack $stack_name"
+                INIT_SUCCESS=false
+              fi
+              
+              # Go back to platform directory
+              cd - >/dev/null
+            fi
+          done
+        else
+          echo "⚠️ No stack directories found after synth"
+        fi
+        
+        if [[ "$INIT_SUCCESS" != "true" ]]; then
+          echo "❌ One or more stacks failed to initialize"
+          exit 1
+        fi
+        
+        # Set outputs
+        echo "state-files-count=$STATE_COUNT" >> "$GITHUB_OUTPUT"
+        echo "backend-validated=true" >> "$GITHUB_OUTPUT"
+        
+        echo "✅ All Terraform backends validated and initialized successfully"

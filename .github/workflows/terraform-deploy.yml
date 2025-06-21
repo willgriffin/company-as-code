@@ -121,18 +121,34 @@ jobs:
           cd platform
           pnpm run get
       
+      - name: Validate and Initialize Terraform State
+        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event.inputs.action == 'plan'
+        uses: ./.github/actions/validate-terraform-state
+        with:
+          terraform-state-bucket: ${{ env.TERRAFORM_STATE_BUCKET }}
+          terraform-state-region: ${{ env.TERRAFORM_STATE_REGION }}
+          working-directory: platform
+      
       - name: CDKTF Plan
         if: github.event.inputs.action == 'plan' || github.event.inputs.action == ''
         run: |
           cd platform
-          pnpm run synth
-      
+          echo "📋 Running CDKTF plan..."
+          npx cdktf plan '*'
       
       - name: CDKTF Deploy
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
           cd platform
+          echo "🚀 Deploying infrastructure with CDKTF..."
           npx cdktf deploy '*' --auto-approve
+      
+      - name: Verify State Storage
+        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        uses: ./.github/actions/verify-state-storage
+        with:
+          terraform-state-bucket: ${{ env.TERRAFORM_STATE_BUCKET }}
+          expected-min-stacks: 3
       
       - name: CDKTF Destroy
         if: github.event.inputs.action == 'destroy'

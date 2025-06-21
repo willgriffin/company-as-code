@@ -18,7 +18,11 @@
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write src",
     "format:check": "prettier --check src",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "state:validate": "node scripts/validate-state.js",
+    "state:list": "node scripts/list-state.js",
+    "state:backup": "node scripts/backup-state.js",
+    "state:import": "node scripts/import-resources.js"
   },
   "dependencies": {
     "@cdktf/provider-aws": "^20.0.0",
