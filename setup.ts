@@ -706,12 +706,18 @@ class GitOpsSetup {
       return;
     }
 
+    // Check if running in GitHub Codespace
+    const isCodespace = process.env.CODESPACES === 'true';
+
     // Get repository info
     const repoInfo = this.exec('gh repo view --json owner,name', true);
     const { owner, name } = JSON.parse(repoInfo);
     const repo = `${owner.login}/${name}`;
 
     this.log(`Setting secrets for repository: ${repo}`);
+    if (isCodespace) {
+      this.log('Also setting user secrets for Codespace access');
+    }
 
     for (const [key, value] of Object.entries(secrets)) {
       if (!value) {
@@ -720,10 +726,21 @@ class GitOpsSetup {
       }
 
       try {
+        // Set repository secret
         this.exec(`gh secret set ${key} --body "${value}"`, true);
-        this.logSuccess(`Set secret: ${key}`);
+        this.logSuccess(`Set repository secret: ${key}`);
+
+        // Also set user secret for Codespace if we're in one
+        if (isCodespace) {
+          try {
+            this.exec(`gh secret set ${key} --user --body "${value}"`, true);
+            this.logSuccess(`Set user secret for Codespace: ${key}`);
+          } catch (error) {
+            this.logWarning(`Failed to set user secret ${key}: ${error}`);
+          }
+        }
       } catch (error) {
-        this.logError(`Failed to set secret ${key}: ${error}`);
+        this.logError(`Failed to set repository secret ${key}: ${error}`);
       }
     }
   }
@@ -1415,6 +1432,16 @@ async function createConfigInteractively(): Promise<Config> {
       : process.env.NODE_COUNT
         ? parseInt(process.env.NODE_COUNT)
         : 3,
+    minNodes: process.env.SETUP_MIN_NODES
+      ? parseInt(process.env.SETUP_MIN_NODES)
+      : process.env.MIN_NODES
+        ? parseInt(process.env.MIN_NODES)
+        : 2,
+    maxNodes: process.env.SETUP_MAX_NODES
+      ? parseInt(process.env.SETUP_MAX_NODES)
+      : process.env.MAX_NODES
+        ? parseInt(process.env.MAX_NODES)
+        : 5,
     environment: process.env.SETUP_ENVIRONMENT || process.env.ENVIRONMENT || 'production',
   };
 
@@ -1461,6 +1488,40 @@ async function createConfigInteractively(): Promise<Config> {
 
     const nodeCountStr = await prompt('Node count', envDefaults.nodeCount.toString());
 
+    const minNodesStr = await prompt(
+      'Minimum nodes for autoscaling',
+      envDefaults.minNodes.toString()
+    );
+
+    const maxNodesStr = await prompt(
+      'Maximum nodes for autoscaling',
+      envDefaults.maxNodes.toString()
+    );
+
+    // Validate autoscaling configuration
+    const nodeCount = parseInt(nodeCountStr);
+    const minNodes = parseInt(minNodesStr);
+    const maxNodes = parseInt(maxNodesStr);
+
+    if (minNodes > nodeCount) {
+      console.log(
+        `${colors.yellow}Warning: Minimum nodes (${minNodes}) is greater than node count (${nodeCount}). Setting minNodes to ${nodeCount}.${colors.reset}`
+      );
+    }
+
+    if (maxNodes < nodeCount) {
+      console.log(
+        `${colors.yellow}Warning: Maximum nodes (${maxNodes}) is less than node count (${nodeCount}). Setting maxNodes to ${nodeCount}.${colors.reset}`
+      );
+    }
+
+    if (minNodes > maxNodes) {
+      console.log(
+        `${colors.red}Error: Minimum nodes (${minNodes}) cannot be greater than maximum nodes (${maxNodes}).${colors.reset}`
+      );
+      process.exit(1);
+    }
+
     const config: Config = {
       project: {
         name: projectName,
@@ -1474,8 +1535,10 @@ async function createConfigInteractively(): Promise<Config> {
           cluster: {
             region: region,
             nodeSize: nodeSize,
-            nodeCount: parseInt(nodeCountStr),
-            haControlPlane: parseInt(nodeCountStr) >= 3,
+            nodeCount: nodeCount,
+            minNodes: Math.min(minNodes, nodeCount),
+            maxNodes: Math.max(maxNodes, nodeCount),
+            haControlPlane: nodeCount >= 3,
           },
           domain: domain,
         },
@@ -1545,6 +1608,8 @@ ENVIRONMENT VARIABLES (for defaults):
   SETUP_REGION           DigitalOcean region (overrides DO_REGION)
   SETUP_NODE_SIZE        Kubernetes node size (overrides NODE_SIZE)
   SETUP_NODE_COUNT       Number of nodes (overrides NODE_COUNT)
+  SETUP_MIN_NODES        Minimum nodes for autoscaling (overrides MIN_NODES)
+  SETUP_MAX_NODES        Maximum nodes for autoscaling (overrides MAX_NODES)
   SETUP_ENVIRONMENT      Environment name (overrides ENVIRONMENT)
 
 REQUIRED ENVIRONMENT VARIABLES:
