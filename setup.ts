@@ -181,6 +181,37 @@ class GitOpsSetup {
     }
     this.logSuccess('DigitalOcean token is set');
 
+    // Check DigitalOcean CLI authentication
+    try {
+      this.exec('doctl auth list', true);
+      this.logSuccess('DigitalOcean CLI authenticated');
+    } catch {
+      // doctl not authenticated
+      if (process.env.DIGITALOCEAN_TOKEN) {
+        this.log(
+          `${colors.yellow}DigitalOcean CLI not authenticated. Initializing with token...${colors.reset}`
+        );
+        this.exec(
+          `doctl auth init --access-token "${process.env.DIGITALOCEAN_TOKEN}" --context default`
+        );
+        this.logSuccess('DigitalOcean CLI authentication complete');
+      } else if (this.options.interactive && !this.options.dryRun) {
+        this.log(
+          `${colors.yellow}DigitalOcean CLI not authenticated. Running doctl auth init...${colors.reset}`
+        );
+        this.log(
+          `${colors.blue}This will prompt you to enter your DigitalOcean API token${colors.reset}`
+        );
+        this.exec('doctl auth init --context default');
+        this.logSuccess('DigitalOcean CLI authentication complete');
+      } else {
+        throw new SetupError(
+          'DigitalOcean CLI not authenticated and no token available. Run: doctl auth init',
+          'AUTH_FAILED'
+        );
+      }
+    }
+
     // Check AWS authentication
     try {
       this.exec('aws sts get-caller-identity', true);
@@ -507,7 +538,7 @@ class GitOpsSetup {
     try {
       // Check if domain already exists
       const checkResult = this.exec(
-        `doctl compute domain get ${domain} --format Name --no-header`,
+        `doctl compute domain get ${domain} --format Domain --no-header`,
         true
       );
 
@@ -550,23 +581,52 @@ class GitOpsSetup {
     const region = this.config.environments[0].cluster.region;
     const keyName = `${this.config.project.name}-app-access`;
 
-    // Create Spaces access keys
-    this.log('Creating Spaces access keys...');
     let accessKeyId: string;
     let secretAccessKey: string;
 
+    // Check if secrets already exist in GitHub repository
+    if (!this.options.skipGithub) {
+      try {
+        this.log('Checking for existing Spaces credentials in GitHub secrets...');
+        const existingKeyId = this.exec('gh secret get NEXTCLOUD_BUCKET_ACCESS_KEY_ID', true);
+        const existingSecret = this.exec('gh secret get NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY', true);
+
+        if (existingKeyId && existingSecret) {
+          accessKeyId = existingKeyId.trim();
+          secretAccessKey = existingSecret.trim();
+          this.logSuccess('Using existing Spaces credentials from GitHub secrets');
+
+          // Verify the credentials work by checking bucket access
+          const checkCommand = `aws s3 ls s3://${bucketName} --endpoint-url https://${region}.digitaloceanspaces.com`;
+          const checkCommandWithEnv = `AWS_ACCESS_KEY_ID='${accessKeyId}' AWS_SECRET_ACCESS_KEY='${secretAccessKey}' ${checkCommand}`;
+
+          try {
+            this.exec(checkCommandWithEnv, true);
+            this.logSuccess('Existing credentials are valid');
+            return { accessKeyId, secretAccessKey, bucketName };
+          } catch (credError) {
+            this.logWarning('Existing credentials invalid, will create new ones');
+          }
+        }
+      } catch (secretError) {
+        this.log('No existing Spaces credentials found, will create new ones');
+      }
+    }
+
+    // Create new Spaces access keys
+    this.log('Creating new Spaces access keys...');
     try {
       // Create Spaces access key with full access to the bucket
       const keyResult = this.exec(
-        `doctl spaces keys create ${keyName} --grants "bucket=${bucketName};permission=fullaccess" --format AccessKeyId,SecretAccessKey --no-header`,
+        `doctl spaces keys create ${keyName} --grants "bucket=;permission=fullaccess" --output json`,
         true
       );
 
-      const [keyId, secret] = keyResult.split('\t');
-      accessKeyId = keyId.trim();
-      secretAccessKey = secret.trim();
+      const keyData = JSON.parse(keyResult)[0];
+      accessKeyId = keyData.access_key;
+      secretAccessKey = keyData.secret_key;
 
-      this.logSuccess('Created Spaces access keys');
+      this.logSuccess('Created new Spaces access keys');
     } catch (error) {
       throw new SetupError(
         `Failed to create Spaces access keys: ${error}`,
@@ -586,6 +646,7 @@ class GitOpsSetup {
         const checkCommandWithEnv = `AWS_ACCESS_KEY_ID='${accessKeyId}' AWS_SECRET_ACCESS_KEY='${secretAccessKey}' ${checkCommand}`;
         this.exec(checkCommandWithEnv, true);
         this.logSuccess(`Spaces bucket "${bucketName}" already exists`);
+        return { accessKeyId, secretAccessKey, bucketName };
       } catch (bucketCheckError) {
         // Bucket doesn't exist, create it
         this.log(`Creating Spaces bucket: ${bucketName}`);
