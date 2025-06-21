@@ -574,47 +574,52 @@ class GitOpsSetup {
     accessKeyId: string;
     secretAccessKey: string;
     bucketName: string;
+    secretsAlreadyExist: boolean;
   }> {
     this.logStep('Setting up DigitalOcean Spaces');
 
     const bucketName = `${this.config.project.name}-app-data`;
     const region = this.config.environments[0].cluster.region;
-    const keyName = `${this.config.project.name}-app-access`;
 
     let accessKeyId: string;
     let secretAccessKey: string;
 
     // Check if secrets already exist in GitHub repository
+    let secretsExist = false;
     if (!this.options.skipGithub) {
       try {
         this.log('Checking for existing Spaces credentials in GitHub secrets...');
-        const existingKeyId = this.exec('gh secret get NEXTCLOUD_BUCKET_ACCESS_KEY_ID', true);
-        const existingSecret = this.exec('gh secret get NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY', true);
+        const secretList = this.exec('gh secret list --json name', true);
+        const secrets = JSON.parse(secretList);
+        const secretNames = secrets.map((s: any) => s.name);
 
-        if (existingKeyId && existingSecret) {
-          accessKeyId = existingKeyId.trim();
-          secretAccessKey = existingSecret.trim();
-          this.logSuccess('Using existing Spaces credentials from GitHub secrets');
+        const requiredSecrets = [
+          'NEXTCLOUD_BUCKET_ACCESS_KEY_ID',
+          'NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY',
+          'NEXTCLOUD_BUCKET_NAME',
+        ];
+        secretsExist = requiredSecrets.every(name => secretNames.includes(name));
 
-          // Verify the credentials work by checking bucket access
-          const checkCommand = `aws s3 ls s3://${bucketName} --endpoint-url https://${region}.digitaloceanspaces.com`;
-          const checkCommandWithEnv = `AWS_ACCESS_KEY_ID='${accessKeyId}' AWS_SECRET_ACCESS_KEY='${secretAccessKey}' ${checkCommand}`;
-
-          try {
-            this.exec(checkCommandWithEnv, true);
-            this.logSuccess('Existing credentials are valid');
-            return { accessKeyId, secretAccessKey, bucketName };
-          } catch (credError) {
-            this.logWarning('Existing credentials invalid, will create new ones');
-          }
+        if (secretsExist) {
+          this.logSuccess('Spaces credentials already exist in GitHub secrets');
+          this.log(
+            'Note: We still need to create temporary keys for bucket operations during setup'
+          );
+        } else {
+          this.log('Some or all Spaces credentials missing from GitHub secrets');
         }
       } catch (secretError) {
-        this.log('No existing Spaces credentials found, will create new ones');
+        this.log('Could not check GitHub secrets, proceeding with key creation');
       }
     }
 
     // Create new Spaces access keys
-    this.log('Creating new Spaces access keys...');
+    const timestamp = Date.now();
+    const keyName = secretsExist
+      ? `${this.config.project.name}-setup-${timestamp}`
+      : `${this.config.project.name}-app-access`;
+
+    this.log(`Creating new Spaces access keys: ${keyName}...`);
     try {
       // Create Spaces access key with full access to the bucket
       const keyResult = this.exec(
@@ -646,7 +651,7 @@ class GitOpsSetup {
         const checkCommandWithEnv = `AWS_ACCESS_KEY_ID='${accessKeyId}' AWS_SECRET_ACCESS_KEY='${secretAccessKey}' ${checkCommand}`;
         this.exec(checkCommandWithEnv, true);
         this.logSuccess(`Spaces bucket "${bucketName}" already exists`);
-        return { accessKeyId, secretAccessKey, bucketName };
+        return { accessKeyId, secretAccessKey, bucketName, secretsAlreadyExist };
       } catch (bucketCheckError) {
         // Bucket doesn't exist, create it
         this.log(`Creating Spaces bucket: ${bucketName}`);
@@ -690,7 +695,7 @@ class GitOpsSetup {
       throw new SetupError(`Failed to setup Spaces bucket: ${error}`, 'SPACES_BUCKET_SETUP_FAILED');
     }
 
-    return { accessKeyId, secretAccessKey, bucketName };
+    return { accessKeyId, secretAccessKey, bucketName, secretsAlreadyExist };
   }
 
   private async setGitHubSecrets(secrets: Record<string, string>): Promise<void> {
@@ -1140,12 +1145,16 @@ ${optionalFiles
         TERRAFORM_STATE_REGION: s3Config.region,
         AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID || '',
         AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || '',
-        NEXTCLOUD_BUCKET_ACCESS_KEY_ID: spacesConfig.accessKeyId,
-        NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY: spacesConfig.secretAccessKey,
-        NEXTCLOUD_BUCKET_NAME: spacesConfig.bucketName,
         ADMIN_EMAIL: this.config.project.email,
         DOMAIN: this.config.project.domain,
       };
+
+      // Only add Nextcloud bucket secrets if they don't already exist
+      if (!spacesConfig.secretsAlreadyExist) {
+        secrets.NEXTCLOUD_BUCKET_ACCESS_KEY_ID = spacesConfig.accessKeyId;
+        secrets.NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY = spacesConfig.secretAccessKey;
+        secrets.NEXTCLOUD_BUCKET_NAME = spacesConfig.bucketName;
+      }
 
       await this.setGitHubSecrets(secrets);
 
