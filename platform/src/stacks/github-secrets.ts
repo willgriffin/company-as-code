@@ -51,6 +51,9 @@ export class GitHubSecretsStack extends TerraformStack {
     awsSecretKey?: string;
     sesSmtpUsername?: string;
     sesSmtpPassword?: string;
+    nextcloudBucketAccessKeyId?: string;
+    nextcloudBucketSecretAccessKey?: string;
+    nextcloudBucketName?: string;
   }): Record<string, string> {
     const secrets: Record<string, string> = {
       KUBECONFIG: props.kubeconfig,
@@ -67,6 +70,16 @@ export class GitHubSecretsStack extends TerraformStack {
     if (props.sesSmtpUsername && props.sesSmtpPassword) {
       secrets.SES_SMTP_USERNAME = props.sesSmtpUsername;
       secrets.SES_SMTP_PASSWORD = props.sesSmtpPassword;
+    }
+
+    if (
+      props.nextcloudBucketAccessKeyId &&
+      props.nextcloudBucketSecretAccessKey &&
+      props.nextcloudBucketName
+    ) {
+      secrets.NEXTCLOUD_BUCKET_ACCESS_KEY_ID = props.nextcloudBucketAccessKeyId;
+      secrets.NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY = props.nextcloudBucketSecretAccessKey;
+      secrets.NEXTCLOUD_BUCKET_NAME = props.nextcloudBucketName;
     }
 
     return secrets;
