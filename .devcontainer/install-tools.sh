@@ -24,6 +24,7 @@ sudo chmod +x /usr/local/bin/yq
 # Install Flux CLI
 echo "Installing Flux CLI v${FLUX_VERSION}..."
 curl -s https://fluxcd.io/install.sh | sudo FLUX_VERSION="${FLUX_VERSION}" bash
+sudo chmod +x /usr/local/bin/flux
 
 # Install gomplate
 echo "Installing gomplate v${GOMPLATE_VERSION}..."
@@ -50,12 +51,13 @@ doctl version
 echo "GitOps environment setup complete!"
 
 # Install Node.js dependencies for development
+echo "Installing Node.js dependencies..."
 if [ -f "package.json" ]; then
-    npm install
-fi
-
-if [ -f "platform/package.json" ]; then
-    cd platform && npm install && cd ..
+    if command -v pnpm &> /dev/null; then
+        pnpm install
+    else
+        echo "Warning: pnpm not found, skipping dependency installation"
+    fi
 fi
 
 # Create bash alias for claude
