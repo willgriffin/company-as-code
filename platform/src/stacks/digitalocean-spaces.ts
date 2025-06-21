@@ -44,8 +44,8 @@ export class DigitalOceanSpacesStack extends TerraformStack {
     // Generate random suffix for bucket name
     const randomSuffix = new Resource(this, 'bucket-suffix', {
       triggers: {
-        // This ensures a new suffix is generated only when needed
-        always_run: '${timestamp()}',
+        // Only regenerate if project name changes
+        project: projectName,
       },
     });
 
@@ -82,7 +82,7 @@ export class DigitalOceanSpacesStack extends TerraformStack {
               AWS: '*',
             },
             Action: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject'],
-            Resource: `arn:aws:s3:::${projectName}-app-data/*`,
+            Resource: `arn:aws:s3:::${this.applicationDataBucket.name}/*`,
             Condition: {
               StringEquals: {
                 's3:x-amz-acl': 'private',
