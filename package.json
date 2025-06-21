@@ -5,6 +5,7 @@
   "packageManager": "pnpm@9.0.0",
   "description": "GitOps template with Terraform CDK and modern TypeScript tooling",
   "scripts": {
+    "claude": "claude",
     "platform": "pnpm --filter @startup-gitops/platform",
     "build": "pnpm run build:root && pnpm run -r build",
     "build:root": "tsc --noEmit",
