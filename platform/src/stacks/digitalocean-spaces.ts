@@ -1,7 +1,7 @@
 import { Construct } from 'constructs';
 import { TerraformStack, TerraformOutput, S3Backend } from 'cdktf';
 import { DigitaloceanProvider } from '@cdktf/provider-digitalocean/lib/provider';
-import { SpacesBucket } from '@cdktf/provider-digitalocean/lib/spaces-bucket';
+import { DataDigitaloceanSpacesBucket } from '@cdktf/provider-digitalocean/lib/data-digitalocean-spaces-bucket';
 import { SpacesBucketPolicy } from '@cdktf/provider-digitalocean/lib/spaces-bucket-policy';
 import { Config } from '../config/schema';
 
@@ -14,7 +14,7 @@ export interface DigitalOceanSpacesStackProps {
 }
 
 export class DigitalOceanSpacesStack extends TerraformStack {
-  public readonly applicationDataBucket: SpacesBucket;
+  public readonly applicationDataBucket: DataDigitaloceanSpacesBucket;
 
   constructor(scope: Construct, id: string, props: DigitalOceanSpacesStackProps) {
     super(scope, id);
@@ -36,24 +36,11 @@ export class DigitalOceanSpacesStack extends TerraformStack {
       spacesSecretKey: spacesSecretAccessKey,
     });
 
-    // Application data bucket with a stable name
+    // Import existing application data bucket created by setup.ts
     const bucketName = `${projectName}-app-data`;
-    this.applicationDataBucket = new SpacesBucket(this, 'application-data', {
+    this.applicationDataBucket = new DataDigitaloceanSpacesBucket(this, 'application-data', {
       name: bucketName,
       region: region,
-      acl: 'private',
-      versioning: {
-        enabled: true,
-      },
-      lifecycleRule: [
-        {
-          id: 'backup-retention',
-          enabled: true,
-          noncurrentVersionExpiration: {
-            days: 30,
-          },
-        },
-      ],
     });
 
     // Bucket policy for application access

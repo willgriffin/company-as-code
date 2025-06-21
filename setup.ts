@@ -181,6 +181,37 @@ class GitOpsSetup {
     }
     this.logSuccess('DigitalOcean token is set');
 
+    // Check DigitalOcean CLI authentication
+    try {
+      this.exec('doctl auth list', true);
+      this.logSuccess('DigitalOcean CLI authenticated');
+    } catch {
+      // doctl not authenticated
+      if (process.env.DIGITALOCEAN_TOKEN) {
+        this.log(
+          `${colors.yellow}DigitalOcean CLI not authenticated. Initializing with token...${colors.reset}`
+        );
+        this.exec(
+          `doctl auth init --access-token "${process.env.DIGITALOCEAN_TOKEN}" --context default`
+        );
+        this.logSuccess('DigitalOcean CLI authentication complete');
+      } else if (this.options.interactive && !this.options.dryRun) {
+        this.log(
+          `${colors.yellow}DigitalOcean CLI not authenticated. Running doctl auth init...${colors.reset}`
+        );
+        this.log(
+          `${colors.blue}This will prompt you to enter your DigitalOcean API token${colors.reset}`
+        );
+        this.exec('doctl auth init --context default');
+        this.logSuccess('DigitalOcean CLI authentication complete');
+      } else {
+        throw new SetupError(
+          'DigitalOcean CLI not authenticated and no token available. Run: doctl auth init',
+          'AUTH_FAILED'
+        );
+      }
+    }
+
     // Check AWS authentication
     try {
       this.exec('aws sts get-caller-identity', true);
@@ -507,7 +538,7 @@ class GitOpsSetup {
     try {
       // Check if domain already exists
       const checkResult = this.exec(
-        `doctl compute domain get ${domain} --format Name --no-header`,
+        `doctl compute domain get ${domain} --format Domain --no-header`,
         true
       );
 
@@ -537,6 +568,134 @@ class GitOpsSetup {
     } catch (error) {
       throw new SetupError(`Failed to create domain ${domain}: ${error}`, 'DOMAIN_CREATION_FAILED');
     }
+  }
+
+  private async setupDigitalOceanSpaces(): Promise<{
+    accessKeyId: string;
+    secretAccessKey: string;
+    bucketName: string;
+    secretsAlreadyExist: boolean;
+  }> {
+    this.logStep('Setting up DigitalOcean Spaces');
+
+    const bucketName = `${this.config.project.name}-app-data`;
+    const region = this.config.environments[0].cluster.region;
+
+    let accessKeyId: string;
+    let secretAccessKey: string;
+
+    // Check if secrets already exist in GitHub repository
+    let secretsExist = false;
+    if (!this.options.skipGithub) {
+      try {
+        this.log('Checking for existing Spaces credentials in GitHub secrets...');
+        const secretList = this.exec('gh secret list --json name', true);
+        const secrets = JSON.parse(secretList);
+        const secretNames = secrets.map((s: any) => s.name);
+
+        const requiredSecrets = [
+          'NEXTCLOUD_BUCKET_ACCESS_KEY_ID',
+          'NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY',
+          'NEXTCLOUD_BUCKET_NAME',
+        ];
+        secretsExist = requiredSecrets.every(name => secretNames.includes(name));
+
+        if (secretsExist) {
+          this.logSuccess('Spaces credentials already exist in GitHub secrets');
+          this.log(
+            'Note: We still need to create temporary keys for bucket operations during setup'
+          );
+        } else {
+          this.log('Some or all Spaces credentials missing from GitHub secrets');
+        }
+      } catch (secretError) {
+        this.log('Could not check GitHub secrets, proceeding with key creation');
+      }
+    }
+
+    // Create new Spaces access keys
+    const timestamp = Date.now();
+    const keyName = secretsExist
+      ? `${this.config.project.name}-setup-${timestamp}`
+      : `${this.config.project.name}-app-access`;
+
+    this.log(`Creating new Spaces access keys: ${keyName}...`);
+    try {
+      // Create Spaces access key with full access to the bucket
+      const keyResult = this.exec(
+        `doctl spaces keys create ${keyName} --grants "bucket=;permission=fullaccess" --output json`,
+        true
+      );
+
+      const keyData = JSON.parse(keyResult)[0];
+      accessKeyId = keyData.access_key;
+      secretAccessKey = keyData.secret_key;
+
+      this.logSuccess('Created new Spaces access keys');
+    } catch (error) {
+      throw new SetupError(
+        `Failed to create Spaces access keys: ${error}`,
+        'SPACES_KEY_CREATION_FAILED'
+      );
+    }
+
+    // Check if bucket already exists and create if needed
+    try {
+      this.log(`Checking if bucket ${bucketName} exists...`);
+
+      // Use AWS CLI with Spaces endpoint to check bucket
+      const checkCommand = `aws s3 ls s3://${bucketName} --endpoint-url https://${region}.digitaloceanspaces.com`;
+
+      try {
+        // Set credentials for AWS CLI and check bucket
+        const checkCommandWithEnv = `AWS_ACCESS_KEY_ID='${accessKeyId}' AWS_SECRET_ACCESS_KEY='${secretAccessKey}' ${checkCommand}`;
+        this.exec(checkCommandWithEnv, true);
+        this.logSuccess(`Spaces bucket "${bucketName}" already exists`);
+        return { accessKeyId, secretAccessKey, bucketName, secretsAlreadyExist: secretsExist };
+      } catch (bucketCheckError) {
+        // Bucket doesn't exist, create it
+        this.log(`Creating Spaces bucket: ${bucketName}`);
+
+        // Create bucket
+        const createCommand =
+          region === 'us-east-1'
+            ? `aws s3api create-bucket --bucket ${bucketName} --endpoint-url https://${region}.digitaloceanspaces.com`
+            : `aws s3api create-bucket --bucket ${bucketName} --endpoint-url https://${region}.digitaloceanspaces.com --create-bucket-configuration LocationConstraint=${region}`;
+
+        const createCommandWithEnv = `AWS_ACCESS_KEY_ID='${accessKeyId}' AWS_SECRET_ACCESS_KEY='${secretAccessKey}' ${createCommand}`;
+        this.exec(createCommandWithEnv, true);
+
+        // Enable versioning
+        const versioningCommand = `aws s3api put-bucket-versioning --bucket ${bucketName} --endpoint-url https://${region}.digitaloceanspaces.com --versioning-configuration Status=Enabled`;
+        const versioningCommandWithEnv = `AWS_ACCESS_KEY_ID='${accessKeyId}' AWS_SECRET_ACCESS_KEY='${secretAccessKey}' ${versioningCommand}`;
+        this.exec(versioningCommandWithEnv, true);
+
+        // Set lifecycle policy for old versions
+        const lifecyclePolicy = {
+          Rules: [
+            {
+              ID: 'app-data-cleanup',
+              Status: 'Enabled',
+              NoncurrentVersionExpiration: {
+                NoncurrentDays: 30,
+              },
+            },
+          ],
+        };
+
+        const lifecycleCommand = `aws s3api put-bucket-lifecycle-configuration --bucket ${bucketName} --endpoint-url https://${region}.digitaloceanspaces.com --lifecycle-configuration '${JSON.stringify(lifecyclePolicy)}'`;
+        const lifecycleCommandWithEnv = `AWS_ACCESS_KEY_ID='${accessKeyId}' AWS_SECRET_ACCESS_KEY='${secretAccessKey}' ${lifecycleCommand}`;
+        this.exec(lifecycleCommandWithEnv, true);
+
+        this.logSuccess(
+          `Created Spaces bucket: ${bucketName} with versioning and lifecycle policy`
+        );
+      }
+    } catch (error) {
+      throw new SetupError(`Failed to setup Spaces bucket: ${error}`, 'SPACES_BUCKET_SETUP_FAILED');
+    }
+
+    return { accessKeyId, secretAccessKey, bucketName, secretsAlreadyExist: secretsExist };
   }
 
   private async setGitHubSecrets(secrets: Record<string, string>): Promise<void> {
@@ -975,7 +1134,10 @@ ${optionalFiles
       // Step 4: Setup DigitalOcean domain
       await this.setupDigitalOceanDomain();
 
-      // Step 5: Set GitHub secrets
+      // Step 5: Setup DigitalOcean Spaces
+      const spacesConfig = await this.setupDigitalOceanSpaces();
+
+      // Step 6: Set GitHub secrets
       const secrets: Record<string, string> = {
         PROJECT_NAME: this.config.project.name,
         DIGITALOCEAN_TOKEN: process.env.DIGITALOCEAN_TOKEN || '',
@@ -987,12 +1149,19 @@ ${optionalFiles
         DOMAIN: this.config.project.domain,
       };
 
+      // Only add Nextcloud bucket secrets if they don't already exist
+      if (!spacesConfig.secretsAlreadyExist) {
+        secrets.NEXTCLOUD_BUCKET_ACCESS_KEY_ID = spacesConfig.accessKeyId;
+        secrets.NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY = spacesConfig.secretAccessKey;
+        secrets.NEXTCLOUD_BUCKET_NAME = spacesConfig.bucketName;
+      }
+
       await this.setGitHubSecrets(secrets);
 
-      // Step 6: Setup GitHub project (optional)
+      // Step 7: Setup GitHub project (optional)
       await this.setupGitHubProject();
 
-      // Step 7: Create cleanup issue for template ejection
+      // Step 8: Create cleanup issue for template ejection
       await this.createCleanupIssue();
 
       this.logStep('Setup Complete');

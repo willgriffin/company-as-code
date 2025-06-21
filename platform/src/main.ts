@@ -1,7 +1,6 @@
 import { App } from 'cdktf';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { SetupStack } from './stacks/setup';
 import { DigitalOceanClusterStack } from './stacks/digitalocean-cluster';
 import { DigitalOceanSpacesStack } from './stacks/digitalocean-spaces';
 import { AWSSESStack } from './stacks/aws-ses';
@@ -65,23 +64,15 @@ function loadConfig(): Config {
 const config = loadConfig();
 const app = new App();
 
-// Create setup stack first - handles foundational resources like Spaces keys
-const setupStack = new SetupStack(app, `${config.project.name}-setup`, {
-  projectName: config.project.name,
-  config,
-});
-
-// Create Spaces stack using keys from setup stack
-const spacesStack = new DigitalOceanSpacesStack(app, `${config.project.name}-spaces`, {
+// Create Spaces stack using credentials from repository secrets
+// This stack imports the existing bucket and manages bucket policies and outputs
+new DigitalOceanSpacesStack(app, `${config.project.name}-spaces`, {
   projectName: config.project.name,
   config,
   region: config.environments[0].cluster.region,
-  spacesAccessKeyId: setupStack.spacesKey.accessKey,
-  spacesSecretAccessKey: setupStack.spacesKey.secretKey,
+  spacesAccessKeyId: process.env.NEXTCLOUD_BUCKET_ACCESS_KEY_ID!,
+  spacesSecretAccessKey: process.env.NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY!,
 });
-
-// Spaces stack depends on setup stack
-spacesStack.addDependency(setupStack);
 
 // Create SES stack for email functionality
 const sesStack = new AWSSESStack(app, `${config.project.name}-ses`, {
@@ -127,6 +118,9 @@ if (process.env.GITHUB_REPOSITORY) {
     awsSecretKey: sesStack ? process.env.AWS_SECRET_ACCESS_KEY : undefined,
     sesSmtpUsername: sesStack ? sesStack.accessKey.id : undefined,
     sesSmtpPassword: sesStack ? sesStack.accessKey.sesSmtpPasswordV4 : undefined,
+    nextcloudBucketAccessKeyId: process.env.NEXTCLOUD_BUCKET_ACCESS_KEY_ID,
+    nextcloudBucketSecretAccessKey: process.env.NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY,
+    nextcloudBucketName: process.env.NEXTCLOUD_BUCKET_NAME,
   });
 
   const githubSecretsStack = new GitHubSecretsStack(app, `${config.project.name}-github-secrets`, {
