@@ -3,6 +3,8 @@ import { TerraformStack, TerraformOutput, S3Backend } from 'cdktf';
 import { DigitaloceanProvider } from '@cdktf/provider-digitalocean/lib/provider';
 import { SpacesBucket } from '@cdktf/provider-digitalocean/lib/spaces-bucket';
 import { SpacesBucketPolicy } from '@cdktf/provider-digitalocean/lib/spaces-bucket-policy';
+import { NullProvider } from '@cdktf/provider-null/lib/provider';
+import { Resource } from '@cdktf/provider-null/lib/resource';
 import { Config } from '../config/schema';
 
 export interface DigitalOceanSpacesStackProps {
@@ -36,9 +38,20 @@ export class DigitalOceanSpacesStack extends TerraformStack {
       spacesSecretKey: spacesSecretAccessKey,
     });
 
+    // Null provider for generating random suffix
+    new NullProvider(this, 'null');
+
+    // Generate random suffix for bucket name
+    const randomSuffix = new Resource(this, 'bucket-suffix', {
+      triggers: {
+        // This ensures a new suffix is generated only when needed
+        always_run: '${timestamp()}',
+      },
+    });
+
     // Application data bucket using the main provider (no separate Spaces credentials needed)
     this.applicationDataBucket = new SpacesBucket(this, 'application-data', {
-      name: `${projectName}-app-data`,
+      name: `${projectName}-app-data-${randomSuffix.id}`,
       region: region,
       acl: 'private',
       versioning: {
