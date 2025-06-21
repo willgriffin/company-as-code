@@ -3,8 +3,6 @@ import { TerraformStack, TerraformOutput, S3Backend } from 'cdktf';
 import { DigitaloceanProvider } from '@cdktf/provider-digitalocean/lib/provider';
 import { SpacesBucket } from '@cdktf/provider-digitalocean/lib/spaces-bucket';
 import { SpacesBucketPolicy } from '@cdktf/provider-digitalocean/lib/spaces-bucket-policy';
-import { NullProvider } from '@cdktf/provider-null/lib/provider';
-import { Resource } from '@cdktf/provider-null/lib/resource';
 import { Config } from '../config/schema';
 
 export interface DigitalOceanSpacesStackProps {
@@ -38,20 +36,10 @@ export class DigitalOceanSpacesStack extends TerraformStack {
       spacesSecretKey: spacesSecretAccessKey,
     });
 
-    // Null provider for generating random suffix
-    new NullProvider(this, 'null');
-
-    // Generate random suffix for bucket name
-    const randomSuffix = new Resource(this, 'bucket-suffix', {
-      triggers: {
-        // Only regenerate if project name changes
-        project: projectName,
-      },
-    });
-
-    // Application data bucket using the main provider (no separate Spaces credentials needed)
+    // Application data bucket with a stable name
+    const bucketName = `${projectName}-app-data`;
     this.applicationDataBucket = new SpacesBucket(this, 'application-data', {
-      name: `${projectName}-app-data-${randomSuffix.id}`,
+      name: bucketName,
       region: region,
       acl: 'private',
       versioning: {
@@ -82,7 +70,7 @@ export class DigitalOceanSpacesStack extends TerraformStack {
               AWS: '*',
             },
             Action: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject'],
-            Resource: `arn:aws:s3:::${this.applicationDataBucket.name}/*`,
+            Resource: `arn:aws:s3:::${bucketName}/*`,
             Condition: {
               StringEquals: {
                 's3:x-amz-acl': 'private',
