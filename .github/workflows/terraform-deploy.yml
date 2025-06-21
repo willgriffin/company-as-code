@@ -134,20 +134,14 @@ jobs:
         run: |
           cd platform
           echo "📋 Running CDKTF plan..."
-          # Get all stack names and plan them
-          STACKS=$(npx cdktf list 2>/dev/null | tail -n +2 | awk '{print $1}' | tr '\n' ' ')
-          echo "Planning stacks: $STACKS"
-          npx cdktf plan $STACKS
+          npx cdktf plan happyvertical-setup happyvertical-spaces happyvertical-ses happyvertical-production happyvertical-production-flux happyvertical-github-secrets
       
       - name: CDKTF Deploy
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
           cd platform
           echo "🚀 Deploying infrastructure with CDKTF..."
-          # Get all stack names and deploy them
-          STACKS=$(npx cdktf list 2>/dev/null | tail -n +2 | awk '{print $1}' | tr '\n' ' ')
-          echo "Deploying stacks: $STACKS"
-          npx cdktf deploy $STACKS --auto-approve
+          npx cdktf deploy happyvertical-setup happyvertical-spaces happyvertical-ses happyvertical-production happyvertical-production-flux happyvertical-github-secrets --auto-approve
       
       - name: Verify State Storage
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
@@ -160,10 +154,7 @@ jobs:
         if: github.event.inputs.action == 'destroy'
         run: |
           cd platform
-          # Get all stack names and destroy them
-          STACKS=$(npx cdktf list 2>/dev/null | tail -n +2 | awk '{print $1}' | tr '\n' ' ')
-          echo "Destroying stacks: $STACKS"
-          npx cdktf destroy $STACKS --auto-approve
+          npx cdktf destroy happyvertical-setup happyvertical-spaces happyvertical-ses happyvertical-production happyvertical-production-flux happyvertical-github-secrets --auto-approve
       
       - name: Get kubeconfig from CDKTF output
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
