@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Validate Terraform State Storage
- * 
+ *
  * This script validates that all CDKTF stacks have their state properly
  * stored in the configured S3 backend.
  */
@@ -14,7 +14,9 @@ const TERRAFORM_STATE_BUCKET = process.env.TERRAFORM_STATE_BUCKET;
 const TERRAFORM_STATE_REGION = process.env.TERRAFORM_STATE_REGION;
 
 if (!TERRAFORM_STATE_BUCKET || !TERRAFORM_STATE_REGION) {
-  console.error('❌ TERRAFORM_STATE_BUCKET and TERRAFORM_STATE_REGION environment variables are required');
+  console.error(
+    '❌ TERRAFORM_STATE_BUCKET and TERRAFORM_STATE_REGION environment variables are required'
+  );
   process.exit(1);
 }
 
@@ -30,9 +32,9 @@ try {
 
   // List state files
   console.log('\n📋 Listing state files...');
-  const stateFiles = execSync(`aws s3 ls s3://${TERRAFORM_STATE_BUCKET}/ --recursive`, { 
+  const stateFiles = execSync(`aws s3 ls s3://${TERRAFORM_STATE_BUCKET}/ --recursive`, {
     encoding: 'utf-8',
-    stdio: 'pipe'
+    stdio: 'pipe',
   });
 
   const tfstateFiles = stateFiles
@@ -78,10 +80,13 @@ try {
   // Validate bucket configuration
   console.log('\n⚙️ Checking bucket configuration...');
   try {
-    const versioning = execSync(`aws s3api get-bucket-versioning --bucket ${TERRAFORM_STATE_BUCKET} --query 'Status' --output text`, {
-      encoding: 'utf-8',
-      stdio: 'pipe'
-    }).trim();
+    const versioning = execSync(
+      `aws s3api get-bucket-versioning --bucket ${TERRAFORM_STATE_BUCKET} --query 'Status' --output text`,
+      {
+        encoding: 'utf-8',
+        stdio: 'pipe',
+      }
+    ).trim();
 
     if (versioning === 'Enabled') {
       console.log('✅ Bucket versioning is enabled');
@@ -93,7 +98,6 @@ try {
   }
 
   console.log('\n✅ State validation completed successfully');
-
 } catch (error) {
   console.error('❌ State validation failed:', error.message);
   process.exit(1);

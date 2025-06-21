@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * List Terraform State Files
- * 
+ *
  * This script lists all Terraform state files in the S3 backend
  * and provides detailed information about each stack's state.
  */
@@ -20,13 +20,16 @@ console.log(`📦 Bucket: ${TERRAFORM_STATE_BUCKET}`);
 
 try {
   // List all objects in the bucket
-  const output = execSync(`aws s3 ls s3://${TERRAFORM_STATE_BUCKET}/ --recursive --human-readable`, {
-    encoding: 'utf-8',
-    stdio: 'pipe'
-  });
+  const output = execSync(
+    `aws s3 ls s3://${TERRAFORM_STATE_BUCKET}/ --recursive --human-readable`,
+    {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    }
+  );
 
   const lines = output.split('\n').filter(line => line.trim().length > 0);
-  
+
   // Filter for state files
   const stateFiles = lines.filter(line => line.includes('.tfstate'));
   const lockFiles = lines.filter(line => line.includes('.tflock'));
@@ -46,10 +49,10 @@ try {
         const time = parts[1];
         const size = parts[2];
         const filename = parts.slice(3).join(' ');
-        
+
         // Extract stack name from filename
         const stackName = filename.split('/').pop().replace('.tfstate', '');
-        
+
         console.log(`  📁 ${stackName}`);
         console.log(`     File: ${filename}`);
         console.log(`     Size: ${size}`);
@@ -91,7 +94,7 @@ try {
           date: parts[0],
           time: parts[1],
           filename: parts.slice(3).join(' '),
-          raw: file
+          raw: file,
         };
       })
       .sort((a, b) => {
@@ -104,7 +107,6 @@ try {
     const stackName = latest.filename.split('/').pop().replace('.tfstate', '');
     console.log(`  Most recent: ${stackName} (${latest.date} ${latest.time})`);
   }
-
 } catch (error) {
   console.error('❌ Failed to list state files:', error.message);
   process.exit(1);
