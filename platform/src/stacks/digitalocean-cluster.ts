@@ -5,6 +5,7 @@ import { KubernetesCluster } from '@cdktf/provider-digitalocean/lib/kubernetes-c
 import { KubernetesNodePool } from '@cdktf/provider-digitalocean/lib/kubernetes-node-pool';
 import { Loadbalancer } from '@cdktf/provider-digitalocean/lib/loadbalancer';
 import { DataDigitaloceanDomain } from '@cdktf/provider-digitalocean/lib/data-digitalocean-domain';
+import { DataDigitaloceanKubernetesVersions } from '@cdktf/provider-digitalocean/lib/data-digitalocean-kubernetes-versions';
 import { Record } from '@cdktf/provider-digitalocean/lib/record';
 import { Certificate } from '@cdktf/provider-digitalocean/lib/certificate';
 import { Config, Environment } from '../config/schema';
@@ -41,11 +42,14 @@ export class DigitalOceanClusterStack extends TerraformStack {
       token: process.env.DIGITALOCEAN_TOKEN!,
     });
 
+    // Get available Kubernetes versions
+    const k8sVersions = new DataDigitaloceanKubernetesVersions(this, 'k8s-versions', {});
+
     // Kubernetes cluster
     this.cluster = new KubernetesCluster(this, 'cluster', {
       name: clusterName,
       region: environment.cluster.region,
-      version: environment.cluster.version || 'latest',
+      version: environment.cluster.version || k8sVersions.latestVersion,
       nodePool: {
         name: `${clusterName}-default-pool`,
         size: environment.cluster.nodeSize,
@@ -107,7 +111,6 @@ export class DigitalOceanClusterStack extends TerraformStack {
       type: 'regional',
       region: environment.cluster.region,
       size: 'lb-small',
-      algorithm: 'round_robin',
       forwardingRule: [
         {
           entryProtocol: 'http',
