@@ -2,7 +2,6 @@ import { Construct } from 'constructs';
 import { TerraformStack, TerraformOutput, S3Backend } from 'cdktf';
 import { DigitaloceanProvider } from '@cdktf/provider-digitalocean/lib/provider';
 import { KubernetesCluster } from '@cdktf/provider-digitalocean/lib/kubernetes-cluster';
-import { KubernetesNodePool } from '@cdktf/provider-digitalocean/lib/kubernetes-node-pool';
 import { Loadbalancer } from '@cdktf/provider-digitalocean/lib/loadbalancer';
 import { DataDigitaloceanDomain } from '@cdktf/provider-digitalocean/lib/data-digitalocean-domain';
 import { DataDigitaloceanKubernetesVersions } from '@cdktf/provider-digitalocean/lib/data-digitalocean-kubernetes-versions';
@@ -18,7 +17,6 @@ export interface DigitalOceanClusterStackProps {
 
 export class DigitalOceanClusterStack extends TerraformStack {
   public readonly cluster: KubernetesCluster;
-  public readonly nodePool?: KubernetesNodePool;
   public readonly loadBalancer: Loadbalancer;
   public readonly domain: DataDigitaloceanDomain;
   public readonly certificate: Certificate;
@@ -64,34 +62,8 @@ export class DigitalOceanClusterStack extends TerraformStack {
         startTime: '04:00',
         day: 'sunday',
       },
-      ha: environment.cluster.haControlPlane || false,
+      ha: environment.cluster.haControlPlane ?? false,
     });
-
-    // Additional node pool for applications (if more than 2 nodes)
-    if (environment.cluster.nodeCount > 2) {
-      this.nodePool = new KubernetesNodePool(this, 'app-pool', {
-        clusterId: this.cluster.id,
-        name: `${clusterName}-app-pool`,
-        size: environment.cluster.nodeSize,
-        nodeCount: Math.max(1, environment.cluster.nodeCount - 1),
-        autoScale:
-          environment.cluster.minNodes !== undefined || environment.cluster.maxNodes !== undefined,
-        minNodes: environment.cluster.minNodes ? Math.max(1, environment.cluster.minNodes - 1) : 1,
-        maxNodes: environment.cluster.maxNodes || environment.cluster.nodeCount,
-        tags: [projectName, environment.name, 'app-workloads'],
-        labels: {
-          'node-type': 'application',
-          environment: environment.name,
-        },
-        taint: [
-          {
-            key: 'workload-type',
-            value: 'application',
-            effect: 'NoSchedule',
-          },
-        ],
-      });
-    }
 
     // Domain management (reference existing domain created by setup.ts)
     this.domain = new DataDigitaloceanDomain(this, 'domain', {

@@ -12,7 +12,7 @@
         "region": "nyc3",
         "nodeSize": "s-2vcpu-4gb",
         "nodeCount": 3,
-        "haControlPlane": true
+        "haControlPlane": false
       },
       "domain": "happyvertical.com"
     }
