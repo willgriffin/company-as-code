@@ -179,8 +179,8 @@ export class FluxConfigurationStack extends TerraformStack {
     script += `if [[ ! -d "$MANIFESTS_DIR/.backups" ]]; then\n`;
     script += `  mkdir -p "$MANIFESTS_DIR/.backups"\n`;
     script += `  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | while read -r file; do\n`;
-    script += `    relative_path=\${file#$MANIFESTS_DIR/}\n`;
-    script += `    backup_dir="$MANIFESTS_DIR/.backups/$(dirname "$relative_path")"\n`;
+    script += `    relative_path=\\\${file#$MANIFESTS_DIR/}\n`;
+    script += `    backup_dir="$MANIFESTS_DIR/.backups/\\$(dirname "$relative_path")"\n`;
     script += `    mkdir -p "$backup_dir"\n`;
     script += `    cp "$file" "$MANIFESTS_DIR/.backups/$relative_path.orig"\n`;
     script += `  done\n`;
@@ -199,7 +199,7 @@ export class FluxConfigurationStack extends TerraformStack {
 
     // Verification step
     script += `echo "Verifying replacement completeness..."\n`;
-    script += `REMAINING_EXAMPLES=$(find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example" | wc -l)\n`;
+    script += `REMAINING_EXAMPLES=\\$(find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example" | wc -l)\n`;
     script += `if [ "$REMAINING_EXAMPLES" -gt 0 ]; then\n`;
     script += `  echo "Warning: $REMAINING_EXAMPLES files still contain 'example' patterns:"\n`;
     script += `  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example"\n`;
