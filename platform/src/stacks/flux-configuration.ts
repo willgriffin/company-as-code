@@ -101,13 +101,45 @@ export class FluxConfigurationStack extends TerraformStack {
       },
     });
 
+    // Configure manifests before bootstrapping Flux
+    const manifestsConfig = new Resource(this, 'configure-manifests', {
+      provisioners: [
+        {
+          type: 'local-exec',
+          command: `
+          # Create replacements file with config values
+          cat > /tmp/replacements.json << EOF
+{
+  "support@example.com": "${this.config.project.email}",
+  "example.com": "${this.config.project.domain}", 
+  "example-cluster": "${clusterName}",
+  "my-project": "${this.config.project.name}"
+}
+EOF
+
+          # Run the configure-manifests script
+          cd ../platform && ./scripts/configure-manifests.sh ../manifests /tmp/replacements.json
+        `,
+        },
+      ],
+      triggers: {
+        config_hash: JSON.stringify({
+          email: this.config.project.email,
+          domain: this.config.project.domain,
+          clusterName: clusterName,
+          projectName: this.config.project.name,
+        }),
+      },
+      dependsOn: [directorySetup],
+    });
+
     // Bootstrap Flux with Git repository
     const fluxBootstrap = new BootstrapGit(this, 'flux-bootstrap', {
       path: `manifests/clusters/${clusterName}`,
       namespace: 'flux-system',
       interval: '1m',
       version: 'v2.3.0',
-      dependsOn: [clusterData, directorySetup],
+      dependsOn: [clusterData, directorySetup, manifestsConfig],
     });
 
     new TerraformOutput(this, 'flux_status', {
