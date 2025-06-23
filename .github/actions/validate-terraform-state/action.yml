@@ -82,7 +82,16 @@ runs:
         
         # Compile TypeScript first
         echo "🔧 Compiling TypeScript..."
-        pnpm run build
+        echo "Working directory: $(pwd)"
+        echo "TypeScript files:"
+        find src -name "*.ts" | head -5
+        echo "Running pnpm run build with verbose output..."
+        pnpm run build --verbose || {
+          echo "❌ TypeScript compilation failed"
+          echo "Checking for TypeScript errors..."
+          npx tsc --noEmit --listFiles | head -10
+          exit 1
+        }
         
         # Verify dist/main.js exists
         if [[ ! -f "dist/main.js" ]]; then
