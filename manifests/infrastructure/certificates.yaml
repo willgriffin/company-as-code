@@ -14,8 +14,8 @@ spec:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-  - "example.com"
-  - "*.example.com"
+  - "happyvertical.com"
+  - "*.happyvertical.com"
 ---
 # Certificate for specific services
 apiVersion: cert-manager.io/v1
@@ -29,8 +29,8 @@ spec:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-  - "api.example.com"
-  - "auth.example.com"
-  - "cloud.example.com"
-  - "chat.example.com"
-  - "webmail.example.com"
+  - "api.happyvertical.com"
+  - "auth.happyvertical.com"
+  - "cloud.happyvertical.com"
+  - "chat.happyvertical.com"
+  - "webmail.happyvertical.com"

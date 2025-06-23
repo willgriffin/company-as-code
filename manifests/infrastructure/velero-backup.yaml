@@ -57,12 +57,12 @@ spec:
       backupStorageLocation:
       - name: default
         provider: aws
-        bucket: "example-cluster-backup"
+        bucket: "happyvertical-production-backup"
         config:
           region: "nyc3"
           s3ForcePathStyle: "true"
           s3Url: "https://nyc3.digitaloceanspaces.com"
-          publicUrl: "https://example-cluster-backup.nyc3.digitaloceanspaces.com"
+          publicUrl: "https://happyvertical-production-backup.nyc3.digitaloceanspaces.com"
       
       # Volume snapshot location
       volumeSnapshotLocation:

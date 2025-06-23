@@ -15,7 +15,7 @@ spec:
   image: quay.io/keycloak/keycloak:22.0.5
   
   hostname:
-    hostname: auth.example.com
+    hostname: auth.happyvertical.com
   
   http:
     tlsSecret: keycloak-tls
@@ -66,7 +66,7 @@ spec:
   - name: kong-gateway
     namespace: kong-system
   hostnames:
-  - auth.example.com
+  - auth.happyvertical.com
   rules:
   - matches:
     - path:

@@ -13,4 +13,4 @@ spec:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-  - auth.example.com
+  - auth.happyvertical.com

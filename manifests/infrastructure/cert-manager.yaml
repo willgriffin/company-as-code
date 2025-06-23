@@ -102,7 +102,7 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: support@example.com
+    email: willgriffin@gmail.com
     privateKeySecretRef:
       name: letsencrypt-prod
     solvers:
@@ -118,7 +118,7 @@ metadata:
 spec:
   acme:
     server: https://acme-staging-v02.api.letsencrypt.org/directory
-    email: support@example.com
+    email: willgriffin@gmail.com
     privateKeySecretRef:
       name: letsencrypt-staging
     solvers:
@@ -138,8 +138,8 @@ spec:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-  - "example.com"
-  - "*.example.com"
+  - "happyvertical.com"
+  - "*.happyvertical.com"
 ---
 # Certificate for specific services
 apiVersion: cert-manager.io/v1
@@ -153,12 +153,12 @@ spec:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-  - "api.example.com"
-  - "auth.example.com"
-  - "ai.example.com"
-  - "cloud.example.com"
-  - "chat.example.com"
-  - "mail.example.com"
-  - "grafana.example.com"
-  - "prometheus.example.com"
-  - "jaeger.example.com"
+  - "api.happyvertical.com"
+  - "auth.happyvertical.com"
+  - "ai.happyvertical.com"
+  - "cloud.happyvertical.com"
+  - "chat.happyvertical.com"
+  - "mail.happyvertical.com"
+  - "grafana.happyvertical.com"
+  - "prometheus.happyvertical.com"
+  - "jaeger.happyvertical.com"

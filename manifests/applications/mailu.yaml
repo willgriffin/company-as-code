@@ -103,9 +103,9 @@ spec:
         namespace: mailu
   values:
     # Domain configuration
-    domain: "example.com"
+    domain: "happyvertical.com"
     hostnames:
-      - mail.example.com
+      - mail.happyvertical.com
     
     # Mail configuration
     mailuVersion: "2023.11"
@@ -138,7 +138,7 @@ spec:
     initialAccount:
       enabled: true
       username: admin
-      domain: "example.com"
+      domain: "happyvertical.com"
       existingSecret: mailu-secrets
       existingSecretPasswordKey: admin-password
     
@@ -166,11 +166,11 @@ spec:
       service:
         type: LoadBalancer
         annotations:
-          service.beta.kubernetes.io/do-loadbalancer-name: "example-cluster-mailu"
+          service.beta.kubernetes.io/do-loadbalancer-name: "happyvertical-production-mailu"
           service.beta.kubernetes.io/do-loadbalancer-protocol: "tcp"
           service.beta.kubernetes.io/do-loadbalancer-algorithm: "round_robin"
           service.beta.kubernetes.io/do-loadbalancer-size-slug: "lb-small"
-          external-dns.alpha.kubernetes.io/hostname: "mail.example.com"
+          external-dns.alpha.kubernetes.io/hostname: "mail.happyvertical.com"
         ports:
           pop3: false  # Disable POP3
           pop3s: false
@@ -425,7 +425,7 @@ spec:
         - name: OAUTH2_PROXY_PROVIDER
           value: "oidc"
         - name: OAUTH2_PROXY_OIDC_ISSUER_URL
-          value: "https://auth.example.com/realms/mycompany"
+          value: "https://auth.happyvertical.com/realms/mycompany"
         - name: OAUTH2_PROXY_CLIENT_ID
           value: "mailu"
         - name: OAUTH2_PROXY_CLIENT_SECRET
@@ -445,11 +445,11 @@ spec:
         - name: OAUTH2_PROXY_HTTP_ADDRESS
           value: "0.0.0.0:4180"
         - name: OAUTH2_PROXY_REDIRECT_URL
-          value: "https://webmail.example.com/oauth2/callback"
+          value: "https://webmail.happyvertical.com/oauth2/callback"
         - name: OAUTH2_PROXY_COOKIE_DOMAINS
-          value: ".example.com"
+          value: ".happyvertical.com"
         - name: OAUTH2_PROXY_WHITELIST_DOMAINS
-          value: ".example.com"
+          value: ".happyvertical.com"
         - name: OAUTH2_PROXY_COOKIE_SECURE
           value: "true"
         - name: OAUTH2_PROXY_COOKIE_HTTPONLY
@@ -533,7 +533,7 @@ spec:
   - name: kong-gateway
     namespace: kong-system
   hostnames:
-  - webmail.example.com
+  - webmail.happyvertical.com
   rules:
   - matches:
     - path:
@@ -556,7 +556,7 @@ spec:
   - name: kong-gateway
     namespace: kong-system
   hostnames:
-  - mailadmin.example.com
+  - mailadmin.happyvertical.com
   rules:
   - matches:
     - path:
@@ -578,11 +578,11 @@ spec:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-  - mail.example.com
-  - webmail.example.com
-  - mailadmin.example.com
-  - smtp.example.com
-  - imap.example.com
+  - mail.happyvertical.com
+  - webmail.happyvertical.com
+  - mailadmin.happyvertical.com
+  - smtp.happyvertical.com
+  - imap.happyvertical.com
 ---
 # ServiceMonitor for Prometheus
 apiVersion: monitoring.coreos.com/v1

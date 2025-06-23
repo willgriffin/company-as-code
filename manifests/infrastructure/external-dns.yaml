@@ -45,7 +45,7 @@ spec:
     
     # Domain filtering
     domainFilters:
-    - "example.com"
+    - "happyvertical.com"
     
     # Source configuration
     sources:
@@ -60,7 +60,7 @@ spec:
     # Policy configuration
     policy: sync  # Can be 'sync' or 'upsert-only'
     registry: txt
-    txtOwnerId: "example-cluster"
+    txtOwnerId: "happyvertical-production"
     txtPrefix: "external-dns-"
     
     # Interval configuration

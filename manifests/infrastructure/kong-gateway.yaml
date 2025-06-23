@@ -44,12 +44,12 @@ spec:
       enabled: true
       type: LoadBalancer
       annotations:
-        service.beta.kubernetes.io/do-loadbalancer-name: "example-cluster-kong-gateway"
+        service.beta.kubernetes.io/do-loadbalancer-name: "happyvertical-production-kong-gateway"
         service.beta.kubernetes.io/do-loadbalancer-protocol: "http"
         service.beta.kubernetes.io/do-loadbalancer-algorithm: "round_robin"
         service.beta.kubernetes.io/do-loadbalancer-size-slug: "lb-small"
         service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol: "true"
-        external-dns.alpha.kubernetes.io/hostname: "api.example.com"
+        external-dns.alpha.kubernetes.io/hostname: "api.happyvertical.com"
     
     # Admin API configuration
     admin:
@@ -145,11 +145,11 @@ spec:
       enabled: true
       type: LoadBalancer
       annotations:
-        service.beta.kubernetes.io/do-loadbalancer-name: "example-cluster-kong-proxy"
+        service.beta.kubernetes.io/do-loadbalancer-name: "happyvertical-production-kong-proxy"
         service.beta.kubernetes.io/do-loadbalancer-protocol: "http"
         service.beta.kubernetes.io/do-loadbalancer-algorithm: "round_robin"
         service.beta.kubernetes.io/do-loadbalancer-size-slug: "lb-small"
-        external-dns.alpha.kubernetes.io/hostname: "*.example.com"
+        external-dns.alpha.kubernetes.io/hostname: "*.happyvertical.com"
       http:
         enabled: true
         servicePort: 80
@@ -236,7 +236,7 @@ spec:
         secretKeyRef:
           name: kong-secrets
           key: oidc-client-secret
-    discovery: "https://auth.example.com/realms/mycompany/.well-known/openid_configuration"
+    discovery: "https://auth.happyvertical.com/realms/mycompany/.well-known/openid_configuration"
     redirect_uri_scheme: https
     session_storage: redis
     session_redis_host: rfs-kong-redis.kong-system.svc.cluster.local

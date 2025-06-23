@@ -104,7 +104,7 @@ spec:
         ruleSelectorNilUsesHelmValues: false
         
         # External URL
-        externalUrl: "https://prometheus.example.com"
+        externalUrl: "https://prometheus.happyvertical.com"
         
         # Additional scrape configs
         additionalScrapeConfigs:
@@ -151,7 +151,7 @@ spec:
             type: RuntimeDefault
         
         # External URL
-        externalUrl: "https://alertmanager.example.com"
+        externalUrl: "https://alertmanager.happyvertical.com"
     
     # Grafana (disabled - we deploy separately)
     grafana:
@@ -326,8 +326,8 @@ spec:
     grafana.ini:
       server:
         protocol: http
-        domain: "grafana.example.com"
-        root_url: "https://grafana.example.com"
+        domain: "grafana.happyvertical.com"
+        root_url: "https://grafana.happyvertical.com"
         serve_from_sub_path: false
       
       auth:
@@ -339,14 +339,14 @@ spec:
         name: Keycloak
         allow_sign_up: true
         client_id: grafana
-        client_secret: "example-cluster-grafana-secret"
+        client_secret: "happyvertical-production-grafana-secret"
         scopes: openid email profile
         email_attribute_path: email
         login_attribute_path: preferred_username
         name_attribute_path: name
-        auth_url: "https://auth.example.com/realms/mycompany/protocol/openid-connect/auth"
-        token_url: "https://auth.example.com/realms/mycompany/protocol/openid-connect/token"
-        api_url: "https://auth.example.com/realms/mycompany/protocol/openid-connect/userinfo"
+        auth_url: "https://auth.happyvertical.com/realms/mycompany/protocol/openid-connect/auth"
+        token_url: "https://auth.happyvertical.com/realms/mycompany/protocol/openid-connect/token"
+        api_url: "https://auth.happyvertical.com/realms/mycompany/protocol/openid-connect/userinfo"
         role_attribute_path: contains(groups[*], 'admin') && 'Admin' || 'Viewer'
       
       security:
@@ -466,7 +466,7 @@ spec:
   - name: kong-gateway
     namespace: kong-system
   hostnames:
-  - prometheus.example.com
+  - prometheus.happyvertical.com
   rules:
   - matches:
     - path:
@@ -487,7 +487,7 @@ spec:
   - name: kong-gateway
     namespace: kong-system
   hostnames:
-  - grafana.example.com
+  - grafana.happyvertical.com
   rules:
   - matches:
     - path:
@@ -510,7 +510,7 @@ spec:
   - name: kong-gateway
     namespace: kong-system
   hostnames:
-  - jaeger.example.com
+  - jaeger.happyvertical.com
   rules:
   - matches:
     - path:
