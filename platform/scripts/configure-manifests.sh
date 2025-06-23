@@ -31,6 +31,20 @@ if [[ -f "$MANIFESTS_DIR/.replacements-applied" ]]; then
   exit 0
 fi
 
+# Pre-check: Do any files actually contain example patterns?
+echo "🔍 Checking if any replacements are needed..."
+example_files=$(find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example" 2>/dev/null | wc -l)
+
+if [ "$example_files" -eq 0 ]; then
+  echo "✅ No 'example' patterns found in manifest files - no replacements needed"
+  echo "🎉 Static manifest configuration complete (no work required)"
+  # Mark as completed since no work was needed
+  touch "$MANIFESTS_DIR/.replacements-applied"
+  exit 0
+fi
+
+echo "📋 Found $example_files files with 'example' patterns that need replacement"
+
 # Create backup directory if it doesn't exist
 echo "💾 Creating backup of original manifests..."
 if [[ ! -d "$MANIFESTS_DIR/.backups" ]]; then
@@ -67,16 +81,17 @@ jq -r 'to_entries | sort_by(.key | length) | reverse | .[] | "\(.key)|\(.value)"
   fi
 done
 
-# Verification step (non-blocking)
+# Verification step - check if replacement was successful
 echo "🔍 Verifying replacement completeness..."
-remaining_examples=$(find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example" 2>/dev/null | wc -l || echo "0")
+remaining_examples=$(find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example" 2>/dev/null | wc -l)
 
 if [ "$remaining_examples" -gt 0 ]; then
-  echo "⚠️  Warning: $remaining_examples files still contain 'example' patterns:"
-  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example" 2>/dev/null || true
+  echo "❌ ERROR: $remaining_examples files still contain 'example' patterns after replacement:"
+  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example" 2>/dev/null
   echo "🔍 Specific patterns found:"
-  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -o '[a-zA-Z0-9.-]*example[a-zA-Z0-9.-]*' 2>/dev/null | sort | uniq || true
-  echo "ℹ️  Note: Some example patterns may be intentional (like in comments or documentation)"
+  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -o '[a-zA-Z0-9.-]*example[a-zA-Z0-9.-]*' 2>/dev/null | sort | uniq
+  echo "💡 This indicates incomplete replacement. Check replacement patterns and manifest files."
+  exit 1
 else
   echo "✅ All example patterns successfully replaced"
 fi

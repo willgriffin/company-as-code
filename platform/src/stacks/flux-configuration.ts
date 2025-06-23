@@ -157,16 +157,16 @@ export class FluxConfigurationStack extends TerraformStack {
     const replacementsJson = JSON.stringify(replacements, null, 2);
 
     // Create a null resource that performs the one-time replacement
-    // Use || true to prevent script failures from tainting the resource
+    // Script now has proper pre-checks and will only fail on legitimate errors
     new Resource(this, 'configure-static-manifests', {
       provisioners: [
         {
           type: 'local-exec',
-          command: `echo '${replacementsJson.replace(/'/g, "'\"'\"'")}' > ${replacementsFile} || true`,
+          command: `echo '${replacementsJson.replace(/'/g, "'\"'\"'")}' > ${replacementsFile}`,
         },
         {
           type: 'local-exec',
-          command: `bash ${path.resolve('scripts/configure-manifests.sh')} ${path.resolve('..', 'manifests')} ${replacementsFile} || true`,
+          command: `bash ${path.resolve('scripts/configure-manifests.sh')} ${path.resolve('..', 'manifests')} ${replacementsFile}`,
         },
       ],
     });
