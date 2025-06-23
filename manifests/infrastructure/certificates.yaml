@@ -1,0 +1,36 @@
+# TLS certificates managed by cert-manager
+# Note: This file should be applied after cert-manager is ready
+
+---
+# Wildcard certificate for the domain
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-tls
+  namespace: kong-system
+spec:
+  secretName: wildcard-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - "example.com"
+  - "*.example.com"
+---
+# Certificate for specific services
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: services-tls
+  namespace: kong-system
+spec:
+  secretName: services-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - "api.example.com"
+  - "auth.example.com"
+  - "cloud.example.com"
+  - "chat.example.com"
+  - "webmail.example.com"

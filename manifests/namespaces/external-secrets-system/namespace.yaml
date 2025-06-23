@@ -1,0 +1,6 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: external-secrets-system
+  labels:
+    name: external-secrets-system

@@ -1,0 +1,143 @@
+# Namespace deployments - ordered by dependencies
+---
+# Base layer - no dependencies
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: digitalocean-secrets
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/namespaces/digitalocean-secrets"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+---
+# External secrets system - no dependencies
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: external-secrets-system
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/namespaces/external-secrets-system"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: digitalocean-secrets
+---
+# Cert-manager - depends on external-secrets
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: cert-manager
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/namespaces/cert-manager"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: external-secrets-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+      kind: HelmRelease
+      name: external-secrets
+      namespace: external-secrets-system
+---
+# Kong gateway - depends on cert-manager
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kong-system
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/namespaces/kong-system"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: cert-manager
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+      kind: HelmRelease
+      name: cert-manager
+      namespace: cert-manager
+---
+# Database operators - depends on external-secrets
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: cnpg-system
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/namespaces/cnpg-system"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: external-secrets-system
+---
+# Redis operator - depends on external-secrets
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: redis-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/namespaces/redis-operator"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: external-secrets-system
+---
+# Keycloak operator - depends on database operators
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: keycloak-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/namespaces/keycloak-operator"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: cnpg-system
+---
+# Keycloak - depends on operator and kong
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: keycloak
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/namespaces/keycloak"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: keycloak-operator
+    - name: kong-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+      kind: HelmRelease
+      name: kong-gateway
+      namespace: kong-system
