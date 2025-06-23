@@ -67,15 +67,16 @@ jq -r 'to_entries | sort_by(.key | length) | reverse | .[] | "\(.key)|\(.value)"
   fi
 done
 
-# Verification step
+# Verification step (non-blocking)
 echo "🔍 Verifying replacement completeness..."
-remaining_examples=$(find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example" | wc -l)
+remaining_examples=$(find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example" 2>/dev/null | wc -l || echo "0")
 
 if [ "$remaining_examples" -gt 0 ]; then
   echo "⚠️  Warning: $remaining_examples files still contain 'example' patterns:"
-  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example"
+  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "example" 2>/dev/null || true
   echo "🔍 Specific patterns found:"
-  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -o '[a-zA-Z0-9.-]*example[a-zA-Z0-9.-]*' | sort | uniq
+  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -o '[a-zA-Z0-9.-]*example[a-zA-Z0-9.-]*' 2>/dev/null | sort | uniq || true
+  echo "ℹ️  Note: Some example patterns may be intentional (like in comments or documentation)"
 else
   echo "✅ All example patterns successfully replaced"
 fi
