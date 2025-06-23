@@ -80,18 +80,13 @@ runs:
           STATE_COUNT=0
         fi
         
-        # Compile TypeScript first
+        # Generate CDKTF provider bindings first
+        echo "🔧 Generating CDKTF provider bindings..."
+        pnpm run get
+        
+        # Compile TypeScript after provider bindings
         echo "🔧 Compiling TypeScript..."
-        echo "Working directory: $(pwd)"
-        echo "TypeScript files:"
-        find src -name "*.ts" | head -5
-        echo "Running pnpm run build with verbose output..."
-        pnpm run build --verbose || {
-          echo "❌ TypeScript compilation failed"
-          echo "Checking for TypeScript errors..."
-          npx tsc --noEmit --listFiles | head -10
-          exit 1
-        }
+        pnpm run build
         
         # Verify dist/main.js exists
         if [[ ! -f "dist/main.js" ]]; then
