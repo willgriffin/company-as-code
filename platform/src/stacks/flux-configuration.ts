@@ -39,35 +39,58 @@ export class FluxConfigurationStack extends TerraformStack {
     // Null provider for executing local commands
     new NullProvider(this, 'null');
 
-    // Parse kubeconfig to extract connection details
-    // Note: During synthesis, kubeconfig might be empty since cluster hasn't been created yet
-    // The dependency ensures this stack only applies after cluster creation
-    const kubeconfigYaml = yaml.load(kubeconfig || '{}') as any;
+    // Step 1: Always configure static manifests (doesn't require Kubernetes access)
+    this.configureStaticManifests();
 
-    // Validate kubeconfig structure
-    if (
-      !kubeconfigYaml.clusters ||
-      !kubeconfigYaml.users ||
-      kubeconfigYaml.clusters.length === 0 ||
-      kubeconfigYaml.users.length === 0
-    ) {
-      // During synthesis, this is expected - the actual values will be available during apply
-      // Note: This log is intentional for debugging CDKTF synthesis ordering
-      // eslint-disable-next-line no-console
-      console.log(
-        'Kubeconfig not yet available during synthesis - will be resolved during apply phase'
-      );
+    // Parse kubeconfig to extract connection details
+    let isValidKubeconfig = false;
+    let kubeconfigYaml: any = {};
+
+    try {
+      // Only try to parse if kubeconfig is not empty
+      if (kubeconfig && kubeconfig.trim() !== '') {
+        kubeconfigYaml = yaml.load(kubeconfig) as any;
+
+        // Validate kubeconfig structure
+        if (
+          kubeconfigYaml.clusters &&
+          kubeconfigYaml.users &&
+          kubeconfigYaml.clusters.length > 0 &&
+          kubeconfigYaml.users.length > 0 &&
+          kubeconfigYaml.clusters[0].cluster &&
+          kubeconfigYaml.clusters[0].cluster.server &&
+          kubeconfigYaml.clusters[0].cluster['certificate-authority-data']
+        ) {
+          isValidKubeconfig = true;
+        }
+      }
+    } catch (e) {
+      console.log('Failed to parse kubeconfig:', e);
     }
 
-    const cluster = kubeconfigYaml.clusters?.[0]?.cluster || {};
-    const user = kubeconfigYaml.users?.[0]?.user || {};
+    if (!isValidKubeconfig) {
+      console.log('Warning: Invalid or missing kubeconfig, skipping Kubernetes resource creation');
+      console.log(
+        'This is expected during initial deployment. Resources will be created in next run.'
+      );
+
+      // Output information about partial configuration
+      new TerraformOutput(this, 'configuration_status', {
+        value: 'Static manifests configured. Kubernetes resources pending valid kubeconfig.',
+        description: 'Status of Flux configuration setup',
+      });
+
+      // Skip Kubernetes resource creation
+      return;
+    }
+
+    const cluster = kubeconfigYaml.clusters[0].cluster;
+    const user = kubeconfigYaml.users[0].user;
 
     // Kubernetes provider for creating ConfigMaps
     new KubernetesProvider(this, 'kubernetes', {
-      host: cluster.server || 'https://placeholder-during-synthesis',
-      clusterCaCertificate: cluster['certificate-authority-data']
-        ? Buffer.from(cluster['certificate-authority-data'], 'base64').toString()
-        : 'placeholder-cert',
+      host: cluster.server,
+      clusterCaCertificate: Buffer.from(cluster['certificate-authority-data'], 'base64').toString(),
       token: user.token || undefined,
       clientCertificate: user['client-certificate-data']
         ? Buffer.from(user['client-certificate-data'], 'base64').toString()
@@ -77,10 +100,7 @@ export class FluxConfigurationStack extends TerraformStack {
         : undefined,
     });
 
-    // Step 1: One-time static configuration
-    this.configureStaticManifests();
-
-    // Step 2: Dynamic infrastructure ConfigMap
+    // Step 2: Dynamic infrastructure ConfigMap (requires Kubernetes access)
     this.createInfrastructureConfigMap();
 
     // Output information about the configuration
