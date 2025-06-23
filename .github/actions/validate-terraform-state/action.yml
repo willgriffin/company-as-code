@@ -82,7 +82,15 @@ runs:
         
         # Build TypeScript (includes CDKTF provider generation)
         echo "🔧 Building TypeScript with CDKTF providers..."
-        pnpm run build
+        pnpm run build || {
+          echo "❌ Build failed, checking TypeScript compilation directly..."
+          npx tsc --listFiles --verbose
+          echo "TypeScript version:"
+          npx tsc --version
+          echo "tsconfig.json content:"
+          cat tsconfig.json
+          exit 1
+        }
         
         # Verify dist/main.js exists
         if [[ ! -f "dist/main.js" ]]; then
