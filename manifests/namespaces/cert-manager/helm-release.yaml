@@ -56,8 +56,8 @@ spec:
           cpu: 100m
           memory: 128Mi
     
-    # Prometheus monitoring
+    # Prometheus monitoring - disabled until monitoring stack is deployed
     prometheus:
-      enabled: true
+      enabled: false
       servicemonitor:
-        enabled: true
+        enabled: false
