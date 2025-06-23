@@ -60,7 +60,7 @@ patches:
           - name: cert-manager
             namespace: cert-manager
   
-  # Keycloak depends on database operators
+  # Keycloak depends on database operators  
   - target:
       kind: HelmRelease
       name: keycloak-operator
@@ -70,6 +70,17 @@ patches:
         value:
           - name: cloudnative-pg
             namespace: cnpg-system
+  
+  # Keycloak Certificate depends on cert-manager
+  - target:
+      kind: Certificate
+      name: keycloak-tls
+      namespace: keycloak
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          kustomize.toolkit.fluxcd.io/depends-on: cert-manager/cert-manager
   
   # Monitoring depends on Kong Gateway for routes
   - target:
