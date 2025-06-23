@@ -1,6 +1,6 @@
 {
   "language": "typescript",
-  "app": "npm run compile && node dist/main.js",
+  "app": "node dist/main.js",
   "projectId": "startup-gitops-platform",
   "sendCrashReports": false,
   "terraformProviders": [
