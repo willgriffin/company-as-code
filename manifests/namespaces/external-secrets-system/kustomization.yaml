@@ -4,6 +4,6 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - helm-release.yaml
-  - cluster-secret-store.yaml
 
 # No dependencies - this is the base layer
+# cluster-secret-store.yaml will be added after CRDs are ready

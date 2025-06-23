@@ -30,7 +30,28 @@ spec:
   dependsOn:
     - name: digitalocean-secrets
 ---
-# Cert-manager - depends on external-secrets
+# External secrets post-setup (ClusterSecretStore, etc)
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: external-secrets-post-setup
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/namespaces/external-secrets-system/post-setup"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: external-secrets-system
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+      kind: HelmRelease
+      name: external-secrets
+      namespace: external-secrets-system
+---
+# Cert-manager - depends on external-secrets being fully ready
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -44,12 +65,7 @@ spec:
     kind: GitRepository
     name: flux-system
   dependsOn:
-    - name: external-secrets-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      name: external-secrets
-      namespace: external-secrets-system
+    - name: external-secrets-post-setup
 ---
 # Kong gateway - depends on cert-manager
 apiVersion: kustomize.toolkit.fluxcd.io/v1
