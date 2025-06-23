@@ -120,11 +120,6 @@ jobs:
         run: |
           echo "GITHUB_REPOSITORY=${{ github.repository }}" >> "$GITHUB_ENV"
       
-      - name: Build TypeScript with CDKTF providers
-        run: |
-          cd platform
-          pnpm run build
-      
       - name: Validate and Initialize Terraform State
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event.inputs.action == 'plan'
         uses: ./.github/actions/validate-terraform-state
