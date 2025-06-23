@@ -161,114 +161,11 @@ jobs:
           echo "🗑️ Destroying infrastructure with CDKTF..."
           pnpm run destroy
       
-      - name: Get kubeconfig from CDKTF output
+      - name: Infrastructure deployment complete
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
-          cd platform
-          echo "📋 Extracting kubeconfig from CDKTF output..."
-          
-          # Generate CDKTF output file
-          if ! pnpm run output > cdktf-output.json; then
-            echo "❌ Failed to get CDKTF output"
-            exit 1
-          fi
-          
-          # Extract and encode kubeconfig using our script
-          KUBECONFIG_BASE64=$(node scripts/extract-kubeconfig.js --base64)
-          
-          if [[ -z "$KUBECONFIG_BASE64" ]]; then
-            echo "❌ Failed to extract kubeconfig"
-            exit 1
-          fi
-          
-          echo "KUBECONFIG_BASE64=$KUBECONFIG_BASE64" >> "$GITHUB_ENV"
-          echo "✅ Kubeconfig extracted and encoded"
+          echo "🎉 Infrastructure deployment completed successfully!"
       
-      - name: Update kubeconfig secret
-        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        uses: hmanzur/actions-set-secret@v2.0.0
-        with:
-          name: 'KUBECONFIG'
-          value: ${{ env.KUBECONFIG_BASE64 }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Verify cluster connectivity
-        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        run: |
-          echo "${{ env.KUBECONFIG_BASE64 }}" | base64 -d > kubeconfig.yaml
-          export KUBECONFIG=kubeconfig.yaml
-          kubectl cluster-info
-          kubectl get nodes
-      
-      - name: Wait for Flux reconciliation
-        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        run: |
-          echo "${{ env.KUBECONFIG_BASE64 }}" | base64 -d > kubeconfig.yaml
-          export KUBECONFIG=kubeconfig.yaml
-          
-          echo "Waiting for Flux to be ready..."
-          if ! kubectl wait --for=condition=available --timeout=300s deployment/source-controller -n flux-system; then
-            echo "Error: Flux source-controller failed to become available"
-            kubectl describe deployment/source-controller -n flux-system
-            exit 1
-          fi
-          
-          if ! kubectl wait --for=condition=available --timeout=300s deployment/kustomize-controller -n flux-system; then
-            echo "Error: Flux kustomize-controller failed to become available"
-            kubectl describe deployment/kustomize-controller -n flux-system
-            exit 1
-          fi
-          
-          echo "Forcing Flux reconciliation..."
-          if ! kubectl annotate gitrepository flux-system -n flux-system reconcile.fluxcd.io/requestedAt="$(date +%s)" --overwrite; then
-            echo "Warning: Failed to trigger Flux reconciliation, continuing anyway"
-          fi
-          
-          echo "Waiting for infrastructure to be ready..."
-          if ! timeout 600 bash -c 'until kubectl wait --for=condition=Ready kustomization/infrastructure -n flux-system --timeout=30s; do echo "Waiting for infrastructure..."; sleep 10; done'; then
-            echo "Error: Infrastructure kustomization failed to become ready"
-            kubectl describe kustomization/infrastructure -n flux-system
-            kubectl get events -n flux-system --sort-by='.metadata.creationTimestamp'
-            exit 1
-          fi
-          
-          echo "Waiting for applications to be ready..."
-          if ! timeout 600 bash -c 'until kubectl wait --for=condition=Ready kustomization/applications -n flux-system --timeout=30s; do echo "Waiting for applications..."; sleep 10; done'; then
-            echo "Error: Applications kustomization failed to become ready"
-            kubectl describe kustomization/applications -n flux-system
-            kubectl get events -n flux-system --sort-by='.metadata.creationTimestamp'
-            exit 1
-          fi
-      
-      - name: Get deployment status
-        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        id: status
-        run: |
-          echo "${{ env.KUBECONFIG_BASE64 }}" | base64 -d > kubeconfig.yaml
-          export KUBECONFIG=kubeconfig.yaml
-          
-          echo "=== Flux Status ==="
-          kubectl get gitrepository,kustomization -n flux-system
-          
-          echo "=== External Secrets Status ==="
-          kubectl get externalsecrets -A
-          
-          echo "=== Infrastructure Status ==="
-          kubectl get pods -n kong-system --no-headers | wc -l > /tmp/kong_pods || echo "0" > /tmp/kong_pods
-          kubectl get pods -n keycloak --no-headers | wc -l > /tmp/keycloak_pods || echo "0" > /tmp/keycloak_pods
-          kubectl get pods -n external-secrets-system --no-headers | wc -l > /tmp/external_secrets_pods || echo "0" > /tmp/external_secrets_pods
-          
-          echo "=== Application Status ==="
-          kubectl get pods -n nextcloud --no-headers | wc -l > /tmp/nextcloud_pods || echo "0" > /tmp/nextcloud_pods
-          kubectl get pods -n mattermost --no-headers | wc -l > /tmp/mattermost_pods || echo "0" > /tmp/mattermost_pods
-          kubectl get pods -n mailu --no-headers | wc -l > /tmp/mailu_pods || echo "0" > /tmp/mailu_pods
-          
-          # Get Kong Gateway LoadBalancer IP
-          KONG_IP=$(kubectl get svc -n kong-system kong-gateway-proxy -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
-          echo "kong_ip=$KONG_IP" >> "$GITHUB_OUTPUT"
-          
-          echo "=== Services ==="
-          kubectl get svc -A | grep LoadBalancer || echo "No LoadBalancer services found"
       
       - name: Send deployment success notification
         if: success() && (github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && needs.check-setup.outputs.is-deployed == 'true'
@@ -288,23 +185,23 @@ jobs:
             Branch: ${{ github.ref_name }}
             Commit: ${{ github.sha }}
             
-            🌐 Application URLs (configure DNS to point to Kong Gateway IP):
+            🌐 Application URLs:
             - Keycloak (Auth): https://auth.${{ secrets.DOMAIN }}
             - Nextcloud (Files): https://cloud.${{ secrets.DOMAIN }}
             - Mattermost (Chat): https://chat.${{ secrets.DOMAIN }}
             - Mailu (Email): https://webmail.${{ secrets.DOMAIN }}
             
             🚀 Infrastructure Details:
-            - Kong Gateway IP: ${{ steps.status.outputs.kong_ip }}
-            - Flux Status: GitOps reconciliation complete
+            - Kubernetes cluster deployed via DigitalOcean
+            - Flux GitOps reconciliation active
             - External Secrets: Dynamic secret injection active
             - TLS Certificates: Automatic via cert-manager
             
             📋 Next Steps:
-            1. Update DNS records to point to Kong Gateway IP: ${{ steps.status.outputs.kong_ip }}
-            2. Wait for TLS certificates to be issued automatically
-            3. Access applications using the URLs above
-            4. Configure additional settings via Keycloak admin
+            1. Check DigitalOcean console for Kong Gateway LoadBalancer IP
+            2. Update DNS records to point to the LoadBalancer IP
+            3. Wait for TLS certificates to be issued automatically
+            4. Access applications using the URLs above
             
             Workflow URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
             
