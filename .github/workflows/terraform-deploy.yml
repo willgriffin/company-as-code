@@ -120,6 +120,21 @@ jobs:
         run: |
           echo "GITHUB_REPOSITORY=${{ github.repository }}" >> "$GITHUB_ENV"
       
+      - name: Setup Kubernetes config
+        run: |
+          # Create kubeconfig directory
+          mkdir -p ~/.kube
+          
+          # Find the running cluster and create kubeconfig
+          CLUSTER_NAME=$(doctl kubernetes cluster list --format Name,Status --no-header | grep running | head -n1 | cut -d' ' -f1)
+          if [ -n "$CLUSTER_NAME" ]; then
+            echo "Setting up kubeconfig for cluster: $CLUSTER_NAME"
+            doctl kubernetes cluster kubeconfig save "$CLUSTER_NAME"
+            echo "✅ Kubeconfig configured for Flux deployment"
+          else
+            echo "⚠️ No running cluster found, kubeconfig setup skipped"
+          fi
+      
       - name: Validate and Initialize Terraform State
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event.inputs.action == 'plan'
         uses: ./.github/actions/validate-terraform-state
