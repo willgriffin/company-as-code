@@ -80,6 +80,10 @@ runs:
           STATE_COUNT=0
         fi
         
+        # Compile TypeScript first
+        echo "🔧 Compiling TypeScript..."
+        pnpm run build
+        
         # Generate CDKTF to create terraform directories
         echo "🔧 Generating CDKTF configurations..."
         pnpm run synth

@@ -124,10 +124,11 @@ jobs:
         run: |
           echo "GITHUB_REPOSITORY=${{ github.repository }}" >> "$GITHUB_ENV"
       
-      - name: CDKTF Get
+      - name: Compile TypeScript after CDKTF Get
         run: |
           cd platform
           pnpm run get
+          pnpm run build
       
       - name: Validate and Initialize Terraform State
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event.inputs.action == 'plan'
