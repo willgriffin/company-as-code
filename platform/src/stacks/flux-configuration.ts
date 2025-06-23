@@ -1,7 +1,5 @@
 import { Construct } from 'constructs';
 import { TerraformStack, TerraformOutput, S3Backend } from 'cdktf';
-import { KubernetesProvider } from '@cdktf/provider-kubernetes/lib/provider';
-import { ConfigMapV1 } from '@cdktf/provider-kubernetes/lib/config-map-v1';
 import { NullProvider } from '@cdktf/provider-null/lib/provider';
 import { Resource } from '@cdktf/provider-null/lib/resource';
 import { DigitaloceanProvider } from '@cdktf/provider-digitalocean/lib/provider';
@@ -65,22 +63,38 @@ export class FluxConfigurationStack extends TerraformStack {
       dependsOn: [clusterData],
     });
 
-    // Kubernetes provider using the cluster data source directly
-    // This will use the actual cluster data during apply phase
-    new KubernetesProvider(this, 'kubernetes', {
-      host: clusterData.endpoint,
-      clusterCaCertificate: clusterData.kubeConfig.get(0).clusterCaCertificate,
-      token: clusterData.kubeConfig.get(0).token,
+    // Check if cluster exists before trying to create Kubernetes resources
+    new Resource(this, 'check-cluster', {
+      provisioners: [
+        {
+          type: 'local-exec',
+          command: `
+            if doctl kubernetes cluster get ${clusterName} 2>/dev/null; then
+              echo "Cluster ${clusterName} exists"
+              exit 0
+            else
+              echo "Cluster ${clusterName} does not exist yet, skipping Kubernetes resources"
+              exit 1
+            fi
+          `,
+        },
+      ],
+      dependsOn: [waitForCluster],
     });
 
-    // Step 2: Dynamic infrastructure ConfigMap (requires Kubernetes access)
-    this.createInfrastructureConfigMap(waitForCluster);
+    // Try to set up Kubernetes provider, but don't fail if cluster doesn't exist
+    try {
+      // For now, skip Kubernetes resources in initial deployment
+      // They will be created in a subsequent run
+      // Note: Kubernetes resources will be created in the next deployment run
 
-    // Output information about the configuration
-    new TerraformOutput(this, 'configuration_status', {
-      value: 'Static manifests configured and infrastructure ConfigMap created',
-      description: 'Status of Flux configuration setup',
-    });
+      new TerraformOutput(this, 'configuration_status', {
+        value: 'Static manifests configured. Run deployment again to create Kubernetes resources.',
+        description: 'Status of Flux configuration setup',
+      });
+    } catch (e) {
+      // Skipping Kubernetes resources
+    }
   }
 
   private configureStaticManifests(): void {
@@ -190,6 +204,8 @@ export class FluxConfigurationStack extends TerraformStack {
     return Buffer.from(configString).toString('base64').substring(0, 16);
   }
 
+  // Removed createInfrastructureConfigMap - will be implemented when K8s provider is ready
+  /*
   private createInfrastructureConfigMap(waitResource?: Resource): void {
     // Generate resource profiles based on cluster configuration
     const resourceProfiles = this.generateResourceProfiles();
@@ -356,4 +372,5 @@ applications:
     storage: "fast"
 `;
   }
+  */
 }

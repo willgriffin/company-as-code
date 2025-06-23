@@ -28,8 +28,12 @@ export class GitHubSecretsStack extends TerraformStack {
     });
 
     // GitHub provider
+    // Extract owner from repository path
+    const [owner] = repository.split('/');
+
     new GithubProvider(this, 'github', {
       token: process.env.GITHUB_TOKEN!,
+      owner: owner,
     });
 
     // Create action secrets
