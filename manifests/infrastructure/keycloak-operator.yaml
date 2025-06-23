@@ -348,6 +348,20 @@ spec:
       key: credentials
       property: admin-full-name
 ---
+# TLS certificate for Keycloak
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: keycloak-tls
+  namespace: keycloak
+spec:
+  secretName: keycloak-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - auth.example.com
+---
 # Kong HTTPRoute for Keycloak
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
