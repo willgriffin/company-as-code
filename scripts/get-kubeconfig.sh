@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Get kubeconfig for local development using doctl
+# Note: In GitHub Codespaces, KUBECONFIG is automatically available as an environment variable
+# This script is primarily for local development scenarios where doctl authentication is available
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

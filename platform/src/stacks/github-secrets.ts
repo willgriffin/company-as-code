@@ -2,6 +2,7 @@ import { Construct } from 'constructs';
 import { TerraformStack, S3Backend } from 'cdktf';
 import { GithubProvider } from '@cdktf/provider-github/lib/provider';
 import { ActionsSecret } from '@cdktf/provider-github/lib/actions-secret';
+import { CodespacesSecret } from '@cdktf/provider-github/lib/codespaces-secret';
 import { Config } from '../config/schema';
 
 export interface GitHubSecretsStackProps {
@@ -13,6 +14,7 @@ export interface GitHubSecretsStackProps {
 
 export class GitHubSecretsStack extends TerraformStack {
   public readonly actionSecrets: ActionsSecret[];
+  public readonly codespaceSecrets: CodespacesSecret[];
 
   constructor(scope: Construct, id: string, props: GitHubSecretsStackProps) {
     super(scope, id);
@@ -45,6 +47,18 @@ export class GitHubSecretsStack extends TerraformStack {
         plaintextValue: value,
       });
     });
+
+    // Create codespace secrets - only KUBECONFIG is needed in codespaces
+    this.codespaceSecrets = [];
+    if (secrets.KUBECONFIG) {
+      this.codespaceSecrets.push(
+        new CodespacesSecret(this, 'codespace-secret-kubeconfig', {
+          repository: repoName,
+          secretName: 'KUBECONFIG',
+          plaintextValue: secrets.KUBECONFIG,
+        })
+      );
+    }
   }
 
   static createSecretsMap(props: {
