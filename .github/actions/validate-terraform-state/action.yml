@@ -84,6 +84,14 @@ runs:
         echo "🔧 Compiling TypeScript..."
         pnpm run build
         
+        # Verify dist/main.js exists
+        if [[ ! -f "dist/main.js" ]]; then
+          echo "❌ dist/main.js not found after compilation"
+          ls -la dist/ || echo "dist/ directory not found"
+          exit 1
+        fi
+        echo "✅ dist/main.js found"
+        
         # Generate CDKTF to create terraform directories
         echo "🔧 Generating CDKTF configurations..."
         pnpm run synth
