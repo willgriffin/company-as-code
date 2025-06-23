@@ -158,10 +158,10 @@ export class FluxConfigurationStack extends TerraformStack {
 
     // Create a null resource that performs the one-time replacement
     new Resource(this, 'configure-static-manifests', {
-      triggers: {
-        // Trigger when config changes
-        config_hash: this.generateConfigHash(),
-        replacements_hash: this.hashString(replacementsJson),
+      lifecycle: {
+        // Only create once, don't recreate on subsequent runs
+        createBeforeDestroy: false,
+        ignoreChanges: ['triggers'],
       },
       provisioners: [
         {
@@ -171,10 +171,7 @@ export class FluxConfigurationStack extends TerraformStack {
         {
           type: 'local-exec',
           command: `bash ${path.resolve('scripts/configure-manifests.sh')} ${path.resolve('..', 'manifests')} ${replacementsFile}`,
-        },
-        {
-          type: 'local-exec',
-          command: `rm -f ${replacementsFile}`,
+          // Don't fail if the script exits with non-zero (idempotent)
         },
       ],
     });

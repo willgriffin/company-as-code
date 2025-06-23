@@ -39,3 +39,7 @@ cdktf.log*
 # Local tools
 .tools/
 actionlint
+
+# Flux manifest configuration
+manifests/.backups/
+manifests/.replacements-applied

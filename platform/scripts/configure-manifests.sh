@@ -24,6 +24,13 @@ if [[ ! -f "$REPLACEMENTS_FILE" ]]; then
   exit 1
 fi
 
+# Check if replacements have already been applied
+if [[ -f "$MANIFESTS_DIR/.replacements-applied" ]]; then
+  echo "✅ Replacements have already been applied, skipping..."
+  echo "ℹ️  To reapply, delete $MANIFESTS_DIR/.replacements-applied"
+  exit 0
+fi
+
 # Create backup directory if it doesn't exist
 echo "💾 Creating backup of original manifests..."
 if [[ ! -d "$MANIFESTS_DIR/.backups" ]]; then
@@ -74,3 +81,7 @@ else
 fi
 
 echo "🎉 Static manifest configuration complete"
+
+# Mark as completed
+touch "$MANIFESTS_DIR/.replacements-applied"
+echo "✅ Created marker file: $MANIFESTS_DIR/.replacements-applied"
