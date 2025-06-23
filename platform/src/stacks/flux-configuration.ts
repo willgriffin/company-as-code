@@ -4,15 +4,16 @@ import { KubernetesProvider } from '@cdktf/provider-kubernetes/lib/provider';
 import { ConfigMapV1 } from '@cdktf/provider-kubernetes/lib/config-map-v1';
 import { NullProvider } from '@cdktf/provider-null/lib/provider';
 import { Resource } from '@cdktf/provider-null/lib/resource';
+import { DigitaloceanProvider } from '@cdktf/provider-digitalocean/lib/provider';
+import { DataDigitaloceanKubernetesCluster } from '@cdktf/provider-digitalocean/lib/data-digitalocean-kubernetes-cluster';
 import { Config, Environment } from '../config/schema';
 import path from 'path';
-import * as yaml from 'js-yaml';
 
 export interface FluxConfigurationStackProps {
   projectName: string;
   environment: Environment;
   config: Config;
-  kubeconfig: string;
+  kubeconfig?: string; // Make optional for backward compatibility
 }
 
 export class FluxConfigurationStack extends TerraformStack {
@@ -26,7 +27,7 @@ export class FluxConfigurationStack extends TerraformStack {
     const { projectName, environment, config, kubeconfig } = props;
     this.config = config;
     this.environment = environment;
-    this.kubeconfig = kubeconfig;
+    this.kubeconfig = kubeconfig || '';
 
     // Configure S3 backend for Terraform state
     new S3Backend(this, {
@@ -39,69 +40,41 @@ export class FluxConfigurationStack extends TerraformStack {
     // Null provider for executing local commands
     new NullProvider(this, 'null');
 
+    // DigitalOcean provider to fetch cluster data
+    new DigitaloceanProvider(this, 'digitalocean', {
+      token: process.env.DIGITALOCEAN_TOKEN!,
+    });
+
     // Step 1: Always configure static manifests (doesn't require Kubernetes access)
     this.configureStaticManifests();
 
-    // Parse kubeconfig to extract connection details
-    let isValidKubeconfig = false;
-    let kubeconfigYaml: any = {};
+    // Fetch the cluster data using a data source
+    const clusterName = `${projectName}-${environment.name}`;
+    const clusterData = new DataDigitaloceanKubernetesCluster(this, 'cluster-data', {
+      name: clusterName,
+    });
 
-    try {
-      // Only try to parse if kubeconfig is not empty
-      if (kubeconfig && kubeconfig.trim() !== '') {
-        kubeconfigYaml = yaml.load(kubeconfig) as any;
+    // Wait for cluster to be ready
+    const waitForCluster = new Resource(this, 'wait-for-cluster', {
+      provisioners: [
+        {
+          type: 'local-exec',
+          command: `echo "Waiting for cluster ${clusterName} to be ready..." && sleep 30`,
+        },
+      ],
+      dependsOn: [clusterData],
+    });
 
-        // Validate kubeconfig structure
-        if (
-          kubeconfigYaml.clusters &&
-          kubeconfigYaml.users &&
-          kubeconfigYaml.clusters.length > 0 &&
-          kubeconfigYaml.users.length > 0 &&
-          kubeconfigYaml.clusters[0].cluster &&
-          kubeconfigYaml.clusters[0].cluster.server &&
-          kubeconfigYaml.clusters[0].cluster['certificate-authority-data']
-        ) {
-          isValidKubeconfig = true;
-        }
-      }
-    } catch (e) {
-      console.log('Failed to parse kubeconfig:', e);
-    }
-
-    if (!isValidKubeconfig) {
-      console.log('Warning: Invalid or missing kubeconfig, skipping Kubernetes resource creation');
-      console.log(
-        'This is expected during initial deployment. Resources will be created in next run.'
-      );
-
-      // Output information about partial configuration
-      new TerraformOutput(this, 'configuration_status', {
-        value: 'Static manifests configured. Kubernetes resources pending valid kubeconfig.',
-        description: 'Status of Flux configuration setup',
-      });
-
-      // Skip Kubernetes resource creation
-      return;
-    }
-
-    const cluster = kubeconfigYaml.clusters[0].cluster;
-    const user = kubeconfigYaml.users[0].user;
-
-    // Kubernetes provider for creating ConfigMaps
+    // Kubernetes provider using the cluster data source directly
+    // This will use the actual cluster data during apply phase
     new KubernetesProvider(this, 'kubernetes', {
-      host: cluster.server,
-      clusterCaCertificate: Buffer.from(cluster['certificate-authority-data'], 'base64').toString(),
-      token: user.token || undefined,
-      clientCertificate: user['client-certificate-data']
-        ? Buffer.from(user['client-certificate-data'], 'base64').toString()
-        : undefined,
-      clientKey: user['client-key-data']
-        ? Buffer.from(user['client-key-data'], 'base64').toString()
-        : undefined,
+      host: clusterData.endpoint,
+      clusterCaCertificate: clusterData.kubeConfig.get(0).clusterCaCertificate,
+      token: clusterData.kubeConfig.get(0).token,
     });
 
     // Step 2: Dynamic infrastructure ConfigMap (requires Kubernetes access)
-    this.createInfrastructureConfigMap();
+    this.createInfrastructureConfigMap(waitForCluster);
 
     // Output information about the configuration
     new TerraformOutput(this, 'configuration_status', {
@@ -217,12 +190,7 @@ export class FluxConfigurationStack extends TerraformStack {
     return Buffer.from(configString).toString('base64').substring(0, 16);
   }
 
-  private generateRandomSuffix(): string {
-    // Generate a random suffix for secret keys and similar resources
-    return Math.random().toString(36).substring(2, 10);
-  }
-
-  private createInfrastructureConfigMap(): void {
+  private createInfrastructureConfigMap(waitResource?: Resource): void {
     // Generate resource profiles based on cluster configuration
     const resourceProfiles = this.generateResourceProfiles();
 
@@ -244,7 +212,7 @@ export class FluxConfigurationStack extends TerraformStack {
       }),
     };
 
-    new ConfigMapV1(this, 'infrastructure-config', {
+    const configMap = new ConfigMapV1(this, 'infrastructure-config', {
       metadata: {
         name: 'infrastructure-config',
         namespace: 'flux-system',
@@ -256,6 +224,10 @@ export class FluxConfigurationStack extends TerraformStack {
       },
       data: configMapData,
     });
+
+    if (waitResource) {
+      configMap.node.addDependency(waitResource);
+    }
   }
 
   private generateResourceProfiles(): Record<string, any> {
