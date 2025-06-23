@@ -4,7 +4,6 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - helm-release.yaml
-  - issuers.yaml
 
 # Dependencies managed at the Flux level
 # This namespace depends on external-secrets-system being ready
