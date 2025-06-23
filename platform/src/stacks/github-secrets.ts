@@ -33,9 +33,12 @@ export class GitHubSecretsStack extends TerraformStack {
     });
 
     // Create action secrets
+    // Extract just the repository name without owner (e.g., "happyvertical/iac" -> "iac")
+    const repoName = repository.includes('/') ? repository.split('/')[1] : repository;
+
     this.actionSecrets = Object.entries(secrets).map(([key, value]) => {
       return new ActionsSecret(this, `secret-${key.toLowerCase()}`, {
-        repository,
+        repository: repoName,
         secretName: key,
         plaintextValue: value,
       });
