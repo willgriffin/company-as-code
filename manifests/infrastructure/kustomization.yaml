@@ -7,6 +7,9 @@ resources:
   - cert-manager.yaml
   - external-dns.yaml
   
+  # Certificates (after cert-manager is ready)
+  - certificates.yaml
+  
   # Database and message queue operators
   - database-operators.yaml
   
