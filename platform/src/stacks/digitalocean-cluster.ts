@@ -83,6 +83,9 @@ export class DigitalOceanClusterStack extends TerraformStack {
       type: 'regional',
       region: environment.cluster.region,
       size: 'lb-small',
+      lifecycle: {
+        ignoreChanges: ['type'],
+      },
       forwardingRule: [
         {
           entryProtocol: 'http',
