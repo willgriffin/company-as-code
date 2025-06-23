@@ -28,8 +28,8 @@ export class GitHubSecretsStack extends TerraformStack {
     });
 
     // GitHub provider
-    // Extract owner from repository path
-    const [owner] = repository.split('/');
+    // Extract owner and repo name from repository path
+    const [owner, repoName] = repository.split('/');
 
     new GithubProvider(this, 'github', {
       token: process.env.GITHUB_TOKEN!,
@@ -37,9 +37,10 @@ export class GitHubSecretsStack extends TerraformStack {
     });
 
     // Create action secrets
+    // When owner is set on provider, repository should only be the repo name
     this.actionSecrets = Object.entries(secrets).map(([key, value]) => {
       return new ActionsSecret(this, `secret-${key.toLowerCase()}`, {
-        repository,
+        repository: repoName,
         secretName: key,
         plaintextValue: value,
       });
