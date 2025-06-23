@@ -7,7 +7,8 @@
     "digitalocean/digitalocean@~> 2.0",
     "hashicorp/aws@~> 5.0",
     "integrations/github@~> 5.0",
-    "hashicorp/kubernetes@~> 2.0"
+    "hashicorp/kubernetes@~> 2.0",
+    "fluxcd/flux@~> 1.0"
   ],
   "terraformModules": [],
   "context": {

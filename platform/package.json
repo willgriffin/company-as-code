@@ -7,6 +7,7 @@
     "build": "tsc",
     "compile": "tsc",
     "typecheck": "tsc --noEmit",
+    "prepare": "cdktf get",
     "get": "cdktf get",
     "synth": "cdktf synth",
     "plan": "node scripts/get-stacks.js validate && cdktf plan $(node scripts/get-stacks.js list)",
