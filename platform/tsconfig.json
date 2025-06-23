@@ -8,8 +8,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
-    "composite": true,
     "outDir": "dist",
+    "rootDir": "src",
     "allowSyntheticDefaultImports": true,
     "lib": ["ES2022"]
   },
