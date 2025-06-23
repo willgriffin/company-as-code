@@ -96,10 +96,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install
       
-      - name: Generate CDKTF provider bindings
-        working-directory: platform
-        run: pnpm run get
-      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -124,10 +120,9 @@ jobs:
         run: |
           echo "GITHUB_REPOSITORY=${{ github.repository }}" >> "$GITHUB_ENV"
       
-      - name: Compile TypeScript after CDKTF Get
+      - name: Build TypeScript with CDKTF providers
         run: |
           cd platform
-          pnpm run get
           pnpm run build
       
       - name: Validate and Initialize Terraform State

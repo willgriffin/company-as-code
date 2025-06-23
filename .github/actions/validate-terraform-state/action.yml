@@ -80,12 +80,8 @@ runs:
           STATE_COUNT=0
         fi
         
-        # Generate CDKTF provider bindings first
-        echo "🔧 Generating CDKTF provider bindings..."
-        pnpm run get
-        
-        # Compile TypeScript after provider bindings
-        echo "🔧 Compiling TypeScript..."
+        # Build TypeScript (includes CDKTF provider generation)
+        echo "🔧 Building TypeScript with CDKTF providers..."
         pnpm run build
         
         # Verify dist/main.js exists

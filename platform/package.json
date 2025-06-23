@@ -4,8 +4,8 @@
   "description": "CDKTF infrastructure definitions",
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc",
-    "compile": "tsc",
+    "build": "pnpm run get && tsc",
+    "compile": "pnpm run get && tsc",
     "typecheck": "tsc --noEmit",
     "prepare": "cdktf get",
     "get": "cdktf get",
