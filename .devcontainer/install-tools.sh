@@ -63,4 +63,36 @@ fi
 # Create bash alias for claude
 echo "alias claude='npx @anthropic-ai/claude-code'" >> ~/.bashrc
 
+# Setup kubeconfig for codespace if cluster exists
+if [ -n "${CODESPACES:-}" ] && [ -n "${DIGITALOCEAN_TOKEN:-}" ]; then
+    echo "Setting up kubeconfig for codespace..."
+    
+    # Authenticate with DigitalOcean
+    doctl auth init --access-token "$DIGITALOCEAN_TOKEN" >/dev/null 2>&1
+    
+    # Check if cluster exists and get kubeconfig
+    if doctl kubernetes cluster list --no-header 2>/dev/null | grep -q "running"; then
+        # Unset the malformed KUBECONFIG environment variable
+        unset KUBECONFIG
+        
+        # Get the first running cluster and save its kubeconfig
+        CLUSTER_NAME=$(doctl kubernetes cluster list --format Name,Status --no-header | grep running | head -n1 | cut -d' ' -f1)
+        if [ -n "$CLUSTER_NAME" ]; then
+            echo "Found running cluster: $CLUSTER_NAME"
+            doctl kubernetes cluster kubeconfig save "$CLUSTER_NAME" >/dev/null 2>&1
+            
+            # Set proper KUBECONFIG environment variable for the session
+            export KUBECONFIG="$HOME/.kube/config"
+            echo "export KUBECONFIG=\"$HOME/.kube/config\"" >> ~/.bashrc
+            
+            echo "✓ Kubeconfig configured successfully"
+            echo "✓ kubectl is ready to use"
+        else
+            echo "⚠ No running cluster found"
+        fi
+    else
+        echo "⚠ No clusters found or cluster not yet deployed"
+    fi
+fi
+
 echo "Development environment ready!"

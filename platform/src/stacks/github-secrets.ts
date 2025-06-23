@@ -48,21 +48,20 @@ export class GitHubSecretsStack extends TerraformStack {
       });
     });
 
-    // Create codespace secrets - only KUBECONFIG is needed in codespaces
+    // Create codespace secrets - DIGITALOCEAN_TOKEN is needed for doctl authentication
     this.codespaceSecrets = [];
-    if (secrets.KUBECONFIG) {
+    if (secrets.DIGITALOCEAN_TOKEN) {
       this.codespaceSecrets.push(
-        new CodespacesSecret(this, 'codespace-secret-kubeconfig', {
+        new CodespacesSecret(this, 'codespace-secret-digitalocean-token', {
           repository: repoName,
-          secretName: 'KUBECONFIG',
-          plaintextValue: secrets.KUBECONFIG,
+          secretName: 'DIGITALOCEAN_TOKEN',
+          plaintextValue: secrets.DIGITALOCEAN_TOKEN,
         })
       );
     }
   }
 
   static createSecretsMap(props: {
-    kubeconfig: string;
     digitalOceanToken: string;
     terraformStateBucket: string;
     terraformStateRegion: string;
@@ -75,7 +74,6 @@ export class GitHubSecretsStack extends TerraformStack {
     nextcloudBucketName?: string;
   }): Record<string, string> {
     const secrets: Record<string, string> = {
-      KUBECONFIG: props.kubeconfig,
       DIGITALOCEAN_TOKEN: props.digitalOceanToken,
       TERRAFORM_STATE_BUCKET: props.terraformStateBucket,
       TERRAFORM_STATE_REGION: props.terraformStateRegion,

@@ -110,7 +110,6 @@ if (process.env.GITHUB_REPOSITORY) {
   const primaryCluster = clusterStacks[0];
 
   const secrets = GitHubSecretsStack.createSecretsMap({
-    kubeconfig: primaryCluster.cluster.kubeConfig.get(0).rawConfig,
     digitalOceanToken: process.env.DIGITALOCEAN_TOKEN!,
     terraformStateBucket: process.env.TERRAFORM_STATE_BUCKET!,
     terraformStateRegion: process.env.TERRAFORM_STATE_REGION!,
