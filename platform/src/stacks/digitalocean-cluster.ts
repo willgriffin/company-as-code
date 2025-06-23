@@ -95,7 +95,7 @@ export class DigitalOceanClusterStack extends TerraformStack {
           entryPort: 443,
           targetProtocol: 'https',
           targetPort: 443,
-          certificateId: this.certificate.id,
+          certificateName: this.certificate.name,
         },
       ],
       healthcheck: {
