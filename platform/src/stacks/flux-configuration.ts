@@ -3,6 +3,8 @@ import { TerraformStack, TerraformOutput, S3Backend } from 'cdktf';
 import { DigitaloceanProvider } from '@cdktf/provider-digitalocean/lib/provider';
 import { DataDigitaloceanKubernetesCluster } from '@cdktf/provider-digitalocean/lib/data-digitalocean-kubernetes-cluster';
 import { KubernetesProvider } from '@cdktf/provider-kubernetes/lib/provider';
+import { NullProvider } from '@cdktf/provider-null/lib/provider';
+import { Resource } from '@cdktf/provider-null/lib/resource';
 import { Config, Environment } from '../config/schema';
 // @ts-ignore - Generated CDKTF provider bindings
 import { FluxProvider } from '../../.gen/providers/flux/provider';
@@ -42,10 +44,35 @@ export class FluxConfigurationStack extends TerraformStack {
       token: process.env.DIGITALOCEAN_TOKEN!,
     });
 
+    // Null provider for local operations
+    new NullProvider(this, 'null');
+
     // Fetch the cluster data using a data source
     const clusterName = `${projectName}-${environment.name}`;
     const clusterData = new DataDigitaloceanKubernetesCluster(this, 'cluster-data', {
       name: clusterName,
+    });
+
+    // Ensure correct cluster directory structure exists
+    const directorySetup = new Resource(this, 'cluster-directory-setup', {
+      provisioners: [
+        {
+          type: 'local-exec',
+          command: `
+          # Check if template directory exists and target doesn't
+          if [ -d "../manifests/clusters/my-cluster" ] && [ ! -d "../manifests/clusters/${clusterName}" ]; then
+            echo "Renaming template directory my-cluster to ${clusterName}"
+            mv "../manifests/clusters/my-cluster" "../manifests/clusters/${clusterName}"
+          elif [ ! -d "../manifests/clusters/${clusterName}" ]; then
+            echo "Creating cluster directory ${clusterName}"
+            mkdir -p "../manifests/clusters/${clusterName}"
+          fi
+        `,
+        },
+      ],
+      triggers: {
+        cluster_name: clusterName,
+      },
     });
 
     // Configure Kubernetes provider using the cluster kubeconfig
@@ -80,7 +107,7 @@ export class FluxConfigurationStack extends TerraformStack {
       namespace: 'flux-system',
       interval: '1m',
       version: 'v2.3.0',
-      dependsOn: [clusterData],
+      dependsOn: [clusterData, directorySetup],
     });
 
     new TerraformOutput(this, 'flux_status', {
