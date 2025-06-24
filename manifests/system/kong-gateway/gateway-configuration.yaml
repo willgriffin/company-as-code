@@ -64,17 +64,6 @@ spec:
               runAsUser: 1000
               seccompProfile:
                 type: RuntimeDefault
-            # Volume mounts for tmpfs
-            volumeMounts:
-            - name: tmp
-              mountPath: /tmp
-            - name: kong-prefix
-              mountPath: /kong_prefix
-          volumes:
-          - name: tmp
-            emptyDir: {}
-          - name: kong-prefix
-            emptyDir: {}
     # Network configuration for DigitalOcean LoadBalancer
     network:
       services:
