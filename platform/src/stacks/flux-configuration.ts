@@ -116,7 +116,9 @@ export class FluxConfigurationStack extends TerraformStack {
   "example.com": "${this.config.project.domain}", 
   "example-cluster": "${clusterName}",
   "my-project": "${this.config.project.name}",
-  "Example Project": "${this.config.project.name}"
+  "Example Project": "${this.config.project.name}",
+  "Log in with Example Project": "Log in with ${this.config.project.name}",
+  "Example Project Chat": "${this.config.project.name} Chat"
 }
 EOF
 
