@@ -87,7 +87,9 @@ export class FluxConfigurationStack extends TerraformStack {
     // Configure Flux provider with Git repository settings
     new FluxProvider(this, 'flux', {
       kubernetes: {
-        configPath: '~/.kube/config',
+        host: clusterData.endpoint,
+        token: clusterData.kubeConfig.get(0).token,
+        clusterCaCertificate: clusterData.kubeConfig.get(0).clusterCaCertificate,
       },
       git: {
         url: 'https://github.com/happyvertical/iac',
