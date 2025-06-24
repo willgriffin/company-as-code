@@ -144,6 +144,11 @@ EOF
       namespace: 'flux-system',
       interval: '1m',
       version: 'v2.3.0',
+      timeouts: {
+        create: '15m',
+        update: '15m',
+        delete: '5m',
+      },
       dependsOn: [clusterData, directorySetup, manifestsConfig],
     });
 
