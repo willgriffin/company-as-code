@@ -84,28 +84,26 @@ done
 # Verification step - check if replacement was successful
 echo "🔍 Verifying replacement completeness..."
 # Check only for the specific patterns we intended to replace
-# Parse the replacements file to get the exact patterns to verify
-verification_failed=false
+# Use a simpler approach to avoid subshell variable issues
 
-jq -r 'keys[]' "$REPLACEMENTS_FILE" | while read -r pattern; do
-  # Skip patterns that are legitimate in other contexts (like comments)
-  case "$pattern" in
-    "support@example.com"|"example.com"|"example-cluster"|"my-project"|"Example Project"|"Log in with Example Project"|"Example Project Chat")
-      files_with_pattern=$(find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | \
-        grep -v "gotk-components.yaml" | \
-        xargs grep -l "$pattern" 2>/dev/null | wc -l)
-      
-      if [ "$files_with_pattern" -gt 0 ]; then
-        echo "⚠️  Pattern '$pattern' still found in $files_with_pattern files"
-        verification_failed=true
-      fi
-      ;;
-  esac
+# Check for specific problematic patterns
+patterns_found=0
+
+# Check each target pattern individually
+for pattern in "support@example.com" "example.com" "example-cluster" "my-project" "Example Project" "Log in with Example Project" "Example Project Chat"; do
+  files_with_pattern=$(find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | \
+    grep -v "gotk-components.yaml" | \
+    xargs grep -l "$pattern" 2>/dev/null || true | wc -l)
+  
+  if [ "$files_with_pattern" -gt 0 ]; then
+    echo "⚠️  Pattern '$pattern' still found in $files_with_pattern files"
+    patterns_found=$((patterns_found + 1))
+  fi
 done
 
-if [ "$verification_failed" = true ]; then
-  echo "⚠️  Some specific patterns may not have been replaced completely"
-  echo "🔍 Continuing as this might be due to edge cases or file permissions"
+if [ "$patterns_found" -gt 0 ]; then
+  echo "⚠️  $patterns_found target patterns may not have been replaced completely"
+  echo "🔍 This could be due to edge cases or file permissions - continuing anyway"
 else
   echo "✅ All target patterns successfully replaced"
 fi
