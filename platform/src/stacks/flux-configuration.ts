@@ -89,7 +89,7 @@ export class FluxConfigurationStack extends TerraformStack {
       kubernetes: {
         host: clusterData.endpoint,
         token: clusterData.kubeConfig.get(0).token,
-        clusterCaCertificate: clusterData.kubeConfig.get(0).clusterCaCertificate,
+        clusterCaCertificate: `\${base64decode("${clusterData.kubeConfig.get(0).clusterCaCertificate}")}`,
       },
       git: {
         url: 'https://github.com/happyvertical/iac',
