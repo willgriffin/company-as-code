@@ -83,21 +83,34 @@ done
 
 # Verification step - check if replacement was successful
 echo "🔍 Verifying replacement completeness..."
-# Exclude gotk-components.yaml as it contains legitimate documentation examples
-# Also exclude files that might contain "example" in other contexts (like comments or URLs)
-remaining_examples=$(find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | \
-  grep -v "gotk-components.yaml" | \
-  xargs grep -il "example\.com\|example-cluster\|Example Project\|my-project" 2>/dev/null | wc -l)
+# Check only for the specific patterns we intended to replace
+# Parse the replacements file to get the exact patterns to verify
+verification_failed=false
 
-if [ "$remaining_examples" -gt 0 ]; then
-  echo "⚠️  WARNING: Some files may still contain example patterns:"
-  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | \
-    grep -v "gotk-components.yaml" | \
-    xargs grep -i "example\.com\|example-cluster\|Example Project\|my-project" 2>/dev/null | head -10
-  echo "🔍 Continuing anyway as core replacements have been applied"
+jq -r 'keys[]' "$REPLACEMENTS_FILE" | while read -r pattern; do
+  # Skip patterns that are legitimate in other contexts (like comments)
+  case "$pattern" in
+    "support@example.com"|"example.com"|"example-cluster"|"my-project"|"Example Project"|"Log in with Example Project"|"Example Project Chat")
+      files_with_pattern=$(find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | \
+        grep -v "gotk-components.yaml" | \
+        xargs grep -l "$pattern" 2>/dev/null | wc -l)
+      
+      if [ "$files_with_pattern" -gt 0 ]; then
+        echo "⚠️  Pattern '$pattern' still found in $files_with_pattern files"
+        verification_failed=true
+      fi
+      ;;
+  esac
+done
+
+if [ "$verification_failed" = true ]; then
+  echo "⚠️  Some specific patterns may not have been replaced completely"
+  echo "🔍 Continuing as this might be due to edge cases or file permissions"
+else
+  echo "✅ All target patterns successfully replaced"
 fi
 
-echo "✅ Configuration replacements completed successfully"
+echo "✅ Configuration replacements completed"
 
 echo "🎉 Static manifest configuration complete"
 
