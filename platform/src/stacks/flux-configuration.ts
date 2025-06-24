@@ -117,8 +117,8 @@ export class FluxConfigurationStack extends TerraformStack {
 }
 EOF
 
-          # Run the configure-manifests script
-          ./scripts/configure-manifests.sh ../manifests /tmp/replacements.json
+          # Run the configure-manifests script from repository root
+          cd $(git rev-parse --show-toplevel)/platform && ./scripts/configure-manifests.sh ../manifests /tmp/replacements.json
         `,
         },
       ],
