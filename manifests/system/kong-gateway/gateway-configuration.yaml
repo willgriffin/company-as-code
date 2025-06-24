@@ -109,7 +109,7 @@ spec:
               value: "http://kong-admin.kong.svc.cluster.local:8001"
             # Gateway API support
             - name: CONTROLLER_FEATURE_GATES
-              value: "Gateway=true,GatewayAlpha=true"
+              value: "GatewayAlpha=true"
             # Enable CRD installation
             - name: CONTROLLER_KONNECT_LICENSING_ENABLED
               value: "false"
