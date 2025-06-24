@@ -78,8 +78,8 @@ spec:
     # Network configuration for DigitalOcean LoadBalancer
     network:
       services:
-        # Main gateway service (proxy)
-        proxy:
+        # Main ingress service
+        ingress:
           type: LoadBalancer
           annotations:
             service.beta.kubernetes.io/do-loadbalancer-name: "happyvertical-production-kong-proxy"
@@ -97,22 +97,6 @@ spec:
             targetPort: 8443
             protocol: TCP
             name: https
-        # Admin API service
-        admin:
-          type: ClusterIP
-          ports:
-          - port: 8001
-            targetPort: 8001
-            protocol: TCP
-            name: admin
-        # Manager UI service  
-        manager:
-          type: ClusterIP
-          ports:
-          - port: 8002
-            targetPort: 8002
-            protocol: TCP
-            name: manager
   
   # ControlPlane configuration - Kong Ingress Controller
   controlPlaneOptions:
