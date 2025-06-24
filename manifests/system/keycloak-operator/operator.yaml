@@ -58,6 +58,9 @@ spec:
           runAsUser: 1000
           seccompProfile:
             type: RuntimeDefault
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         livenessProbe:
           httpGet:
             path: /q/health/live
@@ -70,5 +73,8 @@ spec:
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 10
+      volumes:
+      - name: tmp
+        emptyDir: {}
       serviceAccountName: keycloak-operator
       terminationGracePeriodSeconds: 10

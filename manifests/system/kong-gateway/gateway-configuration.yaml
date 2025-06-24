@@ -1,0 +1,157 @@
+# GatewayConfiguration for Kong Gateway with DigitalOcean LoadBalancer
+apiVersion: gateway-operator.konghq.com/v1beta1
+kind: GatewayConfiguration
+metadata:
+  name: kong
+  namespace: kong
+spec:
+  # DataPlane configuration - Kong Gateway
+  dataPlaneOptions:
+    deployment:
+      replicas: 2
+      podTemplateSpec:
+        spec:
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: proxy
+            image: kong/kong-gateway:3.9.1
+            env:
+            # Kong configuration for DB-less mode
+            - name: KONG_DATABASE
+              value: "off"
+            - name: KONG_DECLARATIVE_CONFIG
+              value: "/kong/declarative/kong.yml"
+            - name: KONG_PROXY_ACCESS_LOG
+              value: "/dev/stdout"
+            - name: KONG_PROXY_ERROR_LOG
+              value: "/dev/stderr"
+            - name: KONG_ADMIN_ACCESS_LOG
+              value: "/dev/stdout"
+            - name: KONG_ADMIN_ERROR_LOG
+              value: "/dev/stderr"
+            - name: KONG_ADMIN_LISTEN
+              value: "0.0.0.0:8001"
+            - name: KONG_ADMIN_GUI_LISTEN
+              value: "0.0.0.0:8002"
+            # Plugin configuration
+            - name: KONG_PLUGINS
+              value: "bundled,oidc,prometheus,opentelemetry,ai-proxy,rate-limiting-advanced"
+            # Performance tuning
+            - name: KONG_WORKER_PROCESSES
+              value: "2"
+            - name: KONG_MAX_FILES_LIMIT
+              value: "65536"
+            resources:
+              requests:
+                cpu: 500m
+                memory: 1Gi
+              limits:
+                cpu: 2000m
+                memory: 2Gi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              runAsUser: 1000
+              seccompProfile:
+                type: RuntimeDefault
+            # Volume mounts for tmpfs
+            volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: kong-prefix
+              mountPath: /kong_prefix
+          volumes:
+          - name: tmp
+            emptyDir: {}
+          - name: kong-prefix
+            emptyDir: {}
+    # Network configuration for DigitalOcean LoadBalancer
+    network:
+      services:
+        # Main gateway service (proxy)
+        proxy:
+          type: LoadBalancer
+          annotations:
+            service.beta.kubernetes.io/do-loadbalancer-name: "happyvertical-production-kong-proxy"
+            service.beta.kubernetes.io/do-loadbalancer-protocol: "http"
+            service.beta.kubernetes.io/do-loadbalancer-algorithm: "round_robin"
+            service.beta.kubernetes.io/do-loadbalancer-size-slug: "lb-small"
+            service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol: "true"
+            external-dns.alpha.kubernetes.io/hostname: "*.happyvertical.com"
+          ports:
+          - port: 80
+            targetPort: 8000
+            protocol: TCP
+            name: http
+          - port: 443
+            targetPort: 8443
+            protocol: TCP
+            name: https
+        # Admin API service
+        admin:
+          type: ClusterIP
+          ports:
+          - port: 8001
+            targetPort: 8001
+            protocol: TCP
+            name: admin
+        # Manager UI service  
+        manager:
+          type: ClusterIP
+          ports:
+          - port: 8002
+            targetPort: 8002
+            protocol: TCP
+            name: manager
+  
+  # ControlPlane configuration - Kong Ingress Controller
+  controlPlaneOptions:
+    deployment:
+      replicas: 1
+      podTemplateSpec:
+        spec:
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: controller
+            image: kong/kubernetes-ingress-controller:3.1.5
+            env:
+            - name: CONTROLLER_LOG_LEVEL
+              value: info
+            - name: CONTROLLER_KONG_ADMIN_URL
+              value: "http://kong-admin.kong.svc.cluster.local:8001"
+            # Gateway API support
+            - name: CONTROLLER_FEATURE_GATES
+              value: "Gateway=true,GatewayAlpha=true"
+            # Enable CRD installation
+            - name: CONTROLLER_KONNECT_LICENSING_ENABLED
+              value: "false"
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              runAsUser: 1000
+              seccompProfile:
+                type: RuntimeDefault

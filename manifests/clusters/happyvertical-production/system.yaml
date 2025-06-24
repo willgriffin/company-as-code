@@ -152,22 +152,54 @@ spec:
   dependsOn:
     - name: postgresql-operator
 ---
-# Kong gateway - depends on cert-manager post-setup and redis
+# Gateway API CRDs - foundational for Kong Gateway Operator
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: kong
+  name: gateway-api
   namespace: flux-system
 spec:
   interval: 10m
-  path: "./manifests/system/kong"
+  path: "./manifests/system/gateway-api"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+---
+# Kong Gateway Operator - modern approach
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kong-gateway-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/system/kong-gateway-operator"
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
   dependsOn:
+    - name: gateway-api
+---
+# Kong Gateway configuration - depends on operator and prerequisites
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kong-gateway
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/system/kong-gateway"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: kong-gateway-gateway-operator
     - name: cert-manager-post-setup
     - name: redis-operator
+    - name: external-secrets-post-setup
 ---
 # External DNS - depends on kong for hostname management
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -183,7 +215,7 @@ spec:
     kind: GitRepository
     name: flux-system
   dependsOn:
-    - name: kong
+    - name: kong-gateway
 ---
 # Monitoring stack - depends on kong and cert-manager
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -199,7 +231,7 @@ spec:
     kind: GitRepository
     name: flux-system
   dependsOn:
-    - name: kong
+    - name: kong-gateway
     - name: cert-manager-post-setup
 ---
 # Velero backup - depends on monitoring for alerting
