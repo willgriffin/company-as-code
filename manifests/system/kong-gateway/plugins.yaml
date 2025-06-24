@@ -5,10 +5,9 @@ kind: KongPlugin
 metadata:
   name: prometheus-metrics
   namespace: kong
-spec:
-  plugin: prometheus
-  config:
-    per_consumer: true
+plugin: prometheus
+config:
+  per_consumer: true
 ---
 # Rate limiting plugin (simplified)
 apiVersion: configuration.konghq.com/v1
@@ -16,8 +15,7 @@ kind: KongPlugin
 metadata:
   name: basic-rate-limit
   namespace: kong
-spec:
-  plugin: rate-limiting
-  config:
-    minute: 100
-    policy: local
+plugin: rate-limiting
+config:
+  minute: 100
+  policy: local
