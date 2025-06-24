@@ -25,22 +25,18 @@ spec:
           type: RuntimeDefault
       containers:
       - name: keycloak-operator
-        image: quay.io/keycloak/keycloak-operator:22.0.5
+        image: quay.io/keycloak/keycloak-operator:26.2.5
         ports:
         - containerPort: 8080
           name: http
           protocol: TCP
         env:
-        - name: WATCH_NAMESPACE
-          value: ""
-        - name: POD_NAME
+        - name: KUBERNETES_NAMESPACE
           valueFrom:
             fieldRef:
-              fieldPath: metadata.name
-        - name: OPERATOR_NAME
-          value: "keycloak-operator"
+              fieldPath: metadata.namespace
         - name: RELATED_IMAGE_KEYCLOAK
-          value: "quay.io/keycloak/keycloak:22.0.5"
+          value: "quay.io/keycloak/keycloak:26.2.5"
         resources:
           requests:
             cpu: 10m
