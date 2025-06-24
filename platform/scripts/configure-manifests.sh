@@ -84,15 +84,16 @@ done
 # Verification step - check if replacement was successful
 echo "🔍 Verifying replacement completeness..."
 # Exclude gotk-components.yaml as it contains legitimate documentation examples
-remaining_examples=$(find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | grep -v "gotk-components.yaml" | xargs grep -l "example" 2>/dev/null | wc -l)
+# Use case-insensitive search to catch both "example" and "Example"
+remaining_examples=$(find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | grep -v "gotk-components.yaml" | xargs grep -il "example" 2>/dev/null | wc -l)
 
 if [ "$remaining_examples" -gt 0 ]; then
   echo "❌ ERROR: $remaining_examples files still contain 'example' patterns after replacement:"
-  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | grep -v "gotk-components.yaml" | xargs grep -l "example" 2>/dev/null
+  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | grep -v "gotk-components.yaml" | xargs grep -il "example" 2>/dev/null
   echo "🔍 Specific patterns found:"
-  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | grep -v "gotk-components.yaml" | xargs grep -o '[a-zA-Z0-9.-]*example[a-zA-Z0-9.-]*' 2>/dev/null | sort | uniq
+  find "$MANIFESTS_DIR" -name "*.yaml" -o -name "*.yml" | grep -v "gotk-components.yaml" | xargs grep -i "example" 2>/dev/null | head -10
   echo "💡 This indicates incomplete replacement. Check replacement patterns and manifest files."
-  exit 1
+  exit 123
 else
   echo "✅ All example patterns successfully replaced (excluding gotk-components.yaml documentation)"
 fi
