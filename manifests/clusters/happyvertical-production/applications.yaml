@@ -31,7 +31,7 @@ spec:
     kind: GitRepository
     name: flux-system
   dependsOn:
-    - name: kong
+    - name: kong-gateway
     - name: monitoring
 ---
 # Nextcloud - file storage and collaboration
@@ -49,7 +49,7 @@ spec:
     name: flux-system
   dependsOn:
     - name: keycloak
-    - name: kong
+    - name: kong-gateway
     - name: postgresql-operator
     - name: redis-operator
 ---
@@ -68,7 +68,7 @@ spec:
     name: flux-system
   dependsOn:
     - name: keycloak
-    - name: kong
+    - name: kong-gateway
     - name: postgresql-operator
 ---
 # Mailu - email server
@@ -86,7 +86,7 @@ spec:
     name: flux-system
   dependsOn:
     - name: keycloak
-    - name: kong
+    - name: kong-gateway
     - name: postgresql-operator
     - name: redis-operator
 ---
@@ -105,7 +105,7 @@ spec:
     name: flux-system
   dependsOn:
     - name: keycloak
-    - name: kong
+    - name: kong-gateway
     - name: postgresql-operator
     - name: redis-operator
     - name: rabbitmq-operator
