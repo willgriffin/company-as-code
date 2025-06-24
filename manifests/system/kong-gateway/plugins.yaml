@@ -1,55 +1,5 @@
 # Kong plugins configuration for Gateway API
-# OIDC plugin for Keycloak integration
-apiVersion: configuration.konghq.com/v1
-kind: KongPlugin
-metadata:
-  name: keycloak-oidc
-  namespace: kong
-spec:
-  plugin: oidc
-  config:
-    client_id: kong-gateway
-    client_secret:
-      valueFrom:
-        secretKeyRef:
-          name: kong-secrets
-          key: oidc-client-secret
-    discovery: "https://auth.happyvertical.com/realms/mycompany/.well-known/openid_configuration"
-    redirect_uri_scheme: https
-    session_storage: redis
-    session_redis_host: rfs-kong-redis.kong.svc.cluster.local
-    session_redis_port: 6379
-    logout_path: /logout
-    revoke_tokens_on_logout: true
-    scope:
-    - openid
-    - profile
-    - email
-    # Additional OIDC configuration
-    token_endpoint_auth_method: client_secret_post
-    session_secret:
-      valueFrom:
-        secretKeyRef:
-          name: kong-secrets
-          key: session-secret
-    session_cookie_name: kong_session
-    session_cookie_lifetime: 3600
-    session_cookie_idletime: 600
-    session_cookie_renew: 600
-    session_cookie_secure: true
-    session_cookie_httponly: true
-    session_cookie_samesite: Strict
-    preserve_query_args: false
-    upstream_headers_claims:
-    - sub
-    - email
-    - preferred_username
-    upstream_headers_names:
-    - X-User-Id
-    - X-User-Email
-    - X-User-Name
----
-# Prometheus metrics plugin
+# Prometheus metrics plugin (simplified)
 apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
 metadata:
@@ -59,102 +9,15 @@ spec:
   plugin: prometheus
   config:
     per_consumer: true
-    status_code_metrics: true
-    latency_metrics: true
-    bandwidth_metrics: true
-    upstream_health_metrics: true
 ---
-# Rate limiting plugin using Redis
+# Rate limiting plugin (simplified)
 apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
 metadata:
   name: basic-rate-limit
   namespace: kong
 spec:
-  plugin: rate-limiting-advanced
+  plugin: rate-limiting
   config:
-    limit: [100]
-    window_size: [60]
-    sync_rate: 5
-    strategy: redis
-    redis:
-      host: rfs-kong-redis.kong.svc.cluster.local
-      port: 6379
-      database: 0
-      timeout: 2000
-      connection_is_proxied: false
----
-# Request size limiting plugin
-apiVersion: configuration.konghq.com/v1
-kind: KongPlugin
-metadata:
-  name: request-size-limit
-  namespace: kong
-spec:
-  plugin: request-size-limiting
-  config:
-    allowed_payload_size: 128
-    size_unit: megabytes
-    require_content_length: false
----
-# Security headers plugin
-apiVersion: configuration.konghq.com/v1
-kind: KongPlugin
-metadata:
-  name: security-headers
-  namespace: kong
-spec:
-  plugin: response-transformer
-  config:
-    add:
-      headers:
-      - "X-Frame-Options: DENY"
-      - "X-Content-Type-Options: nosniff"
-      - "X-XSS-Protection: 1; mode=block"
-      - "Referrer-Policy: strict-origin-when-cross-origin"
-      - "Content-Security-Policy: default-src 'self'"
----
-# CORS plugin
-apiVersion: configuration.konghq.com/v1
-kind: KongPlugin
-metadata:
-  name: cors-policy
-  namespace: kong
-spec:
-  plugin: cors
-  config:
-    origins:
-    - "https://happyvertical.com"
-    - "https://*.happyvertical.com"
-    methods:
-    - GET
-    - POST
-    - PUT
-    - PATCH
-    - DELETE
-    - OPTIONS
-    headers:
-    - Accept
-    - Accept-Version
-    - Content-Length
-    - Content-MD5
-    - Content-Type
-    - Date
-    - Authorization
-    exposed_headers:
-    - X-Auth-Token
-    credentials: true
-    max_age: 3600
----
-# Request ID plugin for tracing
-apiVersion: configuration.konghq.com/v1
-kind: KongPlugin
-metadata:
-  name: request-id
-  namespace: kong
-spec:
-  plugin: request-id
-  config:
-    header_name: X-Request-ID
-    generator: uuid#counter
-    echo_downstream: true
+    minute: 100
+    policy: local
