@@ -1,5 +1,5 @@
 import { Construct } from 'constructs';
-import { TerraformStack, TerraformOutput, S3Backend } from 'cdktf';
+import { TerraformStack, TerraformOutput, S3Backend, Fn } from 'cdktf';
 import { DigitaloceanProvider } from '@cdktf/provider-digitalocean/lib/provider';
 import { DataDigitaloceanKubernetesCluster } from '@cdktf/provider-digitalocean/lib/data-digitalocean-kubernetes-cluster';
 import { KubernetesProvider } from '@cdktf/provider-kubernetes/lib/provider';
@@ -89,7 +89,7 @@ export class FluxConfigurationStack extends TerraformStack {
       kubernetes: {
         host: clusterData.endpoint,
         token: clusterData.kubeConfig.get(0).token,
-        clusterCaCertificate: `\${base64decode("${clusterData.kubeConfig.get(0).clusterCaCertificate}")}`,
+        clusterCaCertificate: Fn.base64decode(clusterData.kubeConfig.get(0).clusterCaCertificate),
       },
       git: {
         url: 'https://github.com/happyvertical/iac',
