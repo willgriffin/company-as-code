@@ -20,7 +20,7 @@ spec:
               type: RuntimeDefault
           containers:
           - name: proxy
-            image: kong/kong-gateway:3.9.1
+            image: kong:3.9
             env:
             # Kong configuration for DB-less mode
             - name: KONG_DATABASE
