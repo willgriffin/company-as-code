@@ -33,4 +33,4 @@ spec:
       cpu: "1000m"
   
   monitoring:
-    enabled: true
+    enablePodMonitor: true

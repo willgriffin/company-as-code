@@ -40,7 +40,7 @@ spec:
       cpu: "1000m"
   
   monitoring:
-    enabled: true
+    enablePodMonitor: true
 ---
 # PostgreSQL credentials for Keycloak
 apiVersion: external-secrets.io/v1beta1
