@@ -1,0 +1,36 @@
+# PostgreSQL cluster for Mailu
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: mailu-postgres
+  namespace: mailu
+spec:
+  instances: 3
+  
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "128MB"
+      effective_cache_size: "512MB"
+  
+  bootstrap:
+    initdb:
+      database: mailu
+      owner: mailu
+      secret:
+        name: mailu-postgres-credentials
+  
+  storage:
+    size: 10Gi
+    storageClass: do-block-storage
+  
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  
+  monitoring:
+    enabled: true

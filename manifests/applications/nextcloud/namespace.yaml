@@ -1,0 +1,7 @@
+# Nextcloud namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nextcloud
+  labels:
+    name: nextcloud

@@ -1,0 +1,196 @@
+# Postal web deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postal-web
+  namespace: postal
+  labels:
+    app: postal-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: postal-web
+  template:
+    metadata:
+      labels:
+        app: postal-web
+    spec:
+      initContainers:
+      - name: postal-init
+        image: ghcr.io/postalserver/postal:3.3.1
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          postal initialize-config
+          postal initialize
+          postal make-user <<EOF
+          willgriffin@gmail.com
+          Postal
+          Admin
+          $(POSTAL_ADMIN_PASSWORD)
+          EOF
+        env:
+        - name: POSTAL_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postal-secrets
+              key: admin-password
+        envFrom:
+        - configMapRef:
+            name: postal-config
+        - secretRef:
+            name: postal-secrets
+        volumeMounts:
+        - name: config
+          mountPath: /config
+      containers:
+      - name: postal-web
+        image: ghcr.io/postalserver/postal:3.3.1
+        command: ["postal", "web-server"]
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        - name: RAILS_ENV
+          value: production
+        envFrom:
+        - configMapRef:
+            name: postal-config
+        - secretRef:
+            name: postal-secrets
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: signing-key
+          mountPath: /opt/postal/config/signing.key
+          subPath: signing.key
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: config
+        emptyDir: {}
+      - name: signing-key
+        secret:
+          secretName: postal-signing-key
+---
+# Postal SMTP deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postal-smtp
+  namespace: postal
+  labels:
+    app: postal-smtp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: postal-smtp
+  template:
+    metadata:
+      labels:
+        app: postal-smtp
+    spec:
+      containers:
+      - name: postal-smtp
+        image: ghcr.io/postalserver/postal:3.3.1
+        command: ["postal", "smtp-server"]
+        ports:
+        - containerPort: 25
+          name: smtp
+        env:
+        - name: RAILS_ENV
+          value: production
+        envFrom:
+        - configMapRef:
+            name: postal-config
+        - secretRef:
+            name: postal-secrets
+        volumeMounts:
+        - name: signing-key
+          mountPath: /opt/postal/config/signing.key
+          subPath: signing.key
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        securityContext:
+          capabilities:
+            add:
+              - NET_BIND_SERVICE
+            drop:
+              - ALL
+          allowPrivilegeEscalation: false
+          runAsNonRoot: false  # Needs to bind to port 25
+          runAsUser: 0  # Root required for port 25
+      volumes:
+      - name: signing-key
+        secret:
+          secretName: postal-signing-key
+---
+# Postal worker deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postal-worker
+  namespace: postal
+  labels:
+    app: postal-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: postal-worker
+  template:
+    metadata:
+      labels:
+        app: postal-worker
+    spec:
+      containers:
+      - name: postal-worker
+        image: ghcr.io/postalserver/postal:3.3.1
+        command: ["postal", "worker"]
+        env:
+        - name: RAILS_ENV
+          value: production
+        envFrom:
+        - configMapRef:
+            name: postal-config
+        - secretRef:
+            name: postal-secrets
+        volumeMounts:
+        - name: signing-key
+          mountPath: /opt/postal/config/signing.key
+          subPath: signing.key
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+      volumes:
+      - name: signing-key
+        secret:
+          secretName: postal-signing-key

@@ -1,0 +1,17 @@
+# ServiceMonitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mattermost
+  namespace: mattermost
+  labels:
+    app.kubernetes.io/name: mattermost-team-edition
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mattermost-team-edition
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 60s
+    scrapeTimeout: 30s

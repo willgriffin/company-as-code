@@ -1,0 +1,16 @@
+# ServiceMonitor for Prometheus metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: expense-tracker
+  namespace: ai-gateway
+  labels:
+    app: expense-tracker
+spec:
+  selector:
+    matchLabels:
+      app: expense-tracker
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s

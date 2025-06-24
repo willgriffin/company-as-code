@@ -1,0 +1,70 @@
+# Service account for RabbitMQ operator
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rabbitmq-cluster-operator
+  namespace: rabbitmq-operator
+---
+# RBAC for RabbitMQ operator
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rabbitmq-cluster-operator
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - endpoints
+  - events
+  - persistentvolumeclaims
+  - pods
+  - secrets
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rabbitmq.com
+  resources:
+  - rabbitmqclusters
+  - rabbitmqclusters/finalizers
+  - rabbitmqclusters/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: rabbitmq-cluster-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: rabbitmq-cluster-operator
+subjects:
+- kind: ServiceAccount
+  name: rabbitmq-cluster-operator
+  namespace: rabbitmq-operator

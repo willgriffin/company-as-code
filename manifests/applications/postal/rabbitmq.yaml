@@ -1,0 +1,45 @@
+# RabbitMQ for Postal message queue
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: postal-rabbitmq
+  namespace: postal
+spec:
+  replicas: 3
+  
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  
+  persistence:
+    storageClassName: do-block-storage
+    storage: 10Gi
+  
+  rabbitmq:
+    additionalConfig: |
+      vm_memory_high_watermark.relative = 0.8
+      disk_free_limit.relative = 1.5
+      collect_statistics_interval = 10000
+  
+  override:
+    statefulSet:
+      spec:
+        template:
+          spec:
+            containers:
+            - name: rabbitmq
+              securityContext:
+                capabilities:
+                  drop:
+                    - ALL
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 999
+                runAsGroup: 999
+                seccompProfile:
+                  type: RuntimeDefault

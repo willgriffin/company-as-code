@@ -1,0 +1,17 @@
+# TLS certificates for Postal
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: postal-tls
+  namespace: postal
+spec:
+  secretName: postal-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - postal.happyvertical.com
+  - smtp.happyvertical.com
+  - rp.happyvertical.com
+  - routes.happyvertical.com
+  - track.happyvertical.com
