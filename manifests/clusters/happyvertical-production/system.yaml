@@ -196,7 +196,7 @@ spec:
     kind: GitRepository
     name: flux-system
   dependsOn:
-    - name: kong-gateway-gateway-operator
+    - name: kong-gateway-operator
     - name: cert-manager-post-setup
     - name: redis-operator
     - name: external-secrets-post-setup
