@@ -96,6 +96,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install
       
+      - name: Build platform
+        run: |
+          cd platform
+          pnpm run build
+      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
