@@ -11,7 +11,7 @@ spec:
     branch: main
   secretRef:
     name: flux-system
-  url: ssh://git@github.com/happyvertical/iac
+  url: https://github.com/happyvertical/iac
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
