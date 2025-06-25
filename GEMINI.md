@@ -1,6 +1,6 @@
-# CLAUDE.md
+# GEMINI.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Gemini when working with code in this repository.
 
 ## Repository Overview
 
@@ -100,36 +100,13 @@ The repository follows Infrastructure as Code principles using Terraform and Git
 - `WORKFLOW.md` - Issue management workflow specification
 - `platform/config.json.example` - Example configuration template
 
-## Affiliate Links & External References
-
-When referencing DigitalOcean in markdown files:
-- Use [digitalocean.pxf.io/3evZdB](https://digitalocean.pxf.io/3evZdB) to link to Digital Ocean's frontpage
-- Use [digitalocean.pxf.io/je2Ggv](https://digitalocean.pxf.io/je2Ggv) when linking to API tokens
-- When referencing API tokens, format as: [https://cloud.digitalocean.com/account/api/tokens](https://digitalocean.pxf.io/je2Ggv)
-- Include a note in each README that links to Digital Ocean are affiliate links supporting template maintenance
-
 ## Development Workflow
 
-### Issue Management
-- Follows Kanban-style workflow defined in `WORKFLOW.md`. Please refer to that file for a detailed explanation of the issue management process.
-
-### Secret Management
-- Use External Secrets Operator for dynamic secret injection
-- GitHub repository secrets as primary backend
-- AWS Secrets Manager for advanced secret management
-- Runtime secret fetching (no secrets stored in Git)
-
-### Deployment Process
-1. Run `./setup.ts` for interactive configuration and prerequisites
-2. CDKTF provisions infrastructure via TypeScript stacks
-3. Flux is bootstrapped to cluster with GitHub integration
-4. External Secrets Operator enables dynamic secret injection
-5. Kong Gateway provides enterprise API gateway with OIDC
-6. Applications deploy with automatic OIDC and secret integration
+This repository follows the Kanban-style workflow defined in `WORKFLOW.md`. Please refer to that file for a detailed explanation of the issue management process.
 
 ## Synchronization Rules
-- `.claude/commands/issue.md` and `WORKFLOW.md` should always be reflective of each other. If a change is requested to either, it should be echo'd in the other.
-- `tool-versions.txt` drives CI/CD tool caching and should be updated when tool versions change
+- `GEMINI.md` and `CLAUDE.md` should be kept in sync. If a change is requested to one, it should be echoed in the other.
+- `tool-versions.txt` drives CI/CD tool caching and should be updated when tool versions change.
 
 ## Automation Notes
 - **Automation Philosophy**: Minimize manual intervention in infrastructure and deployment processes
