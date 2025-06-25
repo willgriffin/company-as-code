@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Get kubeconfig for local development using doctl
+# Note: In GitHub Codespaces, KUBECONFIG is automatically available as an environment variable
+# This script is primarily for local development scenarios where doctl authentication is available
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -9,7 +13,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Default values
-DEFAULT_CLUSTER_NAME="{{SETUP_REPO_CLUSTER_NAME}}"
+DEFAULT_CLUSTER_NAME="happyvertical-production"
 KUBE_DIR="$HOME/.kube"
 BACKUP_SUFFIX=".backup-$(date +%Y%m%d-%H%M%S)"
 

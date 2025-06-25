@@ -1,7 +1,7 @@
 import { Construct } from 'constructs';
-import { TerraformStack, TerraformOutput } from 'cdktf';
+import { TerraformStack, TerraformOutput, S3Backend } from 'cdktf';
 import { DigitaloceanProvider } from '@cdktf/provider-digitalocean/lib/provider';
-import { SpacesBucket } from '@cdktf/provider-digitalocean/lib/spaces-bucket';
+import { DataDigitaloceanSpacesBucket } from '@cdktf/provider-digitalocean/lib/data-digitalocean-spaces-bucket';
 import { SpacesBucketPolicy } from '@cdktf/provider-digitalocean/lib/spaces-bucket-policy';
 import { Config } from '../config/schema';
 
@@ -9,38 +9,38 @@ export interface DigitalOceanSpacesStackProps {
   projectName: string;
   config: Config;
   region?: string;
+  spacesAccessKeyId: string;
+  spacesSecretAccessKey: string;
 }
 
 export class DigitalOceanSpacesStack extends TerraformStack {
-  public readonly applicationDataBucket: SpacesBucket;
+  public readonly applicationDataBucket: DataDigitaloceanSpacesBucket;
 
   constructor(scope: Construct, id: string, props: DigitalOceanSpacesStackProps) {
     super(scope, id);
 
-    const { projectName, region = 'nyc3' } = props;
+    const { projectName, region = 'nyc3', spacesAccessKeyId, spacesSecretAccessKey } = props;
 
-    // DigitalOcean provider - uses token only, no separate Spaces keys needed
-    new DigitaloceanProvider(this, 'digitalocean', {
-      token: process.env.DIGITALOCEAN_TOKEN!,
+    // Configure S3 backend for Terraform state
+    new S3Backend(this, {
+      bucket: process.env.TERRAFORM_STATE_BUCKET!,
+      key: `${projectName}/spaces.tfstate`,
+      region: process.env.TERRAFORM_STATE_REGION!,
+      encrypt: true,
     });
 
-    // Application data bucket
-    this.applicationDataBucket = new SpacesBucket(this, 'application-data', {
-      name: `${projectName}-app-data`,
+    // DigitalOcean provider with Spaces credentials from setup stack
+    new DigitaloceanProvider(this, 'digitalocean', {
+      token: process.env.DIGITALOCEAN_TOKEN!,
+      spacesAccessId: spacesAccessKeyId,
+      spacesSecretKey: spacesSecretAccessKey,
+    });
+
+    // Import existing application data bucket created by setup.ts
+    const bucketName = `${projectName}-app-data`;
+    this.applicationDataBucket = new DataDigitaloceanSpacesBucket(this, 'application-data', {
+      name: bucketName,
       region: region,
-      acl: 'private',
-      versioning: {
-        enabled: true,
-      },
-      lifecycleRule: [
-        {
-          id: 'backup-retention',
-          enabled: true,
-          noncurrentVersionExpiration: {
-            days: 30,
-          },
-        },
-      ],
     });
 
     // Bucket policy for application access
@@ -57,7 +57,7 @@ export class DigitalOceanSpacesStack extends TerraformStack {
               AWS: '*',
             },
             Action: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject'],
-            Resource: `arn:aws:s3:::${projectName}-app-data/*`,
+            Resource: `arn:aws:s3:::${bucketName}/*`,
             Condition: {
               StringEquals: {
                 's3:x-amz-acl': 'private',

@@ -1,0 +1,104 @@
+# LiteLLM Proxy deployment for multi-provider AI access
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: litellm-proxy
+  namespace: ai-gateway
+  labels:
+    app: litellm-proxy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: litellm-proxy
+  template:
+    metadata:
+      labels:
+        app: litellm-proxy
+      annotations:
+        instrumentation.opentelemetry.io/inject-python: "opentelemetry-operator-system/default-instrumentation"
+    spec:
+      containers:
+      - name: litellm
+        image: ghcr.io/berriai/litellm:main-latest
+        ports:
+        - containerPort: 4000
+          name: http
+        env:
+        - name: LITELLM_MODE
+          value: "PRODUCTION"
+        - name: LITELLM_LOG_LEVEL
+          value: "INFO"
+        - name: LITELLM_DROP_PARAMS
+          value: "true"
+        - name: LITELLM_SUCCESS_CALLBACK
+          value: "webhook"
+        - name: LITELLM_FAILURE_CALLBACK
+          value: "webhook"
+        - name: LITELLM_WEBHOOK_URL
+          value: "http://expense-tracker.ai-gateway.svc.cluster.local:8080/litellm-webhook"
+        # Provider API keys from secrets
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secrets
+              key: openai-api-key
+              optional: true
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secrets
+              key: anthropic-api-key
+              optional: true
+        - name: COHERE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-secrets
+              key: cohere-api-key
+              optional: true
+        volumeMounts:
+        - name: config
+          mountPath: /app/config.yaml
+          subPath: config.yaml
+          readOnly: true
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 4000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 4000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: litellm-config
+---
+# LiteLLM Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: litellm-proxy
+  namespace: ai-gateway
+  labels:
+    app: litellm-proxy
+spec:
+  selector:
+    app: litellm-proxy
+  ports:
+  - name: http
+    port: 4000
+    targetPort: 4000
+    protocol: TCP
+  type: ClusterIP

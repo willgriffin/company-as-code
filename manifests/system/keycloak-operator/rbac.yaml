@@ -1,0 +1,84 @@
+# Service account for Keycloak operator
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keycloak-operator
+  namespace: keycloak-operator
+---
+# RBAC for Keycloak operator
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: keycloak-operator
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  - services
+  - serviceaccounts
+  - persistentvolumeclaims
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - k8s.keycloak.org
+  resources:
+  - keycloaks
+  - keycloaks/status
+  - keycloaks/finalizers
+  - keycloakrealmimports
+  - keycloakrealmimports/status
+  - keycloakrealmimports/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: keycloak-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: keycloak-operator
+subjects:
+- kind: ServiceAccount
+  name: keycloak-operator
+  namespace: keycloak-operator

@@ -1,0 +1,28 @@
+# Redis for Nextcloud caching
+apiVersion: redis.redis.opstreelabs.in/v1beta2
+kind: Redis
+metadata:
+  name: nextcloud-redis
+  namespace: nextcloud
+spec:
+  kubernetesConfig:
+    image: redis:7-alpine
+    imagePullPolicy: IfNotPresent
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: do-block-storage
+        resources:
+          requests:
+            storage: 2Gi
+  redisConfig:
+    maxmemory: 1gb
+    maxmemory-policy: allkeys-lru
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi

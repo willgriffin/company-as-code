@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - helm-repository.yaml
+  - postgres.yaml
+  - helm-release.yaml
+  - external-secrets.yaml
+  - routes.yaml
+  - certificates.yaml
+  - service-monitor.yaml
+
+patches:
+  # Mattermost depends on infrastructure being ready
+  - target:
+      kind: HelmRelease
+      name: mattermost-team-edition
+    patch: |
+      - op: add
+        path: /spec/dependsOn
+        value:
+          - name: cloudnative-pg
+            namespace: postgresql-operator
+          - name: keycloak
+            namespace: keycloak

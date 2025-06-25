@@ -1,11 +1,12 @@
 import { Construct } from 'constructs';
-import { TerraformStack, TerraformOutput } from 'cdktf';
+import { TerraformStack, TerraformOutput, S3Backend } from 'cdktf';
 import { DigitaloceanProvider } from '@cdktf/provider-digitalocean/lib/provider';
 import { KubernetesCluster } from '@cdktf/provider-digitalocean/lib/kubernetes-cluster';
-import { KubernetesNodePool } from '@cdktf/provider-digitalocean/lib/kubernetes-node-pool';
 import { Loadbalancer } from '@cdktf/provider-digitalocean/lib/loadbalancer';
-import { Domain } from '@cdktf/provider-digitalocean/lib/domain';
+import { DataDigitaloceanDomain } from '@cdktf/provider-digitalocean/lib/data-digitalocean-domain';
+import { DataDigitaloceanKubernetesVersions } from '@cdktf/provider-digitalocean/lib/data-digitalocean-kubernetes-versions';
 import { Record } from '@cdktf/provider-digitalocean/lib/record';
+import { Certificate } from '@cdktf/provider-digitalocean/lib/certificate';
 import { Config, Environment } from '../config/schema';
 
 export interface DigitalOceanClusterStackProps {
@@ -16,9 +17,9 @@ export interface DigitalOceanClusterStackProps {
 
 export class DigitalOceanClusterStack extends TerraformStack {
   public readonly cluster: KubernetesCluster;
-  public readonly nodePool?: KubernetesNodePool;
   public readonly loadBalancer: Loadbalancer;
-  public readonly domain: Domain;
+  public readonly domain: DataDigitaloceanDomain;
+  public readonly certificate: Certificate;
 
   constructor(scope: Construct, id: string, props: DigitalOceanClusterStackProps) {
     super(scope, id);
@@ -26,16 +27,27 @@ export class DigitalOceanClusterStack extends TerraformStack {
     const { projectName, environment } = props;
     const clusterName = `${projectName}-${environment.name}`;
 
+    // Configure S3 backend for Terraform state
+    new S3Backend(this, {
+      bucket: process.env.TERRAFORM_STATE_BUCKET!,
+      key: `${projectName}/${environment.name}-cluster.tfstate`,
+      region: process.env.TERRAFORM_STATE_REGION!,
+      encrypt: true,
+    });
+
     // DigitalOcean provider
     new DigitaloceanProvider(this, 'digitalocean', {
       token: process.env.DIGITALOCEAN_TOKEN!,
     });
 
+    // Get available Kubernetes versions
+    const k8sVersions = new DataDigitaloceanKubernetesVersions(this, 'k8s-versions', {});
+
     // Kubernetes cluster
     this.cluster = new KubernetesCluster(this, 'cluster', {
       name: clusterName,
       region: environment.cluster.region,
-      version: environment.cluster.version || 'latest',
+      version: environment.cluster.version || k8sVersions.latestVersion,
       nodePool: {
         name: `${clusterName}-default-pool`,
         size: environment.cluster.nodeSize,
@@ -50,34 +62,20 @@ export class DigitalOceanClusterStack extends TerraformStack {
         startTime: '04:00',
         day: 'sunday',
       },
-      ha: environment.cluster.haControlPlane || false,
+      ha: environment.cluster.haControlPlane ?? false,
     });
 
-    // Additional node pool for applications (if more than 2 nodes)
-    if (environment.cluster.nodeCount > 2) {
-      this.nodePool = new KubernetesNodePool(this, 'app-pool', {
-        clusterId: this.cluster.id,
-        name: `${clusterName}-app-pool`,
-        size: environment.cluster.nodeSize,
-        nodeCount: Math.max(1, environment.cluster.nodeCount - 1),
-        autoScale:
-          environment.cluster.minNodes !== undefined || environment.cluster.maxNodes !== undefined,
-        minNodes: environment.cluster.minNodes ? Math.max(1, environment.cluster.minNodes - 1) : 1,
-        maxNodes: environment.cluster.maxNodes || environment.cluster.nodeCount,
-        tags: [projectName, environment.name, 'app-workloads'],
-        labels: {
-          'node-type': 'application',
-          environment: environment.name,
-        },
-        taint: [
-          {
-            key: 'workload-type',
-            value: 'application',
-            effect: 'NoSchedule',
-          },
-        ],
-      });
-    }
+    // Domain management (reference existing domain created by setup.ts)
+    this.domain = new DataDigitaloceanDomain(this, 'domain', {
+      name: environment.domain,
+    });
+
+    // Create Let's Encrypt certificate for the domain
+    this.certificate = new Certificate(this, 'lb-certificate', {
+      name: `${clusterName}-lb-cert`,
+      type: 'lets_encrypt',
+      domains: [environment.domain, `*.${environment.domain}`],
+    });
 
     // Load balancer for ingress
     this.loadBalancer = new Loadbalancer(this, 'ingress-lb', {
@@ -85,7 +83,9 @@ export class DigitalOceanClusterStack extends TerraformStack {
       type: 'regional',
       region: environment.cluster.region,
       size: 'lb-small',
-      algorithm: 'round_robin',
+      lifecycle: {
+        ignoreChanges: ['type'],
+      },
       forwardingRule: [
         {
           entryProtocol: 'http',
@@ -98,7 +98,7 @@ export class DigitalOceanClusterStack extends TerraformStack {
           entryPort: 443,
           targetProtocol: 'https',
           targetPort: 443,
-          certificateId: '', // Will be updated with cert-manager
+          certificateName: this.certificate.name,
         },
       ],
       healthcheck: {
@@ -113,10 +113,13 @@ export class DigitalOceanClusterStack extends TerraformStack {
       dropletTag: `${clusterName}-worker`,
     });
 
-    // Domain management
-    this.domain = new Domain(this, 'domain', {
-      name: environment.domain,
-      ipAddress: this.loadBalancer.ip,
+    // Create root A record pointing to load balancer
+    new Record(this, 'root-record', {
+      domain: this.domain.name,
+      type: 'A',
+      name: '@',
+      value: this.loadBalancer.ip,
+      ttl: 300,
     });
 
     // Application DNS records are managed by external-dns based on ingress annotations

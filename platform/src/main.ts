@@ -64,13 +64,14 @@ function loadConfig(): Config {
 const config = loadConfig();
 const app = new App();
 
-// Create shared infrastructure first
-// Note: S3 bucket for Terraform state is created by setup.ts as a prerequisite
-// Spaces bucket for application storage
+// Create Spaces stack using credentials from repository secrets
+// This stack imports the existing bucket and manages bucket policies and outputs
 new DigitalOceanSpacesStack(app, `${config.project.name}-spaces`, {
   projectName: config.project.name,
   config,
   region: config.environments[0].cluster.region,
+  spacesAccessKeyId: process.env.NEXTCLOUD_BUCKET_ACCESS_KEY_ID!,
+  spacesSecretAccessKey: process.env.NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY!,
 });
 
 // Create SES stack for email functionality
@@ -91,12 +92,17 @@ const clusterStacks = config.environments.map(env => {
 // Create Flux configuration stacks for each environment
 clusterStacks.map((clusterStack, index) => {
   const env = config.environments[index];
-  return new FluxConfigurationStack(app, `${config.project.name}-${env.name}-flux`, {
+  const fluxStack = new FluxConfigurationStack(app, `${config.project.name}-${env.name}-flux`, {
     projectName: config.project.name,
     environment: env,
     config,
     kubeconfig: clusterStack.cluster.kubeConfig.get(0).rawConfig,
   });
+
+  // Add dependency - flux stack waits for cluster stack to complete
+  fluxStack.addDependency(clusterStack);
+
+  return fluxStack;
 });
 
 // Create GitHub secrets stack if repository is configured
@@ -104,7 +110,6 @@ if (process.env.GITHUB_REPOSITORY) {
   const primaryCluster = clusterStacks[0];
 
   const secrets = GitHubSecretsStack.createSecretsMap({
-    kubeconfig: primaryCluster.cluster.kubeConfig.get(0).rawConfig,
     digitalOceanToken: process.env.DIGITALOCEAN_TOKEN!,
     terraformStateBucket: process.env.TERRAFORM_STATE_BUCKET!,
     terraformStateRegion: process.env.TERRAFORM_STATE_REGION!,
@@ -112,14 +117,25 @@ if (process.env.GITHUB_REPOSITORY) {
     awsSecretKey: sesStack ? process.env.AWS_SECRET_ACCESS_KEY : undefined,
     sesSmtpUsername: sesStack ? sesStack.accessKey.id : undefined,
     sesSmtpPassword: sesStack ? sesStack.accessKey.sesSmtpPasswordV4 : undefined,
+    nextcloudBucketAccessKeyId: process.env.NEXTCLOUD_BUCKET_ACCESS_KEY_ID,
+    nextcloudBucketSecretAccessKey: process.env.NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY,
+    nextcloudBucketName: process.env.NEXTCLOUD_BUCKET_NAME,
   });
 
-  new GitHubSecretsStack(app, `${config.project.name}-github-secrets`, {
+  const githubSecretsStack = new GitHubSecretsStack(app, `${config.project.name}-github-secrets`, {
     projectName: config.project.name,
     config,
     repository: process.env.GITHUB_REPOSITORY,
     secrets,
   });
+
+  // GitHub secrets depend on cluster being created first
+  githubSecretsStack.addDependency(primaryCluster);
+
+  // GitHub secrets also depend on SES if it exists
+  if (sesStack) {
+    githubSecretsStack.addDependency(sesStack);
+  }
 }
 
 app.synth();

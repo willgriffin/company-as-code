@@ -24,7 +24,6 @@ yarn-debug.log*
 yarn-error.log*
 package-lock.json
 yarn.lock
-pnpm-lock.yaml
 
 # TypeScript
 dist/
@@ -40,3 +39,7 @@ cdktf.log*
 # Local tools
 .tools/
 actionlint
+
+# Flux manifest configuration
+manifests/.backups/
+manifests/.replacements-applied

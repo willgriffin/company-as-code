@@ -24,12 +24,14 @@ runs:
         FLUX_VERSION=$(grep '^flux=' tool-versions.txt | cut -d'=' -f2)
         GOMPLATE_VERSION=$(grep '^gomplate=' tool-versions.txt | cut -d'=' -f2)
         DOCTL_VERSION=$(grep '^doctl=' tool-versions.txt | cut -d'=' -f2)
+        ACTIONLINT_VERSION=$(grep '^actionlint=' tool-versions.txt | cut -d'=' -f2)
 
         echo "yq-version=$YQ_VERSION" >> $GITHUB_OUTPUT
         echo "kubectl-version=$KUBECTL_VERSION" >> $GITHUB_OUTPUT
         echo "flux-version=$FLUX_VERSION" >> $GITHUB_OUTPUT
         echo "gomplate-version=$GOMPLATE_VERSION" >> $GITHUB_OUTPUT
         echo "doctl-version=$DOCTL_VERSION" >> $GITHUB_OUTPUT
+        echo "actionlint-version=$ACTIONLINT_VERSION" >> $GITHUB_OUTPUT
 
         echo "Tools versions:"
         echo "  yq: $YQ_VERSION"
@@ -37,6 +39,7 @@ runs:
         echo "  flux: $FLUX_VERSION"
         echo "  gomplate: $GOMPLATE_VERSION"
         echo "  doctl: $DOCTL_VERSION"
+        echo "  actionlint: $ACTIONLINT_VERSION"
 
     - name: Cache tools
       id: cache-tools
@@ -48,6 +51,7 @@ runs:
           /usr/local/bin/flux
           /usr/local/bin/gomplate
           /usr/local/bin/doctl
+          /usr/local/bin/actionlint
         key: ${{ runner.os }}-tools-${{ hashFiles('tool-versions.txt') }}
 
     - name: Install SOPS
@@ -156,6 +160,27 @@ runs:
           rm -f doctl.tar.gz
           echo "✅ doctl installed"
 
+    - name: Install actionlint
+      if: >-
+        steps.cache-tools.outputs.cache-hit != 'true' &&
+        contains(inputs.tools, 'actionlint')
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_wait_seconds: 10
+        shell: bash
+        command: |
+          echo "Installing actionlint v${{ steps.versions.outputs.actionlint-version }}..."
+          ACTIONLINT_URL="https://github.com/rhysd/actionlint/releases/download"
+          A_VER="${{ steps.versions.outputs.actionlint-version }}"
+          ACTIONLINT_FILE="actionlint_${A_VER}_linux_amd64.tar.gz"
+          curl -Lo actionlint.tar.gz "$ACTIONLINT_URL/v$A_VER/$ACTIONLINT_FILE"
+          tar xf actionlint.tar.gz
+          sudo mv actionlint /usr/local/bin/
+          rm -f actionlint.tar.gz
+          echo "✅ actionlint installed"
+
     - name: Verify installations
       shell: bash
       run: |
@@ -183,4 +208,8 @@ runs:
 
         if command -v doctl >/dev/null 2>&1 && [[ "$TOOLS" == *"doctl"* ]]; then
           echo "✅ doctl: $(doctl version)"
+        fi
+
+        if command -v actionlint >/dev/null 2>&1 && [[ "$TOOLS" == *"actionlint"* ]]; then
+          echo "✅ actionlint: $(actionlint -version)"
         fi

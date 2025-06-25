@@ -1,0 +1,75 @@
+# Kong Gateway Operator Helm repository
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: kong
+  namespace: kong-system
+spec:
+  interval: 30m
+  url: https://charts.konghq.com
+---
+# Kong Gateway Operator Helm release
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: kong-gateway-operator
+  namespace: kong-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: gateway-operator
+      version: "0.6.1"
+      sourceRef:
+        kind: HelmRepository
+        name: kong
+        namespace: kong-system
+  values:
+    # Operator configuration
+    image:
+      tag: "1.6"
+    
+    # Resource limits for the operator
+    resources:
+      limits:
+        cpu: 500m
+        memory: 128Mi
+      requests:
+        cpu: 10m
+        memory: 64Mi
+    
+    # Security context
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 65532
+      seccompProfile:
+        type: RuntimeDefault
+    
+    # Pod security context
+    podSecurityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    
+    # Service account
+    serviceAccount:
+      create: true
+      annotations: {}
+    
+    # Enable metrics for monitoring
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+        additionalLabels:
+          app.kubernetes.io/component: kong-gateway-operator
+    
+    # Node selector and tolerations can be added here if needed
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}

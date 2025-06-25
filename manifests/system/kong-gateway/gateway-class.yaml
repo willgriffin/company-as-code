@@ -1,0 +1,14 @@
+# GatewayClass for Kong Gateway Operator
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: kong
+  annotations:
+    gateway.networking.k8s.io/description: "Kong Gateway managed by Kong Gateway Operator"
+spec:
+  controllerName: konghq.com/gateway-operator
+  parametersRef:
+    group: gateway-operator.konghq.com
+    kind: GatewayConfiguration
+    name: kong
+    namespace: kong

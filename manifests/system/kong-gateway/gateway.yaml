@@ -1,0 +1,45 @@
+# Kong Gateway resource using Gateway API
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: kong
+  namespace: kong
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: "api.happyvertical.com,*.happyvertical.com"
+spec:
+  gatewayClassName: kong
+  listeners:
+  # HTTP listener
+  - name: http
+    protocol: HTTP
+    port: 80
+    allowedRoutes:
+      namespaces:
+        from: All
+  # HTTPS listener with TLS termination
+  - name: https
+    protocol: HTTPS
+    port: 443
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: wildcard-happyvertical-com-tls
+        kind: Secret
+        namespace: kong
+  # Admin API listener (internal only)
+  - name: admin
+    protocol: HTTP
+    port: 8001
+    allowedRoutes:
+      namespaces:
+        from: Same
+  # Manager UI listener (internal only)
+  - name: manager
+    protocol: HTTP
+    port: 8002
+    allowedRoutes:
+      namespaces:
+        from: Same

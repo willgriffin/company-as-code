@@ -1,0 +1,111 @@
+# Application deployments - all depend on system infrastructure
+---
+# Keycloak instances - depends on operator and cert-manager
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: keycloak
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/applications/keycloak"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: keycloak-operator
+    - name: cert-manager-post-setup
+---
+# AI Gateway - depends on kong and monitoring
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: ai-gateway
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/applications/ai-gateway"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: kong-gateway
+    - name: monitoring
+---
+# Nextcloud - file storage and collaboration
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: nextcloud
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/applications/nextcloud"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: keycloak
+    - name: kong-gateway
+    - name: postgresql-operator
+    - name: redis-operator
+---
+# Mattermost - team collaboration
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: mattermost
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/applications/mattermost"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: keycloak
+    - name: kong-gateway
+    - name: postgresql-operator
+---
+# Mailu - email server
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: mailu
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/applications/mailu"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: keycloak
+    - name: kong-gateway
+    - name: postgresql-operator
+    - name: redis-operator
+---
+# Postal - alternative email server
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: postal
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/applications/postal"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: keycloak
+    - name: kong-gateway
+    - name: postgresql-operator
+    - name: redis-operator
+    - name: rabbitmq-operator

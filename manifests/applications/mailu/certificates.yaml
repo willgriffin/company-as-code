@@ -1,0 +1,17 @@
+# TLS certificates for Mailu
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mailu-tls
+  namespace: mailu
+spec:
+  secretName: mailu-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - mail.happyvertical.com
+  - webmail.happyvertical.com
+  - mailadmin.happyvertical.com
+  - smtp.happyvertical.com
+  - imap.happyvertical.com

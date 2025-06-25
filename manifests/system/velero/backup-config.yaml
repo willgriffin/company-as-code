@@ -1,0 +1,18 @@
+# Backup labels for important resources
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-config
+  namespace: velero
+data:
+  backup-policy.yaml: |
+    # Add 'backup: weekly' label to critical resources
+    # for inclusion in weekly full backups
+    resources_to_label:
+      - keycloak/keycloak
+      - nextcloud/nextcloud
+      - mattermost/mattermost
+      - postgres clusters
+      - redis instances
+      - certificates
+      - secrets (encrypted)

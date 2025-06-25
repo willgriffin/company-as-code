@@ -1,0 +1,30 @@
+#!/bin/bash
+#
+# Commit message hook to reject Claude branding
+#
+
+COMMIT_MSG_FILE="$1"
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Check for Claude email address
+if echo "$COMMIT_MSG" | grep -qi "noreply@anthropic.com"; then
+    echo "❌ Commit message contains Claude email address and has been rejected."
+    echo "Please remove the Claude email reference from your commit message."
+    exit 1
+fi
+
+# Check for Claude co-authored-by line
+if echo "$COMMIT_MSG" | grep -qi "Co-Authored-By.*Claude"; then
+    echo "❌ Commit message contains Claude co-author line and has been rejected."
+    echo "Please remove the Claude co-author line from your commit message."
+    exit 1
+fi
+
+# Check for the specific Claude Code generation footer
+if echo "$COMMIT_MSG" | grep -qi "🤖.*Generated with.*Claude Code"; then
+    echo "❌ Commit message contains Claude Code generation footer and has been rejected."
+    echo "Please remove the Claude Code generation footer from your commit message."
+    exit 1
+fi
+
+exit 0
