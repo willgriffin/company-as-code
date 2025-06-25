@@ -5,7 +5,7 @@ metadata:
   name: postal-postgres
   namespace: postal
 spec:
-  instances: 3
+  instances: 1
   
   postgresql:
     parameters:

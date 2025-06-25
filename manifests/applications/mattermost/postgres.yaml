@@ -5,7 +5,7 @@ metadata:
   name: mattermost-postgres
   namespace: mattermost
 spec:
-  instances: 3
+  instances: 1
   
   postgresql:
     parameters:

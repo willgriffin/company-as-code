@@ -5,7 +5,7 @@ metadata:
   name: mailu-postgres
   namespace: mailu
 spec:
-  instances: 3
+  instances: 1
   
   postgresql:
     parameters:

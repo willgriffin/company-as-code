@@ -6,7 +6,7 @@ metadata:
   namespace: keycloak
 spec:
   parentRefs:
-  - name: kong-gateway
+  - name: kong
     namespace: kong
   hostnames:
   - auth.happyvertical.com

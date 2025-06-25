@@ -5,7 +5,7 @@ metadata:
   name: keycloak-postgres
   namespace: keycloak
 spec:
-  instances: 3
+  instances: 1
   
   postgresql:
     parameters:

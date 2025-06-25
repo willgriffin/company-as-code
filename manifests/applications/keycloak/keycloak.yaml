@@ -9,7 +9,7 @@ metadata:
 spec:
   instances: 2
   
-  image: quay.io/keycloak/keycloak:22.0.5
+  image: quay.io/keycloak/keycloak:24.0.5
   
   hostname:
     hostname: auth.happyvertical.com
