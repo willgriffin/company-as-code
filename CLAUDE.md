@@ -132,3 +132,7 @@ When referencing DigitalOcean in markdown files:
 ## Synchronization Rules
 - `.claude/commands/issue.md` and `WORKFLOW.md` should always be reflective of each other. If a change is requested to either, it should be echo'd in the other.
 - `tool-versions.txt` drives CI/CD tool caching and should be updated when tool versions change
+
+## Automation Notes
+- **Automation Philosophy**: Minimize manual intervention in infrastructure and deployment processes
+- Prefer declarative, idempotent configuration over manual setup steps

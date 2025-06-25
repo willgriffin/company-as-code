@@ -1,0 +1,69 @@
+# Redis Operator Helm repository
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: ot-helm
+  namespace: redis-operator
+spec:
+  interval: 30m
+  url: https://ot-container-kit.github.io/helm-charts/
+---
+# Redis Operator
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: redis-operator
+  namespace: redis-operator
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: redis-operator
+      version: "0.20.3"
+      sourceRef:
+        kind: HelmRepository
+        name: ot-helm
+        namespace: redis-operator
+  values:
+    # Redis operator configuration
+    redisOperator:
+      image:
+        repository: quay.io/opstree/redis-operator
+        tag: ""  # Uses chart default
+        pullPolicy: IfNotPresent
+      
+      # Resource configuration
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+      
+      # Security context
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+    
+    # Service account
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ""
+    
+    # RBAC
+    rbac:
+      create: true
+    
+    # Webhook configuration
+    webhook:
+      enable: true
+      port: 9443

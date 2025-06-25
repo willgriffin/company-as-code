@@ -27,6 +27,10 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   TERRAFORM_STATE_BUCKET: ${{ secrets.TERRAFORM_STATE_BUCKET }}
   TERRAFORM_STATE_REGION: ${{ secrets.TERRAFORM_STATE_REGION }}
+  NEXTCLOUD_BUCKET_ACCESS_KEY_ID: ${{ secrets.NEXTCLOUD_BUCKET_ACCESS_KEY_ID }}
+  NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY: ${{ secrets.NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY }}
+  NEXTCLOUD_BUCKET_NAME: ${{ secrets.NEXTCLOUD_BUCKET_NAME }}
+  GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
 jobs:
   check-setup:
@@ -35,6 +39,7 @@ jobs:
     outputs:
       setup-complete: ${{ steps.setup-check.outputs.is-setup }}
       should-skip: ${{ steps.setup-check.outputs.should-skip }}
+      is-deployed: ${{ steps.setup-check.outputs.is-deployed }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,8 +59,6 @@ jobs:
           digitalocean-token: ${{ secrets.DIGITALOCEAN_TOKEN }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          ses-smtp-username: ${{ secrets.SES_SMTP_USERNAME }}
-          ses-smtp-password: ${{ secrets.SES_SMTP_PASSWORD }}
           terraform-state-bucket: ${{ secrets.TERRAFORM_STATE_BUCKET }}
           terraform-state-region: ${{ secrets.TERRAFORM_STATE_REGION }}
           project-name: ${{ secrets.PROJECT_NAME }}
@@ -69,33 +72,34 @@ jobs:
     if: needs.check-setup.outputs.should-skip != 'true' && needs.check-setup.outputs.setup-complete == 'true'
     runs-on: ubuntu-latest
     environment: production
-    defaults:
-      run:
-        working-directory: platform
     
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      
+      - name: Install PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
-          cache-dependency-path: 'platform/pnpm-lock.yaml'
-      
-      - name: Install PNPM
-        uses: pnpm/action-setup@v2
-        with:
-          version: latest
-      
-      - name: Install dependencies
-        run: pnpm install
       
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: Install dependencies
+        run: pnpm install
+      
+      - name: Build platform
+        run: |
+          cd platform
+          pnpm run build
       
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -103,6 +107,13 @@ jobs:
           aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.TERRAFORM_STATE_REGION }}
+      
+      - name: Install DigitalOcean CLI
+        run: |
+          # Install doctl for cleanup operations
+          curl -sL https://github.com/digitalocean/doctl/releases/download/v1.117.0/doctl-1.117.0-linux-amd64.tar.gz | tar -xzv
+          sudo mv doctl /usr/local/bin
+          doctl auth init --access-token ${{ env.DIGITALOCEAN_TOKEN }}
       
       - name: Get GitHub repository info
         id: github
@@ -114,158 +125,65 @@ jobs:
         run: |
           echo "GITHUB_REPOSITORY=${{ github.repository }}" >> "$GITHUB_ENV"
       
-      - name: CDKTF Get
-        run: npx cdktf get
+      - name: Setup Kubernetes config
+        run: |
+          # Create kubeconfig directory
+          mkdir -p ~/.kube
+          
+          # Find the running cluster and create kubeconfig
+          CLUSTER_NAME=$(doctl kubernetes cluster list --format Name,Status --no-header | grep running | head -n1 | cut -d' ' -f1)
+          if [ -n "$CLUSTER_NAME" ]; then
+            echo "Setting up kubeconfig for cluster: $CLUSTER_NAME"
+            doctl kubernetes cluster kubeconfig save "$CLUSTER_NAME"
+            echo "✅ Kubeconfig configured for Flux deployment"
+          else
+            echo "⚠️ No running cluster found, kubeconfig setup skipped"
+          fi
+      
+      - name: Validate and Initialize Terraform State
+        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event.inputs.action == 'plan'
+        uses: ./.github/actions/validate-terraform-state
+        with:
+          terraform-state-bucket: ${{ env.TERRAFORM_STATE_BUCKET }}
+          terraform-state-region: ${{ env.TERRAFORM_STATE_REGION }}
+          working-directory: platform
       
       - name: CDKTF Plan
         if: github.event.inputs.action == 'plan' || github.event.inputs.action == ''
-        run: npx cdktf plan
+        run: |
+          cd platform
+          echo "📋 Running CDKTF plan..."
+          pnpm run plan
       
       - name: CDKTF Deploy
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        run: npx cdktf deploy --auto-approve
+        run: |
+          cd platform
+          echo "🚀 Deploying infrastructure with CDKTF..."
+          pnpm run deploy
+      
+      - name: Verify State Storage
+        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        uses: ./.github/actions/verify-state-storage
+        with:
+          terraform-state-bucket: ${{ env.TERRAFORM_STATE_BUCKET }}
+          expected-min-stacks: 3
       
       - name: CDKTF Destroy
         if: github.event.inputs.action == 'destroy'
-        run: npx cdktf destroy --auto-approve
+        run: |
+          cd platform
+          echo "🗑️ Destroying infrastructure with CDKTF..."
+          pnpm run destroy
       
-      - name: Get kubeconfig from CDKTF output
+      - name: Infrastructure deployment complete
         if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
-          # Extract kubeconfig from CDKTF output
-          if ! npx cdktf output > cdktf-output.json; then
-            echo "Error: Failed to get CDKTF output"
-            exit 1
-          fi
-          
-          # Validate output file exists and is not empty
-          if [[ ! -s cdktf-output.json ]]; then
-            echo "Error: CDKTF output file is empty or missing"
-            exit 1
-          fi
-          
-          # Get the kubeconfig from the cluster stack output
-          # Validate PROJECT_NAME secret is set to avoid misconfiguration
-          if [[ -z "${{ secrets.PROJECT_NAME }}" ]]; then
-            echo "Error: PROJECT_NAME secret is not set" >&2
-            echo "This secret is required to determine the correct CDKTF stack name" >&2
-            echo "Please set the PROJECT_NAME secret in your repository settings" >&2
-            exit 1
-          fi
-          
-          PROJECT_NAME="${{ secrets.PROJECT_NAME }}"
-          STACK_NAME="${PROJECT_NAME}-production"
-          
-          # Validate stack exists in output
-          if ! jq -e --arg stack "$STACK_NAME" 'has($stack)' cdktf-output.json > /dev/null; then
-            echo "Error: Stack '$STACK_NAME' not found in CDKTF output"
-            echo "Available stacks:"
-            jq -r 'keys[]' cdktf-output.json
-            exit 1
-          fi
-          
-          # Extract kubeconfig with validation
-          KUBECONFIG_CONTENT=$(jq -r --arg stack "$STACK_NAME" '.[$stack].kubeconfig' cdktf-output.json)
-          
-          # Validate kubeconfig content
-          if [[ "$KUBECONFIG_CONTENT" == "null" || -z "$KUBECONFIG_CONTENT" ]]; then
-            echo "Error: Kubeconfig not found in stack output"
-            echo "Available outputs for stack '$STACK_NAME':"
-            jq -r --arg stack "$STACK_NAME" '.[$stack] | keys[]' cdktf-output.json
-            exit 1
-          fi
-          
-          # Encode for GitHub secret
-          echo "KUBECONFIG_BASE64=$(echo "$KUBECONFIG_CONTENT" | base64 -w 0)" >> "$GITHUB_ENV"
+          echo "🎉 Infrastructure deployment completed successfully!"
       
-      - name: Update kubeconfig secret
-        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        uses: hmanzur/actions-set-secret@v2.0.0
-        with:
-          name: 'KUBECONFIG'
-          value: ${{ env.KUBECONFIG_BASE64 }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Verify cluster connectivity
-        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        run: |
-          echo "${{ env.KUBECONFIG_BASE64 }}" | base64 -d > kubeconfig.yaml
-          export KUBECONFIG=kubeconfig.yaml
-          kubectl cluster-info
-          kubectl get nodes
-      
-      - name: Wait for Flux reconciliation
-        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        run: |
-          echo "${{ env.KUBECONFIG_BASE64 }}" | base64 -d > kubeconfig.yaml
-          export KUBECONFIG=kubeconfig.yaml
-          
-          echo "Waiting for Flux to be ready..."
-          if ! kubectl wait --for=condition=available --timeout=300s deployment/source-controller -n flux-system; then
-            echo "Error: Flux source-controller failed to become available"
-            kubectl describe deployment/source-controller -n flux-system
-            exit 1
-          fi
-          
-          if ! kubectl wait --for=condition=available --timeout=300s deployment/kustomize-controller -n flux-system; then
-            echo "Error: Flux kustomize-controller failed to become available"
-            kubectl describe deployment/kustomize-controller -n flux-system
-            exit 1
-          fi
-          
-          echo "Forcing Flux reconciliation..."
-          if ! kubectl annotate gitrepository flux-system -n flux-system reconcile.fluxcd.io/requestedAt="$(date +%s)" --overwrite; then
-            echo "Warning: Failed to trigger Flux reconciliation, continuing anyway"
-          fi
-          
-          echo "Waiting for infrastructure to be ready..."
-          if ! timeout 600 bash -c 'until kubectl wait --for=condition=Ready kustomization/infrastructure -n flux-system --timeout=30s; do echo "Waiting for infrastructure..."; sleep 10; done'; then
-            echo "Error: Infrastructure kustomization failed to become ready"
-            kubectl describe kustomization/infrastructure -n flux-system
-            kubectl get events -n flux-system --sort-by='.metadata.creationTimestamp'
-            exit 1
-          fi
-          
-          echo "Waiting for applications to be ready..."
-          if ! timeout 600 bash -c 'until kubectl wait --for=condition=Ready kustomization/applications -n flux-system --timeout=30s; do echo "Waiting for applications..."; sleep 10; done'; then
-            echo "Error: Applications kustomization failed to become ready"
-            kubectl describe kustomization/applications -n flux-system
-            kubectl get events -n flux-system --sort-by='.metadata.creationTimestamp'
-            exit 1
-          fi
-      
-      - name: Get deployment status
-        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        id: status
-        run: |
-          echo "${{ env.KUBECONFIG_BASE64 }}" | base64 -d > kubeconfig.yaml
-          export KUBECONFIG=kubeconfig.yaml
-          
-          echo "=== Flux Status ==="
-          kubectl get gitrepository,kustomization -n flux-system
-          
-          echo "=== External Secrets Status ==="
-          kubectl get externalsecrets -A
-          
-          echo "=== Infrastructure Status ==="
-          kubectl get pods -n kong-system --no-headers | wc -l > /tmp/kong_pods || echo "0" > /tmp/kong_pods
-          kubectl get pods -n keycloak --no-headers | wc -l > /tmp/keycloak_pods || echo "0" > /tmp/keycloak_pods
-          kubectl get pods -n external-secrets-system --no-headers | wc -l > /tmp/external_secrets_pods || echo "0" > /tmp/external_secrets_pods
-          
-          echo "=== Application Status ==="
-          kubectl get pods -n nextcloud --no-headers | wc -l > /tmp/nextcloud_pods || echo "0" > /tmp/nextcloud_pods
-          kubectl get pods -n mattermost --no-headers | wc -l > /tmp/mattermost_pods || echo "0" > /tmp/mattermost_pods
-          kubectl get pods -n mailu --no-headers | wc -l > /tmp/mailu_pods || echo "0" > /tmp/mailu_pods
-          
-          # Get Kong Gateway LoadBalancer IP
-          KONG_IP=$(kubectl get svc -n kong-system kong-gateway-proxy -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
-          echo "kong_ip=$KONG_IP" >> "$GITHUB_OUTPUT"
-          
-          echo "=== Services ==="
-          kubectl get svc -A | grep LoadBalancer || echo "No LoadBalancer services found"
       
       - name: Send deployment success notification
-        if: success() && (github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+        if: success() && (github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && needs.check-setup.outputs.is-deployed == 'true'
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: email-smtp.us-east-1.amazonaws.com
@@ -282,30 +200,30 @@ jobs:
             Branch: ${{ github.ref_name }}
             Commit: ${{ github.sha }}
             
-            🌐 Application URLs (configure DNS to point to Kong Gateway IP):
+            🌐 Application URLs:
             - Keycloak (Auth): https://auth.${{ secrets.DOMAIN }}
             - Nextcloud (Files): https://cloud.${{ secrets.DOMAIN }}
             - Mattermost (Chat): https://chat.${{ secrets.DOMAIN }}
             - Mailu (Email): https://webmail.${{ secrets.DOMAIN }}
             
             🚀 Infrastructure Details:
-            - Kong Gateway IP: ${{ steps.status.outputs.kong_ip }}
-            - Flux Status: GitOps reconciliation complete
+            - Kubernetes cluster deployed via DigitalOcean
+            - Flux GitOps reconciliation active
             - External Secrets: Dynamic secret injection active
             - TLS Certificates: Automatic via cert-manager
             
             📋 Next Steps:
-            1. Update DNS records to point to Kong Gateway IP: ${{ steps.status.outputs.kong_ip }}
-            2. Wait for TLS certificates to be issued automatically
-            3. Access applications using the URLs above
-            4. Configure additional settings via Keycloak admin
+            1. Check DigitalOcean console for Kong Gateway LoadBalancer IP
+            2. Update DNS records to point to the LoadBalancer IP
+            3. Wait for TLS certificates to be issued automatically
+            4. Access applications using the URLs above
             
             Workflow URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
             
             Happy GitOps! 🚀
       
       - name: Send deployment failure notification  
-        if: failure()
+        if: failure() && needs.check-setup.outputs.is-deployed == 'true'
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: email-smtp.us-east-1.amazonaws.com

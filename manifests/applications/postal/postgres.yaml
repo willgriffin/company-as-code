@@ -1,0 +1,36 @@
+# PostgreSQL cluster for Postal
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postal-postgres
+  namespace: postal
+spec:
+  instances: 1
+  
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      effective_cache_size: "1GB"
+  
+  bootstrap:
+    initdb:
+      database: postal
+      owner: postal
+      secret:
+        name: postal-postgres-credentials
+  
+  storage:
+    size: 20Gi
+    storageClass: do-block-storage
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  
+  monitoring:
+    enablePodMonitor: true

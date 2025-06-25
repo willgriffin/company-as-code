@@ -1,0 +1,7 @@
+# External DNS namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: external-dns
+  labels:
+    name: external-dns

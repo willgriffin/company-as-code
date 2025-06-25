@@ -1,0 +1,31 @@
+#!/bin/bash
+#
+# Pre-commit hook to run format script
+#
+
+echo "Running pre-commit checks..."
+
+# Check if we're in a workspace environment (has pnpm-workspace.yaml)
+if [ -f "pnpm-workspace.yaml" ]; then
+  # Run format using pnpm
+  echo "Running format..."
+  pnpm run format
+  FORMAT_EXIT_CODE=$?
+else
+  # Fallback to npm
+  echo "Running format..."
+  npm run format
+  FORMAT_EXIT_CODE=$?
+fi
+
+# If format fails, prevent commit
+if [ $FORMAT_EXIT_CODE -ne 0 ]; then
+  echo "❌ Format failed. Please fix formatting issues before committing."
+  exit 1
+fi
+
+# Re-add any files that were formatted
+git add -u
+
+echo "✅ Format completed successfully."
+exit 0

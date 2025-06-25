@@ -1,0 +1,17 @@
+# ServiceMonitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postal
+  namespace: postal
+  labels:
+    app.kubernetes.io/name: postal
+spec:
+  selector:
+    matchLabels:
+      app: postal-web
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 60s
+    scrapeTimeout: 30s

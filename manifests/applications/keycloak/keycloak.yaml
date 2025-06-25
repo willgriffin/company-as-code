@@ -1,0 +1,53 @@
+# Keycloak instance
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+  name: keycloak
+  namespace: keycloak
+  labels:
+    app: keycloak
+spec:
+  instances: 2
+  
+  image: quay.io/keycloak/keycloak:24.0.5
+  
+  hostname:
+    hostname: auth.happyvertical.com
+  
+  http:
+    tlsSecret: keycloak-tls
+  
+  db:
+    vendor: postgres
+    host: keycloak-postgres-rw.keycloak.svc.cluster.local
+    port: 5432
+    database: keycloak
+    usernameSecret:
+      name: keycloak-postgres-credentials
+      key: username
+    passwordSecret:
+      name: keycloak-postgres-credentials
+      key: password
+  
+  proxy:
+    headers: xforwarded
+  
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  
+  additionalOptions:
+  - name: "health-enabled"
+    value: "true"
+  - name: "metrics-enabled"
+    value: "true"
+  - name: "http-enabled"
+    value: "true"
+  - name: "hostname-strict"
+    value: "false"
+  - name: "hostname-strict-https"
+    value: "false"

@@ -1,0 +1,13 @@
+# TLS certificate for Mattermost
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mattermost-tls
+  namespace: mattermost
+spec:
+  secretName: mattermost-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - chat.happyvertical.com

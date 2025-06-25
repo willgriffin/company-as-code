@@ -1,0 +1,152 @@
+# Prometheus (kube-prometheus-stack)
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      version: "56.8.0"
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: monitoring
+  values:
+    # Global configuration
+    global:
+      rbac:
+        create: true
+        createAggregateClusterRoles: true
+    
+    # Prometheus configuration
+    prometheus:
+      enabled: true
+      
+      prometheusSpec:
+        # Retention and storage
+        retention: 30d
+        retentionSize: 50GB
+        
+        # Storage configuration
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: do-block-storage
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 50Gi
+        
+        # Resource configuration
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+        
+        # Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          fsGroup: 65534
+          seccompProfile:
+            type: RuntimeDefault
+        
+        # Service monitor selector
+        serviceMonitorSelectorNilUsesHelmValues: false
+        podMonitorSelectorNilUsesHelmValues: false
+        ruleSelectorNilUsesHelmValues: false
+        
+        # External URL
+        externalUrl: "https://prometheus.happyvertical.com"
+        
+        # Additional scrape configs
+        additionalScrapeConfigs:
+        - job_name: 'kong-gateway'
+          static_configs:
+          - targets: ['kong-gateway.kong.svc.cluster.local:8100']
+        - job_name: 'expense-tracker'
+          static_configs:
+          - targets: ['expense-tracker.kong.svc.cluster.local:8080']
+        - job_name: 'velero'
+          static_configs:
+          - targets: ['velero.velero.svc.cluster.local:8085']
+    
+    # AlertManager configuration
+    alertmanager:
+      enabled: true
+      
+      alertmanagerSpec:
+        # Storage configuration
+        storage:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: do-block-storage
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 10Gi
+        
+        # Resource configuration
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        
+        # Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          fsGroup: 65534
+          seccompProfile:
+            type: RuntimeDefault
+        
+        # External URL
+        externalUrl: "https://alertmanager.happyvertical.com"
+    
+    # Grafana (disabled - we deploy separately)
+    grafana:
+      enabled: false
+    
+    # Node exporter
+    nodeExporter:
+      enabled: true
+    
+    # Kube state metrics
+    kubeStateMetrics:
+      enabled: true
+    
+    # Default rules
+    defaultRules:
+      create: true
+      rules:
+        alertmanager: true
+        etcd: true
+        configReloaders: true
+        general: true
+        k8s: true
+        kubeApiserverAvailability: true
+        kubeApiserverBurnrate: true
+        kubeApiserverHistogram: true
+        kubeApiserverSlos: true
+        kubelet: true
+        kubeProxy: true
+        kubePrometheusGeneral: true
+        kubePrometheusNodeRecording: true
+        kubernetesApps: true
+        kubernetesResources: true
+        kubernetesStorage: true
+        kubernetesSystem: true
+        node: true
+        nodeExporterAlerting: true
+        nodeExporterRecording: true
+        prometheus: true
+        prometheusOperator: true

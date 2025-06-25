@@ -5,7 +5,6 @@
  *
  * This script handles the foundational setup that CDKTF doesn't cover:
  * - AWS S3 bucket for Terraform state storage
- * - AWS SES credentials and IAM user setup
  * - GitHub secrets management
  * - Optional GitHub project board setup
  *
@@ -118,6 +117,18 @@ class GitOpsSetup {
 
     if (this.options.dryRun) {
       this.log(`${colors.yellow}[DRY-RUN] Would execute: ${command}${colors.reset}`);
+
+      // Return mock data for specific commands in dry-run mode
+      if (command.includes('aws iam create-access-key') && command.includes('--output text')) {
+        return 'AKIAIOSFODNN7EXAMPLE\twJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY';
+      }
+      if (command.includes('aws sts get-caller-identity') && command.includes('--query Account')) {
+        return '123456789012';
+      }
+      if (command.includes('gh repo view') && command.includes('--json')) {
+        return JSON.stringify({ owner: { login: 'test-org' }, name: 'test-repo' });
+      }
+
       return '';
     }
 
@@ -139,6 +150,7 @@ class GitOpsSetup {
       { name: 'aws', command: 'aws --version', package: 'awscli' },
       { name: 'gh', command: 'gh --version', package: 'github-cli' },
       { name: 'jq', command: 'jq --version', package: 'jq' },
+      { name: 'doctl', command: 'doctl version', package: 'doctl' },
     ];
 
     for (const tool of tools) {
@@ -168,6 +180,37 @@ class GitOpsSetup {
       );
     }
     this.logSuccess('DigitalOcean token is set');
+
+    // Check DigitalOcean CLI authentication
+    try {
+      this.exec('doctl auth list', true);
+      this.logSuccess('DigitalOcean CLI authenticated');
+    } catch {
+      // doctl not authenticated
+      if (process.env.DIGITALOCEAN_TOKEN) {
+        this.log(
+          `${colors.yellow}DigitalOcean CLI not authenticated. Initializing with token...${colors.reset}`
+        );
+        this.exec(
+          `doctl auth init --access-token "${process.env.DIGITALOCEAN_TOKEN}" --context default`
+        );
+        this.logSuccess('DigitalOcean CLI authentication complete');
+      } else if (this.options.interactive && !this.options.dryRun) {
+        this.log(
+          `${colors.yellow}DigitalOcean CLI not authenticated. Running doctl auth init...${colors.reset}`
+        );
+        this.log(
+          `${colors.blue}This will prompt you to enter your DigitalOcean API token${colors.reset}`
+        );
+        this.exec('doctl auth init --context default');
+        this.logSuccess('DigitalOcean CLI authentication complete');
+      } else {
+        throw new SetupError(
+          'DigitalOcean CLI not authenticated and no token available. Run: doctl auth init',
+          'AUTH_FAILED'
+        );
+      }
+    }
 
     // Check AWS authentication
     try {
@@ -309,11 +352,6 @@ class GitOpsSetup {
     this.log(`    • Versioning: Enabled`);
     this.log(`    • Encryption: AES256`);
 
-    this.log(`  ${colors.bold}AWS SES:${colors.reset}`);
-    this.log(`    • IAM User: ${this.config.project.name}-ses-smtp`);
-    this.log(`    • IAM Policy: ${this.config.project.name}-ses-policy`);
-    this.log(`    • Domain: ${this.config.project.domain} (verification required)`);
-
     if (!this.options.skipGithub) {
       this.log(`  ${colors.bold}GitHub Repository:${colors.reset} ${accountInfo.github.repo}`);
       this.log(`    • Repository secrets (credentials and configuration)`);
@@ -325,7 +363,6 @@ class GitOpsSetup {
 
     this.log(`${colors.bold}${colors.blue}Estimated Costs:${colors.reset}`);
     this.log(`  • AWS S3 (Terraform state): ~$0.02/month (minimal storage)`);
-    this.log(`  • AWS SES: $0 (free tier: 62,000 emails/month)`);
     this.log(`  • GitHub: $0 (using existing repository)`);
     this.log('');
 
@@ -492,133 +529,173 @@ class GitOpsSetup {
     return { bucketName, region };
   }
 
-  private generateSesSmtpPassword(secretKey: string): string {
-    const message = 'SendRawEmail';
-    const versionInBytes = Buffer.from([0x04]);
-    const signatureInBytes = Buffer.concat([versionInBytes, Buffer.from(secretKey, 'utf-8')]);
-
-    const hmac = createHmac('sha256', signatureInBytes);
-    hmac.update(message);
-
-    return hmac.digest('base64');
-  }
-
-  private async setupSesCredentials(): Promise<{ username: string; password: string }> {
-    this.logStep('Setting up AWS SES SMTP Credentials');
+  private async setupDigitalOceanDomain(): Promise<void> {
+    this.logStep('Setting up DigitalOcean Domain');
 
     const domain = this.config.project.domain;
-    const userName = `${this.config.project.name}-ses-smtp`;
-    const policyName = `${this.config.project.name}-ses-policy`;
-
-    // Create IAM policy for SES
-    const policyDocument = {
-      Version: '2012-10-17',
-      Statement: [
-        {
-          Effect: 'Allow',
-          Action: ['ses:SendEmail', 'ses:SendRawEmail'],
-          Resource: `arn:aws:ses:*:*:identity/${domain}`,
-        },
-      ],
-    };
-
-    this.log(`Creating IAM policy: ${policyName}`);
-    try {
-      this.exec(
-        `aws iam create-policy --policy-name ${policyName} --policy-document '${JSON.stringify(policyDocument)}'`,
-        true
-      );
-      this.logSuccess(`Created IAM policy: ${policyName}`);
-    } catch {
-      this.logWarning(`IAM policy ${policyName} may already exist`);
-    }
-
-    // Create IAM user
-    this.log(`Creating IAM user: ${userName}`);
-    try {
-      this.exec(`aws iam create-user --user-name ${userName}`, true);
-      this.logSuccess(`Created IAM user: ${userName}`);
-    } catch {
-      this.logWarning(`IAM user ${userName} may already exist`);
-    }
-
-    // Attach policy to user
-    const accountId = this.exec('aws sts get-caller-identity --query Account --output text', true);
-    const policyArn = `arn:aws:iam::${accountId}:policy/${policyName}`;
+    this.log(`Checking domain: ${domain}`);
 
     try {
-      this.exec(
-        `aws iam attach-user-policy --user-name ${userName} --policy-arn ${policyArn}`,
-        true
-      );
-      this.logSuccess(`Attached policy to user: ${userName}`);
-    } catch {
-      this.logWarning(`Policy may already be attached to ${userName}`);
-    }
-
-    // Delete any existing access keys and create new ones
-    this.log(`Managing access keys for: ${userName}`);
-
-    // List existing access keys
-    try {
-      const existingKeys = this.exec(
-        `aws iam list-access-keys --user-name ${userName} --query 'AccessKeyMetadata[].AccessKeyId' --output text`,
+      // Check if domain already exists
+      const checkResult = this.exec(
+        `doctl compute domain get ${domain} --format Domain --no-header`,
         true
       );
 
-      if (existingKeys.trim()) {
-        const keyIds = existingKeys.trim().split(/\s+/);
-        this.log(`Found ${keyIds.length} existing access key(s), removing them...`);
-
-        for (const keyId of keyIds) {
-          try {
-            this.exec(
-              `aws iam delete-access-key --user-name ${userName} --access-key-id ${keyId}`,
-              true
-            );
-            this.logSuccess(`Deleted existing access key: ${keyId}`);
-          } catch (error) {
-            this.logWarning(`Could not delete access key ${keyId}: ${error}`);
-          }
-        }
+      if (checkResult && checkResult.trim() === domain) {
+        this.logSuccess(`Domain ${domain} already exists - skipping creation`);
+        return;
       }
-    } catch {
-      // User might not exist yet, which is fine
+    } catch (error) {
+      // Domain doesn't exist, we'll create it
+      this.log(`Domain ${domain} doesn't exist, creating...`);
     }
-
-    // Create new access keys
-    this.log(`Creating new access keys for: ${userName}`);
-    let accessKey: string;
-    let secretKey: string;
 
     try {
-      const keyOutput = this.exec(
-        `aws iam create-access-key --user-name ${userName} --query 'AccessKey.[AccessKeyId,SecretAccessKey]' --output text`,
-        true
-      );
-      [accessKey, secretKey] = keyOutput.split('\t');
+      // Create the domain in DigitalOcean
+      this.exec(`doctl compute domain create ${domain}`, true);
+      this.logSuccess(`Created domain: ${domain}`);
 
-      this.logSuccess(`Created new access keys for: ${userName}`);
-    } catch {
-      throw new SetupError(`Failed to create access keys for ${userName}`, 'SES_KEY_FAILED');
+      this.log(
+        `${colors.yellow}Note: DNS records will be managed by CDKTF deployment${colors.reset}`
+      );
+      this.log(
+        `${colors.yellow}Make sure to point your domain's nameservers to DigitalOcean:${colors.reset}`
+      );
+      this.log('  - ns1.digitalocean.com');
+      this.log('  - ns2.digitalocean.com');
+      this.log('  - ns3.digitalocean.com');
+    } catch (error) {
+      throw new SetupError(`Failed to create domain ${domain}: ${error}`, 'DOMAIN_CREATION_FAILED');
+    }
+  }
+
+  private async setupDigitalOceanSpaces(): Promise<{
+    accessKeyId: string;
+    secretAccessKey: string;
+    bucketName: string;
+    secretsAlreadyExist: boolean;
+  }> {
+    this.logStep('Setting up DigitalOcean Spaces');
+
+    const bucketName = `${this.config.project.name}-app-data`;
+    const region = this.config.environments[0].cluster.region;
+
+    let accessKeyId: string;
+    let secretAccessKey: string;
+
+    // Check if secrets already exist in GitHub repository
+    let secretsExist = false;
+    if (!this.options.skipGithub) {
+      try {
+        this.log('Checking for existing Spaces credentials in GitHub secrets...');
+        const secretList = this.exec('gh secret list --json name', true);
+        const secrets = JSON.parse(secretList);
+        const secretNames = secrets.map((s: any) => s.name);
+
+        const requiredSecrets = [
+          'NEXTCLOUD_BUCKET_ACCESS_KEY_ID',
+          'NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY',
+          'NEXTCLOUD_BUCKET_NAME',
+        ];
+        secretsExist = requiredSecrets.every(name => secretNames.includes(name));
+
+        if (secretsExist) {
+          this.logSuccess('Spaces credentials already exist in GitHub secrets');
+          this.log(
+            'Note: We still need to create temporary keys for bucket operations during setup'
+          );
+        } else {
+          this.log('Some or all Spaces credentials missing from GitHub secrets');
+        }
+      } catch (secretError) {
+        this.log('Could not check GitHub secrets, proceeding with key creation');
+      }
     }
 
-    // Generate SMTP password
-    const smtpPassword = this.generateSesSmtpPassword(secretKey);
+    // Create new Spaces access keys
+    const timestamp = Date.now();
+    const keyName = secretsExist
+      ? `${this.config.project.name}-setup-${timestamp}`
+      : `${this.config.project.name}-app-access`;
 
-    this.log(`\n${colors.yellow}SES Setup Complete:${colors.reset}`);
-    this.log(`Domain: ${domain}`);
-    this.log(`SMTP Username: ${accessKey}`);
-    this.log(`Access Key: ${accessKey}`);
-    this.log(`Secret Key: ${secretKey}`);
-    this.log(`SMTP Password: ${smtpPassword}`);
+    this.log(`Creating new Spaces access keys: ${keyName}...`);
+    try {
+      // Create Spaces access key with full access to the bucket
+      const keyResult = this.exec(
+        `doctl spaces keys create ${keyName} --grants "bucket=;permission=fullaccess" --output json`,
+        true
+      );
 
-    this.log(`\n${colors.yellow}Next steps for SES:${colors.reset}`);
-    this.log(`1. Verify domain in AWS SES console`);
-    this.log(`2. Set up DKIM records`);
-    this.log(`3. Request production access if needed`);
+      const keyData = JSON.parse(keyResult)[0];
+      accessKeyId = keyData.access_key;
+      secretAccessKey = keyData.secret_key;
 
-    return { username: accessKey, password: smtpPassword };
+      this.logSuccess('Created new Spaces access keys');
+    } catch (error) {
+      throw new SetupError(
+        `Failed to create Spaces access keys: ${error}`,
+        'SPACES_KEY_CREATION_FAILED'
+      );
+    }
+
+    // Check if bucket already exists and create if needed
+    try {
+      this.log(`Checking if bucket ${bucketName} exists...`);
+
+      // Use AWS CLI with Spaces endpoint to check bucket
+      const checkCommand = `aws s3 ls s3://${bucketName} --endpoint-url https://${region}.digitaloceanspaces.com`;
+
+      try {
+        // Set credentials for AWS CLI and check bucket
+        const checkCommandWithEnv = `AWS_ACCESS_KEY_ID='${accessKeyId}' AWS_SECRET_ACCESS_KEY='${secretAccessKey}' ${checkCommand}`;
+        this.exec(checkCommandWithEnv, true);
+        this.logSuccess(`Spaces bucket "${bucketName}" already exists`);
+        return { accessKeyId, secretAccessKey, bucketName, secretsAlreadyExist: secretsExist };
+      } catch (bucketCheckError) {
+        // Bucket doesn't exist, create it
+        this.log(`Creating Spaces bucket: ${bucketName}`);
+
+        // Create bucket
+        const createCommand =
+          region === 'us-east-1'
+            ? `aws s3api create-bucket --bucket ${bucketName} --endpoint-url https://${region}.digitaloceanspaces.com`
+            : `aws s3api create-bucket --bucket ${bucketName} --endpoint-url https://${region}.digitaloceanspaces.com --create-bucket-configuration LocationConstraint=${region}`;
+
+        const createCommandWithEnv = `AWS_ACCESS_KEY_ID='${accessKeyId}' AWS_SECRET_ACCESS_KEY='${secretAccessKey}' ${createCommand}`;
+        this.exec(createCommandWithEnv, true);
+
+        // Enable versioning
+        const versioningCommand = `aws s3api put-bucket-versioning --bucket ${bucketName} --endpoint-url https://${region}.digitaloceanspaces.com --versioning-configuration Status=Enabled`;
+        const versioningCommandWithEnv = `AWS_ACCESS_KEY_ID='${accessKeyId}' AWS_SECRET_ACCESS_KEY='${secretAccessKey}' ${versioningCommand}`;
+        this.exec(versioningCommandWithEnv, true);
+
+        // Set lifecycle policy for old versions
+        const lifecyclePolicy = {
+          Rules: [
+            {
+              ID: 'app-data-cleanup',
+              Status: 'Enabled',
+              NoncurrentVersionExpiration: {
+                NoncurrentDays: 30,
+              },
+            },
+          ],
+        };
+
+        const lifecycleCommand = `aws s3api put-bucket-lifecycle-configuration --bucket ${bucketName} --endpoint-url https://${region}.digitaloceanspaces.com --lifecycle-configuration '${JSON.stringify(lifecyclePolicy)}'`;
+        const lifecycleCommandWithEnv = `AWS_ACCESS_KEY_ID='${accessKeyId}' AWS_SECRET_ACCESS_KEY='${secretAccessKey}' ${lifecycleCommand}`;
+        this.exec(lifecycleCommandWithEnv, true);
+
+        this.logSuccess(
+          `Created Spaces bucket: ${bucketName} with versioning and lifecycle policy`
+        );
+      }
+    } catch (error) {
+      throw new SetupError(`Failed to setup Spaces bucket: ${error}`, 'SPACES_BUCKET_SETUP_FAILED');
+    }
+
+    return { accessKeyId, secretAccessKey, bucketName, secretsAlreadyExist: secretsExist };
   }
 
   private async setGitHubSecrets(secrets: Record<string, string>): Promise<void> {
@@ -629,12 +706,18 @@ class GitOpsSetup {
       return;
     }
 
+    // Check if running in GitHub Codespace
+    const isCodespace = process.env.CODESPACES === 'true';
+
     // Get repository info
     const repoInfo = this.exec('gh repo view --json owner,name', true);
     const { owner, name } = JSON.parse(repoInfo);
     const repo = `${owner.login}/${name}`;
 
     this.log(`Setting secrets for repository: ${repo}`);
+    if (isCodespace) {
+      this.log('Also setting user secrets for Codespace access');
+    }
 
     for (const [key, value] of Object.entries(secrets)) {
       if (!value) {
@@ -643,10 +726,21 @@ class GitOpsSetup {
       }
 
       try {
+        // Set repository secret
         this.exec(`gh secret set ${key} --body "${value}"`, true);
-        this.logSuccess(`Set secret: ${key}`);
+        this.logSuccess(`Set repository secret: ${key}`);
+
+        // Also set user secret for Codespace if we're in one
+        if (isCodespace) {
+          try {
+            this.exec(`gh secret set ${key} --user --body "${value}"`, true);
+            this.logSuccess(`Set user secret for Codespace: ${key}`);
+          } catch (error) {
+            this.logWarning(`Failed to set user secret ${key}: ${error}`);
+          }
+        }
       } catch (error) {
-        this.logError(`Failed to set secret ${key}: ${error}`);
+        this.logError(`Failed to set repository secret ${key}: ${error}`);
       }
     }
   }
@@ -1054,10 +1148,13 @@ ${optionalFiles
       // Step 3: Setup S3 bucket for Terraform state
       const s3Config = await this.setupS3StateBucket();
 
-      // Step 4: Setup SES credentials
-      const sesConfig = await this.setupSesCredentials();
+      // Step 4: Setup DigitalOcean domain
+      await this.setupDigitalOceanDomain();
 
-      // Step 5: Set GitHub secrets
+      // Step 5: Setup DigitalOcean Spaces
+      const spacesConfig = await this.setupDigitalOceanSpaces();
+
+      // Step 6: Set GitHub secrets
       const secrets: Record<string, string> = {
         PROJECT_NAME: this.config.project.name,
         DIGITALOCEAN_TOKEN: process.env.DIGITALOCEAN_TOKEN || '',
@@ -1065,18 +1162,23 @@ ${optionalFiles
         TERRAFORM_STATE_REGION: s3Config.region,
         AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID || '',
         AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY || '',
-        SES_SMTP_USERNAME: sesConfig.username,
-        SES_SMTP_PASSWORD: sesConfig.password,
         ADMIN_EMAIL: this.config.project.email,
         DOMAIN: this.config.project.domain,
       };
 
+      // Only add Nextcloud bucket secrets if they don't already exist
+      if (!spacesConfig.secretsAlreadyExist) {
+        secrets.NEXTCLOUD_BUCKET_ACCESS_KEY_ID = spacesConfig.accessKeyId;
+        secrets.NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY = spacesConfig.secretAccessKey;
+        secrets.NEXTCLOUD_BUCKET_NAME = spacesConfig.bucketName;
+      }
+
       await this.setGitHubSecrets(secrets);
 
-      // Step 6: Setup GitHub project (optional)
+      // Step 7: Setup GitHub project (optional)
       await this.setupGitHubProject();
 
-      // Step 7: Create cleanup issue for template ejection
+      // Step 8: Create cleanup issue for template ejection
       await this.createCleanupIssue();
 
       this.logStep('Setup Complete');
@@ -1149,7 +1251,7 @@ ${optionalFiles
 
       // Get current branch
       const currentBranch = this.exec('git branch --show-current', true);
-      
+
       // Check if we're already on the target branch
       if (currentBranch === finalBranchName) {
         this.log(`Already on branch: ${finalBranchName}`);
@@ -1330,6 +1432,16 @@ async function createConfigInteractively(): Promise<Config> {
       : process.env.NODE_COUNT
         ? parseInt(process.env.NODE_COUNT)
         : 3,
+    minNodes: process.env.SETUP_MIN_NODES
+      ? parseInt(process.env.SETUP_MIN_NODES)
+      : process.env.MIN_NODES
+        ? parseInt(process.env.MIN_NODES)
+        : 2,
+    maxNodes: process.env.SETUP_MAX_NODES
+      ? parseInt(process.env.SETUP_MAX_NODES)
+      : process.env.MAX_NODES
+        ? parseInt(process.env.MAX_NODES)
+        : 5,
     environment: process.env.SETUP_ENVIRONMENT || process.env.ENVIRONMENT || 'production',
   };
 
@@ -1376,6 +1488,40 @@ async function createConfigInteractively(): Promise<Config> {
 
     const nodeCountStr = await prompt('Node count', envDefaults.nodeCount.toString());
 
+    const minNodesStr = await prompt(
+      'Minimum nodes for autoscaling',
+      envDefaults.minNodes.toString()
+    );
+
+    const maxNodesStr = await prompt(
+      'Maximum nodes for autoscaling',
+      envDefaults.maxNodes.toString()
+    );
+
+    // Validate autoscaling configuration
+    const nodeCount = parseInt(nodeCountStr);
+    const minNodes = parseInt(minNodesStr);
+    const maxNodes = parseInt(maxNodesStr);
+
+    if (minNodes > nodeCount) {
+      console.log(
+        `${colors.yellow}Warning: Minimum nodes (${minNodes}) is greater than node count (${nodeCount}). Setting minNodes to ${nodeCount}.${colors.reset}`
+      );
+    }
+
+    if (maxNodes < nodeCount) {
+      console.log(
+        `${colors.yellow}Warning: Maximum nodes (${maxNodes}) is less than node count (${nodeCount}). Setting maxNodes to ${nodeCount}.${colors.reset}`
+      );
+    }
+
+    if (minNodes > maxNodes) {
+      console.log(
+        `${colors.red}Error: Minimum nodes (${minNodes}) cannot be greater than maximum nodes (${maxNodes}).${colors.reset}`
+      );
+      process.exit(1);
+    }
+
     const config: Config = {
       project: {
         name: projectName,
@@ -1389,8 +1535,10 @@ async function createConfigInteractively(): Promise<Config> {
           cluster: {
             region: region,
             nodeSize: nodeSize,
-            nodeCount: parseInt(nodeCountStr),
-            haControlPlane: parseInt(nodeCountStr) >= 3,
+            nodeCount: nodeCount,
+            minNodes: Math.min(minNodes, nodeCount),
+            maxNodes: Math.max(maxNodes, nodeCount),
+            haControlPlane: nodeCount >= 3,
           },
           domain: domain,
         },
@@ -1448,7 +1596,7 @@ EXAMPLES:
 
 This script sets up prerequisites for CDKTF deployment:
 - AWS S3 bucket for Terraform state (with versioning and encryption)
-- AWS SES credentials for email functionality
+- DigitalOcean domain creation (if needed)
 - GitHub repository secrets
 - Optional GitHub project labels and workflow
 
@@ -1460,6 +1608,8 @@ ENVIRONMENT VARIABLES (for defaults):
   SETUP_REGION           DigitalOcean region (overrides DO_REGION)
   SETUP_NODE_SIZE        Kubernetes node size (overrides NODE_SIZE)
   SETUP_NODE_COUNT       Number of nodes (overrides NODE_COUNT)
+  SETUP_MIN_NODES        Minimum nodes for autoscaling (overrides MIN_NODES)
+  SETUP_MAX_NODES        Maximum nodes for autoscaling (overrides MAX_NODES)
   SETUP_ENVIRONMENT      Environment name (overrides ENVIRONMENT)
 
 REQUIRED ENVIRONMENT VARIABLES:

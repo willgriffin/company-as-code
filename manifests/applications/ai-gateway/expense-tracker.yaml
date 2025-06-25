@@ -1,0 +1,251 @@
+# Expense Tracker Service for LiteLLM integration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: expense-tracker
+  namespace: ai-gateway
+  labels:
+    app: expense-tracker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: expense-tracker
+  template:
+    metadata:
+      labels:
+        app: expense-tracker
+      annotations:
+        instrumentation.opentelemetry.io/inject-nodejs: "opentelemetry-operator-system/default-instrumentation"
+    spec:
+      containers:
+      - name: expense-tracker
+        image: node:18-alpine
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          cat > /app/package.json << 'EOF'
+          {
+            "name": "expense-tracker",
+            "version": "1.0.0",
+            "dependencies": {
+              "express": "^4.18.2",
+              "prom-client": "^14.2.0",
+              "redis": "^4.6.7"
+            }
+          }
+          EOF
+          
+          cat > /app/server.js << 'EOF'
+          const express = require('express');
+          const client = require('prom-client');
+          const redis = require('redis');
+          
+          const app = express();
+          app.use(express.json());
+          
+          // Redis client for budget storage
+          const redisClient = redis.createClient({
+            host: 'rfs-kong-redis.kong.svc.cluster.local',
+            port: 6379
+          });
+          
+          // Metrics
+          const register = new client.Registry();
+          const costCounter = new client.Counter({
+            name: 'ai_cost_total_usd',
+            help: 'Total AI cost in USD',
+            labelNames: ['user_id', 'organization_id', 'model', 'provider'],
+            registers: [register]
+          });
+          
+          const tokenCounter = new client.Counter({
+            name: 'ai_tokens_total',
+            help: 'Total AI tokens consumed',
+            labelNames: ['user_id', 'organization_id', 'model', 'provider', 'type'],
+            registers: [register]
+          });
+          
+          const requestCounter = new client.Counter({
+            name: 'ai_requests_total',
+            help: 'Total AI requests',
+            labelNames: ['user_id', 'organization_id', 'model', 'provider', 'status'],
+            registers: [register]
+          });
+          
+          // Extract user info from Kong headers
+          function extractUserInfo(headers) {
+            return {
+              userId: headers['x-user-id'] || headers['x-userinfo'] || 'anonymous',
+              organizationId: headers['x-organization-id'] || 'default',
+              email: headers['x-user-email'] || 'unknown'
+            };
+          }
+          
+          // LiteLLM webhook endpoint
+          app.post('/litellm-webhook', async (req, res) => {
+            try {
+              const { model, usage, cost, status, metadata } = req.body;
+              const userInfo = extractUserInfo(req.headers);
+              
+              console.log(`LiteLLM Usage - User: ${userInfo.userId}, Model: ${model}, Cost: $${cost}, Tokens: ${usage?.total_tokens}`);
+              
+              // Update metrics
+              if (cost) {
+                costCounter.inc({
+                  user_id: userInfo.userId,
+                  organization_id: userInfo.organizationId,
+                  model: model,
+                  provider: metadata?.provider || 'unknown'
+                }, parseFloat(cost));
+              }
+              
+              if (usage) {
+                tokenCounter.inc({
+                  user_id: userInfo.userId,
+                  organization_id: userInfo.organizationId,
+                  model: model,
+                  provider: metadata?.provider || 'unknown',
+                  type: 'input'
+                }, usage.prompt_tokens || 0);
+                
+                tokenCounter.inc({
+                  user_id: userInfo.userId,
+                  organization_id: userInfo.organizationId,
+                  model: model,
+                  provider: metadata?.provider || 'unknown',
+                  type: 'output'
+                }, usage.completion_tokens || 0);
+              }
+              
+              requestCounter.inc({
+                user_id: userInfo.userId,
+                organization_id: userInfo.organizationId,
+                model: model,
+                provider: metadata?.provider || 'unknown',
+                status: status || 'success'
+              });
+              
+              // Store in Redis for budget tracking
+              const dailyKey = `budget:${userInfo.organizationId}:${userInfo.userId}:${new Date().toISOString().split('T')[0]}`;
+              if (cost) {
+                await redisClient.incrByFloat(dailyKey, parseFloat(cost));
+                await redisClient.expire(dailyKey, 86400 * 30); // 30 days retention
+              }
+              
+              res.json({ status: 'ok', tracked: true });
+            } catch (error) {
+              console.error('Error processing LiteLLM webhook:', error);
+              res.status(500).json({ error: error.message });
+            }
+          });
+          
+          // Kong expense tracking webhook
+          app.post('/kong-webhook', async (req, res) => {
+            try {
+              const { request, response } = req.body;
+              const userInfo = extractUserInfo(request.headers);
+              
+              // Basic request tracking for non-AI endpoints
+              requestCounter.inc({
+                user_id: userInfo.userId,
+                organization_id: userInfo.organizationId,
+                model: 'api',
+                provider: 'internal',
+                status: response?.status < 400 ? 'success' : 'error'
+              });
+              
+              res.json({ status: 'ok' });
+            } catch (error) {
+              console.error('Error processing Kong webhook:', error);
+              res.status(500).json({ error: error.message });
+            }
+          });
+          
+          // Budget check endpoint
+          app.get('/budget/:organizationId/:userId', async (req, res) => {
+            try {
+              const { organizationId, userId } = req.params;
+              const dailyKey = `budget:${organizationId}:${userId}:${new Date().toISOString().split('T')[0]}`;
+              const monthlyKey = `budget:${organizationId}:${userId}:${new Date().toISOString().substr(0, 7)}`;
+              
+              const dailySpend = await redisClient.get(dailyKey) || 0;
+              const monthlySpend = await redisClient.get(monthlyKey) || 0;
+              
+              res.json({
+                daily_spend: parseFloat(dailySpend),
+                monthly_spend: parseFloat(monthlySpend),
+                limits: {
+                  daily: 50.00,
+                  monthly: 1000.00
+                }
+              });
+            } catch (error) {
+              res.status(500).json({ error: error.message });
+            }
+          });
+          
+          // Metrics endpoint
+          app.get('/metrics', async (req, res) => {
+            res.set('Content-Type', register.contentType);
+            res.end(await register.metrics());
+          });
+          
+          // Health check
+          app.get('/health', (req, res) => {
+            res.json({ status: 'healthy', redis: redisClient.isOpen });
+          });
+          
+          // Initialize Redis connection
+          redisClient.connect().catch(console.error);
+          
+          app.listen(8080, () => {
+            console.log('Expense Tracker listening on port 8080');
+          });
+          EOF
+          
+          cd /app && npm install && node server.js
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: REDIS_URL
+          value: "redis://rfs-kong-redis.kong.svc.cluster.local:6379"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+# Service for Expense Tracker
+apiVersion: v1
+kind: Service
+metadata:
+  name: expense-tracker
+  namespace: ai-gateway
+  labels:
+    app: expense-tracker
+spec:
+  selector:
+    app: expense-tracker
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP

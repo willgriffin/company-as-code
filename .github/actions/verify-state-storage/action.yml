@@ -1,0 +1,70 @@
+name: 'Verify State Storage'
+description: 'Verifies that Terraform state files are properly stored in S3 after deployment'
+inputs:
+  terraform-state-bucket:
+    description: 'S3 bucket for Terraform state'
+    required: true
+  expected-min-stacks:
+    description: 'Minimum number of state files expected'
+    required: false
+    default: '1'
+outputs:
+  state-files-count:
+    description: 'Number of state files found in S3'
+    value: ${{ steps.verify.outputs.state-files-count }}
+  verification-passed:
+    description: 'Whether state verification passed'
+    value: ${{ steps.verify.outputs.verification-passed }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Verify State Files in S3
+      id: verify
+      shell: bash
+      env:
+        TERRAFORM_STATE_BUCKET: ${{ inputs.terraform-state-bucket }}
+        EXPECTED_MIN_STACKS: ${{ inputs.expected-min-stacks }}
+      run: |
+        echo "🔍 Verifying state files are stored in S3..."
+        
+        # List state files after deployment
+        echo "📋 State files in S3 bucket:"
+        STATE_FILES=$(aws s3 ls "s3://$TERRAFORM_STATE_BUCKET/" --recursive | grep '\.tfstate$' || true)
+        
+        if [[ -n "$STATE_FILES" ]]; then
+          echo "$STATE_FILES"
+          
+          # Count state files
+          STATE_COUNT=$(echo "$STATE_FILES" | wc -l)
+          echo "📊 Total state files: $STATE_COUNT"
+          
+          # Check against minimum expected
+          if [[ $STATE_COUNT -ge $EXPECTED_MIN_STACKS ]]; then
+            echo "✅ State files are properly stored in S3 ($STATE_COUNT >= $EXPECTED_MIN_STACKS expected)"
+            
+            # Show state file details
+            echo "📄 State file details:"
+            echo "$STATE_FILES" | while read -r line; do
+              if [[ -n "$line" ]]; then
+                # Extract file size and name
+                size=$(echo "$line" | awk '{print $3}')
+                file=$(echo "$line" | awk '{print $4}')
+                echo "  - $file ($size bytes)"
+              fi
+            done
+            
+            echo "verification-passed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "⚠️ Found $STATE_COUNT state files, but expected at least $EXPECTED_MIN_STACKS"
+            echo "verification-passed=false" >> "$GITHUB_OUTPUT"
+          fi
+          
+          echo "state-files-count=$STATE_COUNT" >> "$GITHUB_OUTPUT"
+        else
+          echo "❌ No state files found in S3 bucket"
+          echo "This indicates state is not being stored remotely"
+          echo "state-files-count=0" >> "$GITHUB_OUTPUT"
+          echo "verification-passed=false" >> "$GITHUB_OUTPUT"
+          exit 1
+        fi
