@@ -10,4 +10,4 @@ spec:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-  - cloud.happyvertical.com
+  - cloud.TEMPLATE_DOMAIN_PLACEHOLDER

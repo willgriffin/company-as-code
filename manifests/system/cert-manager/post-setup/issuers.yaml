@@ -6,7 +6,7 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: willgriffin@gmail.com
+    email: TEMPLATE_EMAIL_PLACEHOLDER
     privateKeySecretRef:
       name: letsencrypt-prod
     solvers:
@@ -22,7 +22,7 @@ metadata:
 spec:
   acme:
     server: https://acme-staging-v02.api.letsencrypt.org/directory
-    email: willgriffin@gmail.com
+    email: TEMPLATE_EMAIL_PLACEHOLDER
     privateKeySecretRef:
       name: letsencrypt-staging
     solvers:

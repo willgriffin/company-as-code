@@ -11,7 +11,7 @@ spec:
     branch: main
   secretRef:
     name: flux-system
-  url: https://github.com/happyvertical/iac
+  url: https://github.com/TEMPLATE_PROJECT_NAME_PLACEHOLDER/iac
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -20,7 +20,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m0s
-  path: ./manifests/clusters/happyvertical-production
+  path: ./manifests/clusters/TEMPLATE_PROJECT_NAME_PLACEHOLDER-production
   prune: true
   sourceRef:
     kind: GitRepository

@@ -63,7 +63,7 @@ spec:
         ruleSelectorNilUsesHelmValues: false
         
         # External URL
-        externalUrl: "https://prometheus.happyvertical.com"
+        externalUrl: "https://prometheus.TEMPLATE_DOMAIN_PLACEHOLDER"
         
         # Additional scrape configs
         additionalScrapeConfigs:
@@ -110,7 +110,7 @@ spec:
             type: RuntimeDefault
         
         # External URL
-        externalUrl: "https://alertmanager.happyvertical.com"
+        externalUrl: "https://alertmanager.TEMPLATE_DOMAIN_PLACEHOLDER"
     
     # Grafana (disabled - we deploy separately)
     grafana:

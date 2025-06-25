@@ -26,7 +26,7 @@ spec:
         - name: OAUTH2_PROXY_PROVIDER
           value: "oidc"
         - name: OAUTH2_PROXY_OIDC_ISSUER_URL
-          value: "https://auth.happyvertical.com/realms/mycompany"
+          value: "https://auth.TEMPLATE_DOMAIN_PLACEHOLDER/realms/mycompany"
         - name: OAUTH2_PROXY_CLIENT_ID
           value: "mailu"
         - name: OAUTH2_PROXY_CLIENT_SECRET
@@ -46,11 +46,11 @@ spec:
         - name: OAUTH2_PROXY_HTTP_ADDRESS
           value: "0.0.0.0:4180"
         - name: OAUTH2_PROXY_REDIRECT_URL
-          value: "https://webmail.happyvertical.com/oauth2/callback"
+          value: "https://webmail.TEMPLATE_DOMAIN_PLACEHOLDER/oauth2/callback"
         - name: OAUTH2_PROXY_COOKIE_DOMAINS
-          value: ".happyvertical.com"
+          value: ".TEMPLATE_DOMAIN_PLACEHOLDER"
         - name: OAUTH2_PROXY_WHITELIST_DOMAINS
-          value: ".happyvertical.com"
+          value: ".TEMPLATE_DOMAIN_PLACEHOLDER"
         - name: OAUTH2_PROXY_COOKIE_SECURE
           value: "true"
         - name: OAUTH2_PROXY_COOKIE_HTTPONLY

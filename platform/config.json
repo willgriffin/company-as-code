@@ -1,9 +1,9 @@
 {
   "project": {
-    "name": "happyvertical",
-    "domain": "happyvertical.com",
-    "email": "willgriffin@gmail.com",
-    "description": "happyvertical as code"
+    "name": "TEMPLATE_PROJECT_NAME_PLACEHOLDER",
+    "domain": "TEMPLATE_DOMAIN_PLACEHOLDER",
+    "email": "TEMPLATE_EMAIL_PLACEHOLDER",
+    "description": "TEMPLATE_PROJECT_NAME_PLACEHOLDER as code"
   },
   "environments": [
     {
@@ -16,7 +16,7 @@
         "maxNodes": 5,
         "haControlPlane": false
       },
-      "domain": "happyvertical.com"
+      "domain": "TEMPLATE_DOMAIN_PLACEHOLDER"
     }
   ]
 }

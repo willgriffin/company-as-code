@@ -74,7 +74,7 @@ spec:
     # Configuration
     config:
       # Site URL
-      SiteURL: "https://chat.happyvertical.com"
+      SiteURL: "https://chat.TEMPLATE_DOMAIN_PLACEHOLDER"
       
       # Database settings
       SqlSettings:
@@ -101,8 +101,8 @@ spec:
         EnableSignInWithUsername: true
         SendEmailNotifications: true
         FeedbackName: "Mattermost"
-        FeedbackEmail: "noreply@happyvertical.com"
-        ReplyToAddress: "noreply@happyvertical.com"
+        FeedbackEmail: "noreply@TEMPLATE_DOMAIN_PLACEHOLDER"
+        ReplyToAddress: "noreply@TEMPLATE_DOMAIN_PLACEHOLDER"
         SMTPServer: "email-smtp.us-east-1.amazonaws.com"
         SMTPPort: "587"
         SMTPUsername: $(SMTP_USERNAME)
@@ -116,7 +116,7 @@ spec:
         MaxUsersPerTeam: 50
         EnableTeamCreation: true
         EnableUserCreation: true
-        RestrictCreationToDomains: "happyvertical.com"
+        RestrictCreationToDomains: "TEMPLATE_DOMAIN_PLACEHOLDER"
       
       # Service settings
       ServiceSettings:
@@ -156,9 +156,9 @@ spec:
         Secret: $(GITLAB_SECRET)
         Id: "mattermost"
         Scope: "openid email profile"
-        AuthEndpoint: "https://auth.happyvertical.com/realms/mycompany/protocol/openid-connect/auth"
-        TokenEndpoint: "https://auth.happyvertical.com/realms/mycompany/protocol/openid-connect/token"
-        UserApiEndpoint: "https://auth.happyvertical.com/realms/mycompany/protocol/openid-connect/userinfo"
+        AuthEndpoint: "https://auth.TEMPLATE_DOMAIN_PLACEHOLDER/realms/mycompany/protocol/openid-connect/auth"
+        TokenEndpoint: "https://auth.TEMPLATE_DOMAIN_PLACEHOLDER/realms/mycompany/protocol/openid-connect/token"
+        UserApiEndpoint: "https://auth.TEMPLATE_DOMAIN_PLACEHOLDER/realms/mycompany/protocol/openid-connect/userinfo"
       
       # Privacy settings
       PrivacySettings:
@@ -172,7 +172,7 @@ spec:
         AboutLink: "https://about.mattermost.com/default-about/"
         HelpLink: "https://about.mattermost.com/default-help/"
         ReportAProblemLink: "https://about.mattermost.com/default-report-a-problem/"
-        SupportEmail: "willgriffin@gmail.com"
+        SupportEmail: "TEMPLATE_EMAIL_PLACEHOLDER"
       
       # Log settings
       LogSettings:

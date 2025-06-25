@@ -5,7 +5,7 @@ metadata:
   name: kong
   namespace: kong
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: "api.happyvertical.com,*.happyvertical.com"
+    external-dns.alpha.kubernetes.io/hostname: "api.TEMPLATE_DOMAIN_PLACEHOLDER,*.TEMPLATE_DOMAIN_PLACEHOLDER"
 spec:
   gatewayClassName: kong
   listeners:
@@ -26,7 +26,7 @@ spec:
     tls:
       mode: Terminate
       certificateRefs:
-      - name: wildcard-happyvertical-com-tls
+      - name: wildcard-TEMPLATE_PROJECT_NAME_PLACEHOLDER-com-tls
         kind: Secret
         namespace: kong
   # Admin API listener (internal only)

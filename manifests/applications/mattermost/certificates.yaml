@@ -10,4 +10,4 @@ spec:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-  - chat.happyvertical.com
+  - chat.TEMPLATE_DOMAIN_PLACEHOLDER

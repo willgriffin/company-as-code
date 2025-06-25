@@ -11,7 +11,7 @@ spec:
   - name: kong-gateway
     namespace: kong
   hostnames:
-  - prometheus.happyvertical.com
+  - prometheus.TEMPLATE_DOMAIN_PLACEHOLDER
   rules:
   - matches:
     - path:
@@ -32,7 +32,7 @@ spec:
   - name: kong-gateway
     namespace: kong
   hostnames:
-  - grafana.happyvertical.com
+  - grafana.TEMPLATE_DOMAIN_PLACEHOLDER
   rules:
   - matches:
     - path:
@@ -55,7 +55,7 @@ spec:
   - name: kong-gateway
     namespace: kong
   hostnames:
-  - jaeger.happyvertical.com
+  - jaeger.TEMPLATE_DOMAIN_PLACEHOLDER
   rules:
   - matches:
     - path:

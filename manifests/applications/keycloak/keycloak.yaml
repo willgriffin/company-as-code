@@ -12,7 +12,7 @@ spec:
   image: quay.io/keycloak/keycloak:24.0.5
   
   hostname:
-    hostname: auth.happyvertical.com
+    hostname: auth.TEMPLATE_DOMAIN_PLACEHOLDER
   
   http:
     tlsSecret: keycloak-tls

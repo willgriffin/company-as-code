@@ -71,12 +71,12 @@ spec:
         ingress:
           type: LoadBalancer
           annotations:
-            service.beta.kubernetes.io/do-loadbalancer-name: "happyvertical-production-kong-proxy"
+            service.beta.kubernetes.io/do-loadbalancer-name: "TEMPLATE_PROJECT_NAME_PLACEHOLDER-production-kong-proxy"
             service.beta.kubernetes.io/do-loadbalancer-protocol: "http"
             service.beta.kubernetes.io/do-loadbalancer-algorithm: "round_robin"
             service.beta.kubernetes.io/do-loadbalancer-size-slug: "lb-small"
             service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol: "true"
-            external-dns.alpha.kubernetes.io/hostname: "*.happyvertical.com"
+            external-dns.alpha.kubernetes.io/hostname: "*.TEMPLATE_DOMAIN_PLACEHOLDER"
   
   # ControlPlane configuration - Kong Ingress Controller
   controlPlaneOptions:

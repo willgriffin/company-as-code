@@ -13,7 +13,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Default values
-DEFAULT_CLUSTER_NAME="happyvertical-production"
+DEFAULT_CLUSTER_NAME="TEMPLATE_PROJECT_NAME_PLACEHOLDER-production"
 KUBE_DIR="$HOME/.kube"
 BACKUP_SUFFIX=".backup-$(date +%Y%m%d-%H%M%S)"
 

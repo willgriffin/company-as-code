@@ -17,19 +17,19 @@ data:
   RABBITMQ_VHOST: "/"
   
   # Web configuration
-  WEB_HOST: "postal.happyvertical.com"
+  WEB_HOST: "postal.TEMPLATE_DOMAIN_PLACEHOLDER"
   WEB_PROTOCOL: "https"
   
   # SMTP configuration
-  SMTP_HOST: "smtp.happyvertical.com"
+  SMTP_HOST: "smtp.TEMPLATE_DOMAIN_PLACEHOLDER"
   SMTP_PORT: "25"
   
   # DNS configuration
-  DNS_MX: "10 mail.happyvertical.com"
-  DNS_SPF: "v=spf1 mx a:mail.happyvertical.com include:amazonses.com ~all"
-  DNS_RETURN_PATH: "rp.happyvertical.com"
-  DNS_ROUTE_DOMAIN: "routes.happyvertical.com"
-  DNS_TRACK_DOMAIN: "track.happyvertical.com"
+  DNS_MX: "10 mail.TEMPLATE_DOMAIN_PLACEHOLDER"
+  DNS_SPF: "v=spf1 mx a:mail.TEMPLATE_DOMAIN_PLACEHOLDER include:amazonses.com ~all"
+  DNS_RETURN_PATH: "rp.TEMPLATE_DOMAIN_PLACEHOLDER"
+  DNS_ROUTE_DOMAIN: "routes.TEMPLATE_DOMAIN_PLACEHOLDER"
+  DNS_TRACK_DOMAIN: "track.TEMPLATE_DOMAIN_PLACEHOLDER"
   
   # AWS SES relay configuration
   SMTP_RELAY_HOST: "email-smtp.us-east-1.amazonaws.com"

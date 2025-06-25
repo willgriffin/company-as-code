@@ -132,8 +132,8 @@ spec:
     grafana.ini:
       server:
         protocol: http
-        domain: "grafana.happyvertical.com"
-        root_url: "https://grafana.happyvertical.com"
+        domain: "grafana.TEMPLATE_DOMAIN_PLACEHOLDER"
+        root_url: "https://grafana.TEMPLATE_DOMAIN_PLACEHOLDER"
         serve_from_sub_path: false
       
       auth:
@@ -145,14 +145,14 @@ spec:
         name: Keycloak
         allow_sign_up: true
         client_id: grafana
-        client_secret: "happyvertical-production-grafana-secret"
+        client_secret: "TEMPLATE_PROJECT_NAME_PLACEHOLDER-production-grafana-secret"
         scopes: openid email profile
         email_attribute_path: email
         login_attribute_path: preferred_username
         name_attribute_path: name
-        auth_url: "https://auth.happyvertical.com/realms/mycompany/protocol/openid-connect/auth"
-        token_url: "https://auth.happyvertical.com/realms/mycompany/protocol/openid-connect/token"
-        api_url: "https://auth.happyvertical.com/realms/mycompany/protocol/openid-connect/userinfo"
+        auth_url: "https://auth.TEMPLATE_DOMAIN_PLACEHOLDER/realms/mycompany/protocol/openid-connect/auth"
+        token_url: "https://auth.TEMPLATE_DOMAIN_PLACEHOLDER/realms/mycompany/protocol/openid-connect/token"
+        api_url: "https://auth.TEMPLATE_DOMAIN_PLACEHOLDER/realms/mycompany/protocol/openid-connect/userinfo"
         role_attribute_path: contains(groups[*], 'admin') && 'Admin' || 'Viewer'
       
       security:

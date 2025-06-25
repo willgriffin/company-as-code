@@ -25,11 +25,11 @@ metadata:
   labels:
     app: postal-smtp
   annotations:
-    service.beta.kubernetes.io/do-loadbalancer-name: "happyvertical-production-postal-smtp"
+    service.beta.kubernetes.io/do-loadbalancer-name: "TEMPLATE_PROJECT_NAME_PLACEHOLDER-production-postal-smtp"
     service.beta.kubernetes.io/do-loadbalancer-protocol: "tcp"
     service.beta.kubernetes.io/do-loadbalancer-algorithm: "round_robin"
     service.beta.kubernetes.io/do-loadbalancer-size-slug: "lb-small"
-    external-dns.alpha.kubernetes.io/hostname: "smtp.happyvertical.com"
+    external-dns.alpha.kubernetes.io/hostname: "smtp.TEMPLATE_DOMAIN_PLACEHOLDER"
 spec:
   selector:
     app: postal-smtp

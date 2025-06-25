@@ -92,7 +92,7 @@ export class FluxConfigurationStack extends TerraformStack {
         clusterCaCertificate: Fn.base64decode(clusterData.kubeConfig.get(0).clusterCaCertificate),
       },
       git: {
-        url: 'https://github.com/happyvertical/iac',
+        url: 'https://github.com/TEMPLATE_PROJECT_NAME_PLACEHOLDER/iac',
         branch: 'main',
         authorName: 'Flux',
         authorEmail: this.config.project.email,

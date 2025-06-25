@@ -26,7 +26,7 @@ spec:
         - name: KEYCLOAK_ADMIN_PASSWORD
           value: "admin123"
         - name: KC_HOSTNAME
-          value: "auth.happyvertical.com"
+          value: "auth.TEMPLATE_DOMAIN_PLACEHOLDER"
         - name: KC_HOSTNAME_STRICT
           value: "false"
         - name: KC_HOSTNAME_STRICT_HTTPS

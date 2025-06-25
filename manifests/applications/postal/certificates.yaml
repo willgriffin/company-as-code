@@ -10,8 +10,8 @@ spec:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-  - postal.happyvertical.com
-  - smtp.happyvertical.com
-  - rp.happyvertical.com
-  - routes.happyvertical.com
-  - track.happyvertical.com
+  - postal.TEMPLATE_DOMAIN_PLACEHOLDER
+  - smtp.TEMPLATE_DOMAIN_PLACEHOLDER
+  - rp.TEMPLATE_DOMAIN_PLACEHOLDER
+  - routes.TEMPLATE_DOMAIN_PLACEHOLDER
+  - track.TEMPLATE_DOMAIN_PLACEHOLDER

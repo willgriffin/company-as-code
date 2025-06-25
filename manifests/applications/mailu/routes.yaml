@@ -9,7 +9,7 @@ spec:
   - name: kong-gateway
     namespace: kong
   hostnames:
-  - webmail.happyvertical.com
+  - webmail.TEMPLATE_DOMAIN_PLACEHOLDER
   rules:
   - matches:
     - path:
@@ -32,7 +32,7 @@ spec:
   - name: kong-gateway
     namespace: kong
   hostnames:
-  - mailadmin.happyvertical.com
+  - mailadmin.TEMPLATE_DOMAIN_PLACEHOLDER
   rules:
   - matches:
     - path:

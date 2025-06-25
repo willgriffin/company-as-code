@@ -34,7 +34,7 @@ spec:
     
     # Domain filtering
     domainFilters:
-    - "happyvertical.com"
+    - "TEMPLATE_DOMAIN_PLACEHOLDER"
     
     # Source configuration
     sources:
@@ -49,7 +49,7 @@ spec:
     # Policy configuration
     policy: sync  # Can be 'sync' or 'upsert-only'
     registry: txt
-    txtOwnerId: "happyvertical-production"
+    txtOwnerId: "TEMPLATE_PROJECT_NAME_PLACEHOLDER-production"
     txtPrefix: "external-dns-"
     
     # Interval configuration

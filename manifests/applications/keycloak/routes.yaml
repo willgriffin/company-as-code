@@ -9,7 +9,7 @@ spec:
   - name: kong
     namespace: kong
   hostnames:
-  - auth.happyvertical.com
+  - auth.TEMPLATE_DOMAIN_PLACEHOLDER
   rules:
   - matches:
     - path:

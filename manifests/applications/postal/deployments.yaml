@@ -25,7 +25,7 @@ spec:
           postal initialize-config
           postal initialize
           postal make-user <<EOF
-          willgriffin@gmail.com
+          TEMPLATE_EMAIL_PLACEHOLDER
           Postal
           Admin
           $(POSTAL_ADMIN_PASSWORD)

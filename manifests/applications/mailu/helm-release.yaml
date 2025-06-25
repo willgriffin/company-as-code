@@ -16,9 +16,9 @@ spec:
         namespace: mailu
   values:
     # Domain configuration
-    domain: "happyvertical.com"
+    domain: "TEMPLATE_DOMAIN_PLACEHOLDER"
     hostnames:
-      - mail.happyvertical.com
+      - mail.TEMPLATE_DOMAIN_PLACEHOLDER
     
     # Mail configuration
     mailuVersion: "2023.11"
@@ -51,7 +51,7 @@ spec:
     initialAccount:
       enabled: true
       username: admin
-      domain: "happyvertical.com"
+      domain: "TEMPLATE_DOMAIN_PLACEHOLDER"
       existingSecret: mailu-secrets
       existingSecretPasswordKey: admin-password
     
@@ -79,11 +79,11 @@ spec:
       service:
         type: LoadBalancer
         annotations:
-          service.beta.kubernetes.io/do-loadbalancer-name: "happyvertical-production-mailu"
+          service.beta.kubernetes.io/do-loadbalancer-name: "TEMPLATE_PROJECT_NAME_PLACEHOLDER-production-mailu"
           service.beta.kubernetes.io/do-loadbalancer-protocol: "tcp"
           service.beta.kubernetes.io/do-loadbalancer-algorithm: "round_robin"
           service.beta.kubernetes.io/do-loadbalancer-size-slug: "lb-small"
-          external-dns.alpha.kubernetes.io/hostname: "mail.happyvertical.com"
+          external-dns.alpha.kubernetes.io/hostname: "mail.TEMPLATE_DOMAIN_PLACEHOLDER"
         ports:
           pop3: false  # Disable POP3
           pop3s: false

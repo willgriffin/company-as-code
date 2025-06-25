@@ -12,7 +12,7 @@ spec:
   - name: kong-gateway
     namespace: kong
   hostnames:
-  - ai.happyvertical.com
+  - ai.TEMPLATE_DOMAIN_PLACEHOLDER
   rules:
   - matches:
     - path:
