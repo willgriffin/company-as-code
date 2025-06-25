@@ -1,9 +1,9 @@
 {
   "project": {
-    "name": "my-startup",
-    "domain": "example.com", 
-    "email": "admin@example.com",
-    "description": "GitOps infrastructure for my startup"
+    "name": "TEMPLATE_PROJECT_NAME_PLACEHOLDER",
+    "domain": "TEMPLATE_DOMAIN_PLACEHOLDER", 
+    "email": "TEMPLATE_EMAIL_PLACEHOLDER",
+    "description": "TEMPLATE_PROJECT_NAME_PLACEHOLDER as code"
   },
   "environments": [
     {
@@ -17,7 +17,7 @@
         "haControlPlane": true,
         "version": "1.31.0-do.0"
       },
-      "domain": "example.com"
+      "domain": "TEMPLATE_DOMAIN_PLACEHOLDER"
     }
-  ],
+  ]
 }
