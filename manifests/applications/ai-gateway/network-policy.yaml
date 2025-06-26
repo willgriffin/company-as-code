@@ -6,7 +6,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app: litellm
+      app: litellm-proxy
   policyTypes:
   - Ingress
   - Egress
@@ -93,7 +93,7 @@ spec:
   - to:
     - podSelector:
         matchLabels:
-          app: litellm
+          app: litellm-proxy
     ports:
     - protocol: TCP
       port: 4000
