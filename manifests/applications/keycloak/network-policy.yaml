@@ -1,0 +1,115 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: keycloak-network-policy
+  namespace: keycloak
+spec:
+  podSelector:
+    matchLabels:
+      app: keycloak
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow traffic from Kong Gateway
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kong
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 8443
+  # Allow traffic from other applications for OIDC
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: mattermost
+    - namespaceSelector:
+        matchLabels:
+          name: nextcloud
+    - namespaceSelector:
+        matchLabels:
+          name: mailu
+    - namespaceSelector:
+        matchLabels:
+          name: postal
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow traffic from prometheus for monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9990
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow access to PostgreSQL
+  - to:
+    - podSelector:
+        matchLabels:
+          postgresql.cnpg.io/cluster: keycloak-postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow HTTPS outbound for external integrations
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: keycloak-postgres-network-policy
+  namespace: keycloak
+spec:
+  podSelector:
+    matchLabels:
+      postgresql.cnpg.io/cluster: keycloak-postgres
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow connections from Keycloak pods
+  - from:
+    - podSelector:
+        matchLabels:
+          app: keycloak
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow connections from prometheus for monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9187
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow PostgreSQL cluster communication
+  - to:
+    - podSelector:
+        matchLabels:
+          postgresql.cnpg.io/cluster: keycloak-postgres
+    ports:
+    - protocol: TCP
+      port: 5432

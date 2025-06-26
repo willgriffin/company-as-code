@@ -10,6 +10,7 @@ resources:
   - routes.yaml
   - certificates.yaml
   - service-monitor.yaml
+  - network-policy.yaml
 
 patches:
   # Mattermost depends on infrastructure being ready

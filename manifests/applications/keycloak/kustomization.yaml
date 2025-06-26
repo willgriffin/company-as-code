@@ -7,6 +7,7 @@ resources:
   - certificates.yaml
   - keycloak.yaml
   - routes.yaml
+  - network-policy.yaml
 
 # Dependencies managed at the Flux level
 # This namespace depends on keycloak-operator being ready

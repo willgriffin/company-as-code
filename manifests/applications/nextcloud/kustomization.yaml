@@ -11,6 +11,7 @@ resources:
   - routes.yaml
   - certificates.yaml
   - service-monitor.yaml
+  - network-policy.yaml
 
 patches:
   # Nextcloud depends on infrastructure being ready

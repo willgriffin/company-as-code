@@ -9,3 +9,4 @@ resources:
 - external-secret.yaml
 - routes.yaml
 - service-monitor.yaml
+- network-policy.yaml
