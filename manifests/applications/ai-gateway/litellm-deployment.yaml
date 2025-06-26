@@ -20,7 +20,9 @@ spec:
     spec:
       containers:
       - name: litellm
-        image: ghcr.io/berriai/litellm:main-latest
+        # Using specific version tag instead of 'latest' for predictable deployments
+        # Update process: Test new versions in staging before updating this tag
+        image: ghcr.io/berriai/litellm:v1.72.6-stable
         ports:
         - containerPort: 4000
           name: http
