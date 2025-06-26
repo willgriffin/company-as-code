@@ -1,9 +1,4 @@
 # Tool versions for caching in GitHub Actions
 # This file is used to generate cache keys for tool installations
-yq=4.45.4
-kubectl=1.33.2
-flux=2.6.2
-gomplate=4.3.2
 terraform=1.12.2
-doctl=1.131.0
 actionlint=1.7.7

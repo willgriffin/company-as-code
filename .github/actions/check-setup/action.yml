@@ -38,9 +38,6 @@ inputs:
   cohere-api-key:
     description: 'Cohere API key (optional)'
     required: false
-  kubeconfig:
-    description: 'Kubernetes config (set by terraform-deploy)'
-    required: false
 outputs:
   setup-complete:
     description: 'Whether the repository setup is complete'
@@ -67,7 +64,6 @@ runs:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         OPENAI_API_KEY: ${{ inputs.openai-api-key }}
         COHERE_API_KEY: ${{ inputs.cohere-api-key }}
-        KUBECONFIG: ${{ inputs.kubeconfig }}
       run: |
         echo "🔍 Checking repository setup status..."
         
@@ -183,12 +179,6 @@ runs:
           echo "✅ Optional secret COHERE_API_KEY is set"
         fi
         
-        # KUBECONFIG is set by terraform-deploy workflow, so we check if it exists
-        if [[ -z "$KUBECONFIG" ]]; then
-          echo "ℹ️ KUBECONFIG secret not yet set (will be created by terraform-deploy workflow)"
-        else
-          echo "✅ KUBECONFIG secret is set"
-        fi
         
         # Check for template-specific files that should be removed after setup
         echo "Checking for template-specific files..."

@@ -134,3 +134,6 @@ When referencing DigitalOcean in markdown files:
 ## Automation Notes
 - **Automation Philosophy**: Minimize manual intervention in infrastructure and deployment processes
 - Prefer declarative, idempotent configuration over manual setup steps
+
+## Claude's Memories
+- I don't need comments on how things used to be

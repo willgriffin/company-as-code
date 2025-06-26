@@ -22,13 +22,35 @@ runs:
       id: check
       shell: bash
       run: |
-        # Check deployment status first (most advanced state)
-        if [ -n "${{ env.KUBECONFIG }}" ]; then
-          echo "is-setup=true" >> $GITHUB_OUTPUT
-          echo "is-deployed=true" >> $GITHUB_OUTPUT
-          echo "should-skip=false" >> $GITHUB_OUTPUT
-          echo "status=deployed" >> $GITHUB_OUTPUT
-          echo "🚀 Repository is deployed and operational"
+        # Check deployment status by looking for deployed clusters
+        # This replaces the KUBECONFIG check with a more secure approach
+        if [ -n "${{ env.DIGITALOCEAN_TOKEN }}" ] && [ -n "${{ env.PROJECT_NAME }}" ]; then
+          # Install doctl if not present
+          if ! command -v doctl &> /dev/null; then
+            echo "Installing doctl..."
+            curl -sL https://github.com/digitalocean/doctl/releases/download/v1.117.0/doctl-1.117.0-linux-amd64.tar.gz | tar -xzv
+            sudo mv doctl /usr/local/bin
+          fi
+          
+          # Authenticate with DigitalOcean
+          doctl auth init --access-token "${{ env.DIGITALOCEAN_TOKEN }}"
+          
+          # Check if any clusters exist and are running
+          CLUSTER_COUNT=$(doctl kubernetes cluster list --format Status --no-header | grep -c "running" || echo "0")
+          
+          if [ "$CLUSTER_COUNT" -gt 0 ]; then
+            echo "is-setup=true" >> $GITHUB_OUTPUT
+            echo "is-deployed=true" >> $GITHUB_OUTPUT
+            echo "should-skip=false" >> $GITHUB_OUTPUT
+            echo "status=deployed" >> $GITHUB_OUTPUT
+            echo "🚀 Repository is deployed and operational (found $CLUSTER_COUNT running cluster(s))"
+          else
+            echo "is-setup=true" >> $GITHUB_OUTPUT
+            echo "is-deployed=false" >> $GITHUB_OUTPUT
+            echo "should-skip=false" >> $GITHUB_OUTPUT
+            echo "status=configured" >> $GITHUB_OUTPUT
+            echo "⚙️ Repository is configured but no running clusters found"
+          fi
           
         # Check if configured but not yet deployed
         elif [ -n "${{ env.PROJECT_NAME }}" ]; then

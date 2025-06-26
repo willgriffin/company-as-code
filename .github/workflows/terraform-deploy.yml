@@ -49,6 +49,7 @@ jobs:
         uses: ./.github/actions/check-repository-status
         env:
           PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
       
       - name: Check setup status (detailed)
         if: steps.setup-check.outputs.should-skip != 'true'
@@ -64,7 +65,6 @@ jobs:
           project-name: ${{ secrets.PROJECT_NAME }}
           admin-email: ${{ secrets.ADMIN_EMAIL }}
           domain: ${{ secrets.DOMAIN }}
-          kubeconfig: ${{ secrets.KUBECONFIG }}
 
   deploy-infrastructure:
     name: Deploy Infrastructure with CDKTF
