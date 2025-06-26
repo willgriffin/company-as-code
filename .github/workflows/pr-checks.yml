@@ -23,7 +23,7 @@ jobs:
         uses: ./.github/actions/check-repository-status
         env:
           PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
-          KUBECONFIG: ${{ secrets.KUBECONFIG }}
+          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
 
   validate:
     name: Validate Code Quality
