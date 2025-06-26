@@ -1,0 +1,104 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: litellm-network-policy
+  namespace: ai-gateway
+spec:
+  podSelector:
+    matchLabels:
+      app: litellm
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow traffic from Kong Gateway
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kong
+    ports:
+    - protocol: TCP
+      port: 4000
+  # Allow traffic from prometheus for monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 4000
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow HTTPS outbound for AI provider APIs (OpenAI, Anthropic, etc.)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow access to Redis for caching
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: redis-system
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: expense-tracker-network-policy
+  namespace: ai-gateway
+spec:
+  podSelector:
+    matchLabels:
+      app: expense-tracker
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow traffic from Kong Gateway
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kong
+    ports:
+    - protocol: TCP
+      port: 3000
+  # Allow traffic from prometheus for monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 3000
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow access to LiteLLM for AI functionality
+  - to:
+    - podSelector:
+        matchLabels:
+          app: litellm
+    ports:
+    - protocol: TCP
+      port: 4000
+  # Allow HTTPS outbound for external APIs
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443

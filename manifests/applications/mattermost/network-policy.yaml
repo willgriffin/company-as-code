@@ -1,0 +1,107 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mattermost-network-policy
+  namespace: mattermost
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: mattermost
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow traffic from Kong Gateway
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kong
+    ports:
+    - protocol: TCP
+      port: 8065
+  # Allow traffic from prometheus for monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8067
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow access to PostgreSQL
+  - to:
+    - podSelector:
+        matchLabels:
+          postgresql.cnpg.io/cluster: mattermost-postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow HTTPS outbound for OIDC with Keycloak and external integrations
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow access to Keycloak for OIDC
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: keycloak
+    - podSelector:
+        matchLabels:
+          app: keycloak
+    ports:
+    - protocol: TCP
+      port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mattermost-postgres-network-policy
+  namespace: mattermost
+spec:
+  podSelector:
+    matchLabels:
+      postgresql.cnpg.io/cluster: mattermost-postgres
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow connections from Mattermost pods
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: mattermost
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow connections from prometheus for monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9187
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow PostgreSQL cluster communication
+  - to:
+    - podSelector:
+        matchLabels:
+          postgresql.cnpg.io/cluster: mattermost-postgres
+    ports:
+    - protocol: TCP
+      port: 5432
