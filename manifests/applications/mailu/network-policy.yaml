@@ -1,0 +1,182 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mailu-network-policy
+  namespace: mailu
+spec:
+  podSelector: {}  # Apply to all pods in namespace
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow traffic from Kong Gateway for admin interface
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kong
+    ports:
+    - protocol: TCP
+      port: 80
+  # Allow traffic from OAuth2 proxy
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: oauth2-proxy
+    ports:
+    - protocol: TCP
+      port: 80
+  # Allow mail traffic from LoadBalancer (external)
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 25    # SMTP
+    - protocol: TCP
+      port: 587   # SMTP Submission
+    - protocol: TCP
+      port: 993   # IMAPS
+    - protocol: TCP
+      port: 995   # POP3S
+    - protocol: TCP
+      port: 143   # IMAP
+  # Allow traffic from prometheus for monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9154
+  # Allow inter-pod communication within namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: mailu
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow access to PostgreSQL
+  - to:
+    - podSelector:
+        matchLabels:
+          postgresql.cnpg.io/cluster: mailu-postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow access to Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow HTTPS outbound for AWS SES and external services
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow SMTP outbound for AWS SES
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 587
+  # Allow access to Keycloak for OAuth2 proxy
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: keycloak
+    - podSelector:
+        matchLabels:
+          app: keycloak
+    ports:
+    - protocol: TCP
+      port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mailu-postgres-network-policy
+  namespace: mailu
+spec:
+  podSelector:
+    matchLabels:
+      postgresql.cnpg.io/cluster: mailu-postgres
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow connections from Mailu components
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: mailu
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow connections from prometheus for monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9187
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow PostgreSQL cluster communication
+  - to:
+    - podSelector:
+        matchLabels:
+          postgresql.cnpg.io/cluster: mailu-postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mailu-redis-network-policy
+  namespace: mailu
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow connections from Mailu components
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: mailu
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow connections from prometheus for monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9121
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
