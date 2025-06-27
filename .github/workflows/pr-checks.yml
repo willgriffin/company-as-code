@@ -103,7 +103,6 @@ jobs:
       
     - name: Run security audit
       run: pnpm audit --audit-level moderate
-      continue-on-error: true
       
     - name: Check for secrets in code
       uses: trufflesecurity/trufflehog@main
