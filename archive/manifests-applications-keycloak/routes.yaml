@@ -1,0 +1,22 @@
+# Kong HTTPRoute for Keycloak
+# Note: The service name 'keycloak-service' should match what the Keycloak operator creates
+# The operator typically creates a service named '{keycloak-cr-name}-service'
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: keycloak
+  namespace: keycloak
+spec:
+  parentRefs:
+  - name: kong
+    namespace: kong
+  hostnames:
+  - auth.happyvertical.com
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: keycloak-service
+      port: 8080

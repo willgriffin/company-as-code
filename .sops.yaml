@@ -1,0 +1,9 @@
+# SOPS configuration for secret encryption
+# Replace the age public key below with your own:
+#   age-keygen -o age.key
+#   age-keygen -y age.key  # outputs the public key
+creation_rules:
+  - path_regex: \.secret\.enc\.yaml$
+    encrypted_regex: ^(data|stringData)$
+    age: >-
+      age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx

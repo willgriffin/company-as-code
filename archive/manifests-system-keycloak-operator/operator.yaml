@@ -1,0 +1,78 @@
+# Keycloak Operator
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak-operator
+  namespace: keycloak-operator
+  labels:
+    app.kubernetes.io/name: keycloak-operator
+    app.kubernetes.io/instance: keycloak-operator
+    app.kubernetes.io/part-of: keycloak
+    app.kubernetes.io/component: operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keycloak-operator
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: keycloak-operator
+        image: quay.io/keycloak/keycloak-operator:24.0.5
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: KUBERNETES_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: RELATED_IMAGE_KEYCLOAK
+          value: "quay.io/keycloak/keycloak:24.0.5"
+        - name: WATCH_NAMESPACE
+          value: "keycloak"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        livenessProbe:
+          httpGet:
+            path: /q/health/live
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /q/health/ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      serviceAccountName: keycloak-operator
+      terminationGracePeriodSeconds: 10

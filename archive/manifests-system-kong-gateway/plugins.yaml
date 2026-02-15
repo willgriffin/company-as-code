@@ -1,0 +1,21 @@
+# Kong plugins configuration for Gateway API
+# Prometheus metrics plugin (simplified)
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: prometheus-metrics
+  namespace: kong
+plugin: prometheus
+config:
+  per_consumer: true
+---
+# Rate limiting plugin (simplified)
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: basic-rate-limit
+  namespace: kong
+plugin: rate-limiting
+config:
+  minute: 100
+  policy: local

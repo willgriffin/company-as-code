@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kanidm
+  namespace: example-org
+  labels:
+    app: kanidm
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: kanidm
+  template:
+    metadata:
+      labels:
+        app: kanidm
+    spec:
+      containers:
+        - name: kanidm
+          image: kanidm/server:1.8.5
+          ports:
+            - containerPort: 8443
+              name: https
+              protocol: TCP
+            - containerPort: 3636
+              name: ldap
+              protocol: TCP
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /data/server.toml
+              subPath: server.toml
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            tcpSocket:
+              port: 8443
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 8443
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: kanidm-data
+        - name: config
+          configMap:
+            name: kanidm-config
+        - name: tls
+          secret:
+            secretName: kanidm-tls

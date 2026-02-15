@@ -1,0 +1,77 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: forgejo
+  namespace: forgejo
+spec:
+  interval: 10m
+  chart:
+    spec:
+      chart: forgejo
+      version: "13.0.0"
+      sourceRef:
+        kind: HelmRepository
+        name: forgejo
+        namespace: forgejo
+  valuesFrom:
+    - kind: Secret
+      name: forgejo-secrets
+      valuesKey: admin-password
+      targetPath: gitea.admin.password
+    - kind: Secret
+      name: forgejo-postgres-credentials
+      valuesKey: password
+      targetPath: gitea.config.database.PASSWD
+  values:
+    replicaCount: 1
+    image:
+      repository: codeberg.org/forgejo/forgejo
+      tag: "10-rootless"
+      rootless: true
+    gitea:
+      admin:
+        username: admin
+        email: admin@TEMPLATE_DOMAIN
+      config:
+        server:
+          DOMAIN: git.TEMPLATE_DOMAIN
+          ROOT_URL: https://git.TEMPLATE_DOMAIN/
+          SSH_DOMAIN: git.TEMPLATE_DOMAIN
+          SSH_PORT: 22
+        database:
+          DB_TYPE: postgres
+          HOST: forgejo-postgres-rw.forgejo.svc.cluster.local:5432
+          NAME: forgejo
+          USER: forgejo
+          SCHEMA: public
+          SSL_MODE: disable
+        service:
+          DISABLE_REGISTRATION: true
+          REQUIRE_SIGNIN_VIEW: false
+        oauth2_client:
+          ENABLE_AUTO_REGISTRATION: true
+          USERNAME: email
+          ACCOUNT_LINKING: auto
+        session:
+          PROVIDER: memory
+        cache:
+          ADAPTER: memory
+        queue:
+          TYPE: level
+    ingress:
+      enabled: false
+    service:
+      http:
+        type: ClusterIP
+        port: 3000
+    persistence:
+      enabled: true
+      storageClass: local-path
+      size: 20Gi
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi

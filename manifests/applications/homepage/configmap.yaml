@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homepage-config
+  namespace: homepage
+data:
+  settings.yaml: |
+    title: My Cluster Dashboard
+    theme: dark
+    color: slate
+    headerStyle: clean
+    layout:
+      Monitoring:
+        style: row
+        columns: 3
+      Applications:
+        style: row
+        columns: 3
+      Infrastructure:
+        style: row
+        columns: 3
+
+  widgets.yaml: |
+    - kubernetes:
+        cluster:
+          show: true
+          cpu: true
+          memory: true
+          showLabel: true
+          label: "my-cluster"
+        nodes:
+          show: true
+          cpu: true
+          memory: true
+          showLabel: true
+
+  services.yaml: |
+    - Monitoring:
+        - Grafana:
+            href: https://grafana.TEMPLATE_DOMAIN
+            description: Metrics visualization
+            icon: grafana
+        - Prometheus:
+            href: https://prometheus.TEMPLATE_DOMAIN
+            description: Metrics collection
+            icon: prometheus
+    - Applications:
+        - Mattermost:
+            href: https://chat.TEMPLATE_DOMAIN
+            description: Team chat
+            icon: mattermost
+        - Nextcloud:
+            href: https://cloud.TEMPLATE_DOMAIN
+            description: File storage
+            icon: nextcloud
+        - Forgejo:
+            href: https://git.TEMPLATE_DOMAIN
+            description: Git hosting
+            icon: forgejo
+        - AI Gateway:
+            href: https://llm.TEMPLATE_DOMAIN
+            description: AI model proxy
+            icon: openai
+    - Infrastructure:
+        - Dex:
+            href: https://auth.TEMPLATE_DOMAIN
+            description: Identity provider
+            icon: authentik
+        - Homepage:
+            href: https://homepage.TEMPLATE_DOMAIN
+            description: This dashboard
+            icon: homepage
+
+  bookmarks.yaml: |
+    - Developer:
+        - GitHub:
+            - abbr: GH
+              href: https://github.com
+
+  docker.yaml: ""
+  kubernetes.yaml: |
+    mode: cluster

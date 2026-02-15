@@ -1,0 +1,132 @@
+---
+name: 'Validate Repository Configuration'
+description: 'Validates that the repository is properly configured for the k3s multicloud architecture'
+inputs:
+  github-token:
+    description: 'GitHub token'
+    required: true
+  sops-age-private-key:
+    description: 'SOPS Age private key'
+    required: false
+outputs:
+  valid:
+    description: 'Whether the configuration is valid'
+    value: ${{ steps.validate.outputs.valid }}
+  errors:
+    description: 'Configuration validation errors'
+    value: ${{ steps.validate.outputs.errors }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup tools
+      uses: ./.github/actions/setup-tools
+      with:
+        tools: 'yq'
+
+    - name: Validate configuration
+      id: validate
+      shell: bash
+      env:
+        GITHUB_TOKEN_SET: ${{ inputs.github-token != '' }}
+        SOPS_AGE_KEY_SET: ${{ inputs.sops-age-private-key != '' }}
+      run: |
+        set -e
+
+        ERRORS=""
+        VALID="true"
+
+        # Check if .sops.yaml exists
+        if [ ! -f ".sops.yaml" ]; then
+          ERRORS="${ERRORS}\n.sops.yaml file not found. SOPS secret management is not configured."
+          VALID="false"
+        else
+          echo ".sops.yaml found"
+
+          # Validate .sops.yaml is valid YAML
+          if ! yq eval '.' .sops.yaml > /dev/null 2>&1; then
+            ERRORS="${ERRORS}\n.sops.yaml is not valid YAML"
+            VALID="false"
+          else
+            echo ".sops.yaml is valid YAML"
+          fi
+        fi
+
+        # Check manifests directory structure
+        if [ ! -d "manifests" ]; then
+          ERRORS="${ERRORS}\nmanifests/ directory not found"
+          VALID="false"
+        else
+          echo "manifests/ directory found"
+
+          if [ ! -d "manifests/clusters" ]; then
+            ERRORS="${ERRORS}\nmanifests/clusters/ directory not found"
+            VALID="false"
+          else
+            echo "manifests/clusters/ directory found"
+          fi
+        fi
+
+        # Check for TEMPLATE_DOMAIN placeholders
+        if [ -d "manifests" ]; then
+          TEMPLATE_COUNT=$(grep -r "TEMPLATE_DOMAIN" manifests/ 2>/dev/null | wc -l || echo "0")
+          if [ "$TEMPLATE_COUNT" -gt 0 ]; then
+            ERRORS="${ERRORS}\nFound $TEMPLATE_COUNT TEMPLATE_DOMAIN placeholder(s) in manifests/ - these must be replaced with actual domain values"
+            VALID="false"
+            grep -r "TEMPLATE_DOMAIN" manifests/ 2>/dev/null | head -10 || true
+          else
+            echo "No TEMPLATE_DOMAIN placeholders found"
+          fi
+        fi
+
+        # Validate kustomization.yaml files exist in manifest directories with YAML files
+        if [ -d "manifests" ]; then
+          MISSING_KUSTOMIZATION=0
+          while IFS= read -r dir; do
+            YAML_COUNT=$(find "$dir" -maxdepth 1 -name '*.yaml' -not -name 'kustomization.yaml' -type f | wc -l)
+            if [ "$YAML_COUNT" -gt 0 ]; then
+              if [ ! -f "$dir/kustomization.yaml" ]; then
+                echo "Missing kustomization.yaml in: $dir"
+                MISSING_KUSTOMIZATION=$((MISSING_KUSTOMIZATION + 1))
+              fi
+            fi
+          done < <(find manifests/ -type d)
+
+          if [ "$MISSING_KUSTOMIZATION" -gt 0 ]; then
+            ERRORS="${ERRORS}\n$MISSING_KUSTOMIZATION manifest directories are missing kustomization.yaml"
+            VALID="false"
+          else
+            echo "All manifest directories have kustomization.yaml files"
+          fi
+        fi
+
+        # Check required GitHub secrets
+        echo "Checking required secrets..."
+
+        if [ "$GITHUB_TOKEN_SET" != "true" ]; then
+          ERRORS="${ERRORS}\nGITHUB_TOKEN is not available. Check repository workflow permissions."
+          VALID="false"
+        else
+          echo "GITHUB_TOKEN is available"
+        fi
+
+        # SOPS_AGE_PRIVATE_KEY check
+        if [ "$SOPS_AGE_KEY_SET" != "true" ]; then
+          echo "SOPS_AGE_PRIVATE_KEY not set - will need to be configured for secret decryption"
+        else
+          echo "SOPS_AGE_PRIVATE_KEY is set"
+        fi
+
+        # Output results
+        echo "valid=$VALID" >> "$GITHUB_OUTPUT"
+        if [ "$VALID" = "false" ]; then
+          echo "errors<<EOF" >> "$GITHUB_OUTPUT"
+          echo -e "$ERRORS" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          echo "Configuration validation failed:"
+          echo -e "$ERRORS"
+          exit 1
+        else
+          echo "All configuration validation checks passed!"
+        fi

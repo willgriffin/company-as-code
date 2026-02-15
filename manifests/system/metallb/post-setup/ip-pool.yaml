@@ -1,0 +1,21 @@
+# Template: Replace the IP address below with your server's public IP
+# or a floating IP assigned to your nodes
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: default-pool
+  namespace: metallb-system
+spec:
+  addresses:
+    # Replace with your public IP or IP range
+    - 203.0.113.1/32
+  autoAssign: true
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: default-l2
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+    - default-pool

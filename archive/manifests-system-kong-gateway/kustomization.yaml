@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kong
+
+resources:
+  - namespace.yaml
+  - gateway-configuration.yaml
+  - gateway-class.yaml
+  - gateway.yaml
+  - plugins.yaml
+  - external-secret.yaml
+
+# Dependencies
+dependsOn:
+  - name: kong-gateway-operator
+    namespace: flux-system
+  - name: cert-manager-post-setup
+    namespace: flux-system
+  - name: external-secrets-post-setup
+    namespace: flux-system
+  - name: redis-operator
+    namespace: flux-system

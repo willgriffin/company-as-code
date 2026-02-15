@@ -1,0 +1,29 @@
+apiVersion: redis.redis.opstreelabs.in/v1beta2
+kind: Redis
+metadata:
+  name: example-org-redis
+  namespace: example-org
+spec:
+  kubernetesConfig:
+    image: redis:7-alpine
+    imagePullPolicy: IfNotPresent
+    service:
+      serviceType: ClusterIP
+    redisSecret:
+      name: example-org-redis-secret
+      key: password
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "250m"
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+        storageClassName: local-path

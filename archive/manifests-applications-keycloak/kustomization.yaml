@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - certificates.yaml
+  - keycloak.yaml
+  - routes.yaml
+  - network-policy.yaml
+
+# Dependencies managed at the Flux level
+# This namespace depends on keycloak-operator being ready

@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dex
+  namespace: dex
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: auth.TEMPLATE_DOMAIN
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - auth.TEMPLATE_DOMAIN
+      secretName: dex-tls
+  rules:
+    - host: auth.TEMPLATE_DOMAIN
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dex
+                port:
+                  number: 5556

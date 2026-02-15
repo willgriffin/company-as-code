@@ -1,0 +1,23 @@
+{
+  "name": "@startup-gitops/monorepo",
+  "version": "2.0.0",
+  "private": true,
+  "description": "k3s multicloud GitOps template with CDKTF and SOPS+age secrets",
+  "scripts": {
+    "build": "bun run build:root",
+    "build:root": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "lint": "bun run lint:workflows",
+    "lint:workflows": "bash -c 'if command -v actionlint &> /dev/null; then actionlint; else echo \"actionlint not installed, skipping\"; fi'",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.32",
+    "prettier": "^3.0.0",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

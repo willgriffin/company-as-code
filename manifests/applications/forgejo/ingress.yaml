@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: forgejo
+  namespace: forgejo
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    external-dns.alpha.kubernetes.io/hostname: git.TEMPLATE_DOMAIN
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "512m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - git.TEMPLATE_DOMAIN
+      secretName: forgejo-tls
+  rules:
+    - host: git.TEMPLATE_DOMAIN
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: forgejo-http
+                port:
+                  number: 3000

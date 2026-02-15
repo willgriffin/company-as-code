@@ -1,0 +1,41 @@
+# Postal configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postal-config
+  namespace: postal
+data:
+  # Database configuration
+  DATABASE_URL: "postgres://postal:$(DATABASE_PASSWORD)@postal-postgres-rw.postal.svc.cluster.local:5432/postal"
+  
+  # Redis configuration
+  REDIS_URL: "redis://rfs-postal-redis.postal.svc.cluster.local:6379/0"
+  
+  # RabbitMQ configuration
+  RABBITMQ_HOST: "postal-rabbitmq.postal.svc.cluster.local"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_VHOST: "/"
+  
+  # Web configuration
+  WEB_HOST: "postal.happyvertical.com"
+  WEB_PROTOCOL: "https"
+  
+  # SMTP configuration
+  SMTP_HOST: "smtp.happyvertical.com"
+  SMTP_PORT: "25"
+  
+  # DNS configuration
+  DNS_MX: "10 mail.happyvertical.com"
+  DNS_SPF: "v=spf1 mx a:mail.happyvertical.com include:amazonses.com ~all"
+  DNS_RETURN_PATH: "rp.happyvertical.com"
+  DNS_ROUTE_DOMAIN: "routes.happyvertical.com"
+  DNS_TRACK_DOMAIN: "track.happyvertical.com"
+  
+  # AWS SES relay configuration
+  SMTP_RELAY_HOST: "email-smtp.us-east-1.amazonaws.com"
+  SMTP_RELAY_PORT: "587"
+  SMTP_RELAY_SSL: "true"
+  SMTP_RELAY_STARTTLS: "true"
+  
+  # Fast server configuration
+  FAST_SERVER_ENABLED: "true"

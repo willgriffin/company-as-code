@@ -1,0 +1,30 @@
+{
+  "name": "GitOps Template",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:22",
+  "features": {
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
+      "version": "1.31.0",
+      "helm": "none",
+      "minikube": "none"
+    },
+    "ghcr.io/devcontainers/features/terraform:1": {
+      "version": "1.12.1"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/aws-cli:1": {}
+  },
+  "postCreateCommand": ".devcontainer/install-tools.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "HashiCorp.terraform",
+        "ms-vscode.vscode-typescript-next",
+        "redhat.vscode-yaml",
+        "ms-vscode.vscode-json"
+      ]
+    }
+  },
+  "forwardPorts": [],
+  "remoteUser": "node"
+}

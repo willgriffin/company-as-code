@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: stalwart-tls
+  namespace: example-org
+spec:
+  secretName: stalwart-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - mail.example-org.TEMPLATE_DOMAIN
+    - webmail.example-org.TEMPLATE_DOMAIN

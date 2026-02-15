@@ -1,0 +1,87 @@
+# External DNS Helm repository
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: external-dns
+  namespace: external-dns
+spec:
+  interval: 30m
+  url: https://kubernetes-sigs.github.io/external-dns/
+---
+# External DNS Helm release
+# Configure the provider and domain filters for your DNS provider
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: external-dns
+  namespace: external-dns
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: external-dns
+      version: "1.14.3"
+      sourceRef:
+        kind: HelmRepository
+        name: external-dns
+        namespace: external-dns
+  values:
+    # Provider: change to your DNS provider (route53, cloudflare, digitalocean, etc.)
+    provider: route53
+
+    # Domain filtering - replace with your domain
+    domainFilters:
+      - "TEMPLATE_DOMAIN"
+
+    # Source configuration
+    sources:
+      - service
+      - ingress
+
+    # Policy configuration
+    policy: sync
+    registry: txt
+    txtOwnerId: "my-cluster"
+    txtPrefix: "external-dns-"
+
+    interval: 1m
+    triggerLoopOnEvent: true
+
+    logLevel: info
+    logFormat: text
+
+    metrics:
+      enabled: true
+      port: 7979
+
+    serviceMonitor:
+      enabled: true
+      namespace: external-dns
+      interval: 30s
+      scrapeTimeout: 10s
+
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 65534
+      fsGroup: 65534
+      seccompProfile:
+        type: RuntimeDefault
+
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+
+    extraEnvVarsSecret: external-dns-secrets
+
+    replicaCount: 1

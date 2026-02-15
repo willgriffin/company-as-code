@@ -1,0 +1,31 @@
+# CloudNativePG cluster for tenant
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: example-org-postgres
+  namespace: example-org
+spec:
+  instances: 1
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "128MB"
+      effective_cache_size: "512MB"
+      work_mem: "4MB"
+      maintenance_work_mem: "64MB"
+  bootstrap:
+    initdb:
+      database: stalwart
+      owner: stalwart
+  storage:
+    size: 10Gi
+    storageClassName: local-path
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  monitoring:
+    enablePodMonitor: true

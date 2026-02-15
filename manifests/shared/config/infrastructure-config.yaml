@@ -1,0 +1,37 @@
+# Shared infrastructure configuration
+# Replace TEMPLATE_DOMAIN with your actual domain
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: infrastructure-config
+  namespace: flux-system
+data:
+  # Base domain - all services derive subdomains from this
+  base-domain: "TEMPLATE_DOMAIN"
+
+  # Application domains
+  auth-domain: "auth.TEMPLATE_DOMAIN"
+  cloud-domain: "cloud.TEMPLATE_DOMAIN"
+  chat-domain: "chat.TEMPLATE_DOMAIN"
+  mail-domain: "mail.TEMPLATE_DOMAIN"
+  ai-domain: "llm.TEMPLATE_DOMAIN"
+  grafana-domain: "grafana.TEMPLATE_DOMAIN"
+  prometheus-domain: "prometheus.TEMPLATE_DOMAIN"
+  git-domain: "git.TEMPLATE_DOMAIN"
+  homepage-domain: "homepage.TEMPLATE_DOMAIN"
+  oauth2-domain: "oauth2.TEMPLATE_DOMAIN"
+
+  # Cluster configuration
+  cluster-name: "my-cluster"
+  cluster-region: "us-east-1"
+
+  # Service endpoints
+  dex-issuer-url: "https://auth.TEMPLATE_DOMAIN"
+  oauth2-callback-url: "https://oauth2.TEMPLATE_DOMAIN/oauth2/callback"
+
+  # Storage class - override per provider
+  storage-class: "local-path"
+  storage-class-block: "local-path"
+
+  # Contact email for Let's Encrypt
+  acme-email: "admin@TEMPLATE_DOMAIN"

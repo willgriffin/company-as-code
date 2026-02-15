@@ -1,0 +1,70 @@
+#!/bin/bash
+#
+# Pre-push hook to run format check, lint, and build
+#
+
+echo "Running pre-push checks..."
+
+# Check if we're in a workspace environment (has pnpm-workspace.yaml)
+if [ -f "pnpm-workspace.yaml" ]; then
+  # Run format check using pnpm
+  echo "Running format check..."
+  pnpm run format:check
+  FORMAT_EXIT_CODE=$?
+  
+  # If format check passes, run lint
+  if [ $FORMAT_EXIT_CODE -eq 0 ]; then
+    echo "Running lint..."
+    pnpm run lint
+    LINT_EXIT_CODE=$?
+    
+    # If lint passes, run build
+    if [ $LINT_EXIT_CODE -eq 0 ]; then
+      echo "Running build..."
+      pnpm run build
+      BUILD_EXIT_CODE=$?
+    fi
+  fi
+else
+  # Fallback to npm
+  echo "Running format check..."
+  npm run format:check
+  FORMAT_EXIT_CODE=$?
+  
+  # If format check passes, run lint
+  if [ $FORMAT_EXIT_CODE -eq 0 ]; then
+    echo "Running lint..."
+    npm run lint
+    LINT_EXIT_CODE=$?
+    
+    # If lint passes, run build
+    if [ $LINT_EXIT_CODE -eq 0 ]; then
+      echo "Running build..."
+      npm run build
+      BUILD_EXIT_CODE=$?
+    fi
+  fi
+fi
+
+# If format check fails, prevent push
+if [ $FORMAT_EXIT_CODE -ne 0 ]; then
+  echo "❌ Format check failed. Please fix formatting before pushing."
+  echo "You can run 'pnpm run format' to auto-format the code."
+  exit 1
+fi
+
+# If lint fails, prevent push
+if [ $LINT_EXIT_CODE -ne 0 ]; then
+  echo "❌ Lint failed. Please fix the issues before pushing."
+  echo "You can run 'pnpm run lint:fix' to auto-fix some issues."
+  exit 1
+fi
+
+# If build fails, prevent push
+if [ $BUILD_EXIT_CODE -ne 0 ]; then
+  echo "❌ Build failed. Please fix the issues before pushing."
+  exit 1
+fi
+
+echo "✅ Format check, lint, and build passed."
+exit 0

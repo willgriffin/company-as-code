@@ -1,0 +1,7 @@
+# Mattermost namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mattermost
+  labels:
+    name: mattermost

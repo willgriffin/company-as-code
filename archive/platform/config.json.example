@@ -1,0 +1,23 @@
+{
+  "project": {
+    "name": "TEMPLATE_PROJECT_NAME_PLACEHOLDER",
+    "domain": "TEMPLATE_DOMAIN_PLACEHOLDER", 
+    "email": "TEMPLATE_EMAIL_PLACEHOLDER",
+    "description": "TEMPLATE_PROJECT_NAME_PLACEHOLDER as code"
+  },
+  "environments": [
+    {
+      "name": "production",
+      "cluster": {
+        "region": "nyc3",
+        "nodeSize": "s-2vcpu-4gb",
+        "nodeCount": 3,
+        "minNodes": 2,
+        "maxNodes": 6,
+        "haControlPlane": true,
+        "version": "1.31.0-do.0"
+      },
+      "domain": "TEMPLATE_DOMAIN_PLACEHOLDER"
+    }
+  ]
+}

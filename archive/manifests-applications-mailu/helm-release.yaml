@@ -1,0 +1,373 @@
+# Mailu Helm release
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: mailu
+  namespace: mailu
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: mailu
+      version: "1.5.0"
+      sourceRef:
+        kind: HelmRepository
+        name: mailu
+        namespace: mailu
+  values:
+    # Domain configuration
+    domain: "happyvertical.com"
+    hostnames:
+      - mail.happyvertical.com
+    
+    # Mail configuration
+    mailuVersion: "2023.11"
+    subnet: "10.0.0.0/8"
+    
+    # Database configuration
+    database:
+      type: postgresql
+      postgresql:
+        enabled: false  # Using external PostgreSQL
+        host: mailu-postgres-rw.mailu.svc.cluster.local
+        port: 5432
+        database: mailu
+        username: mailu
+        passwordSecret: mailu-postgres-credentials
+        passwordSecretKey: password
+    
+    # Redis configuration
+    redis:
+      enabled: false  # Using external Redis
+      host: rfs-mailu-redis.mailu.svc.cluster.local
+      port: 6379
+    
+    # Security and secrets
+    secretKey:
+      existingSecret: mailu-secrets
+      existingSecretKey: secret-key
+    
+    # Initial admin configuration
+    initialAccount:
+      enabled: true
+      username: admin
+      domain: "happyvertical.com"
+      existingSecret: mailu-secrets
+      existingSecretPasswordKey: admin-password
+    
+    # Ingress (disabled - using Kong)
+    ingress:
+      enabled: false
+    
+    # Components configuration
+    front:
+      # Front component handles HTTP/HTTPS/SMTP/IMAP/POP3
+      replicas: 2
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      persistence:
+        size: 1Gi
+        storageClass: do-block-storage
+        accessMode: ReadWriteMany
+      
+      # Security context hardening
+      securityContext:
+        runAsNonRoot: false  # Required for mail server operations
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+        capabilities:
+          drop:
+            - ALL
+          add:
+            - NET_BIND_SERVICE  # Required for binding to privileged ports
+            - SETGID           # Required for mail operations
+            - SETUID           # Required for mail operations
+      
+      # Service configuration
+      service:
+        type: LoadBalancer
+        annotations:
+          service.beta.kubernetes.io/do-loadbalancer-name: "happyvertical-production-mailu"
+          service.beta.kubernetes.io/do-loadbalancer-protocol: "tcp"
+          service.beta.kubernetes.io/do-loadbalancer-algorithm: "round_robin"
+          service.beta.kubernetes.io/do-loadbalancer-size-slug: "lb-small"
+          external-dns.alpha.kubernetes.io/hostname: "mail.happyvertical.com"
+        ports:
+          pop3: false  # Disable POP3
+          pop3s: false
+          imap: true
+          imaps: true
+          smtp: true
+          smtps: true
+          submission: true
+    
+    # Admin interface
+    admin:
+      enabled: true
+      replicas: 1
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      persistence:
+        size: 2Gi
+        storageClass: do-block-storage
+        accessMode: ReadWriteOnce
+      
+      # Security context hardening
+      securityContext:
+        runAsNonRoot: true   # Admin interface can run as non-root
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+        capabilities:
+          drop:
+            - ALL
+    
+    # Postfix SMTP server
+    postfix:
+      enabled: true
+      replicas: 2
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      persistence:
+        size: 2Gi
+        storageClass: do-block-storage
+        accessMode: ReadWriteOnce
+      
+      # Security context hardening
+      securityContext:
+        runAsNonRoot: false  # Postfix requires root for mail operations
+        runAsUser: 0         # Required for postfix operations
+        runAsGroup: 0
+        fsGroup: 0
+        seccompProfile:
+          type: RuntimeDefault
+        capabilities:
+          drop:
+            - ALL
+          add:
+            - NET_BIND_SERVICE  # Required for SMTP ports
+            - SETGID           # Required for mail operations
+            - SETUID           # Required for mail operations
+            - CHOWN            # Required for mail file operations
+            - DAC_OVERRIDE     # Required for mail file access
+      
+      # Postfix configuration
+      messageSizeLimitMb: 50
+      rejectUnlistedRecipient: true
+      
+      # Outbound relay configuration (AWS SES)
+      outboundRelay:
+        enabled: true
+        host: email-smtp.us-east-1.amazonaws.com
+        port: 587
+        authEnabled: true
+        username:
+          secretName: mailu-secrets
+          secretKey: smtp-username
+        password:
+          secretName: mailu-secrets
+          secretKey: smtp-password
+    
+    # Dovecot IMAP server
+    dovecot:
+      enabled: true
+      replicas: 2
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      persistence:
+        size: 10Gi
+        storageClass: do-block-storage
+        accessMode: ReadWriteMany
+      
+      # Security context hardening
+      securityContext:
+        runAsNonRoot: false  # Dovecot requires root for mail operations
+        runAsUser: 0         # Required for dovecot operations
+        runAsGroup: 0
+        fsGroup: 0
+        seccompProfile:
+          type: RuntimeDefault
+        capabilities:
+          drop:
+            - ALL
+          add:
+            - NET_BIND_SERVICE  # Required for IMAP ports
+            - SETGID           # Required for mail operations
+            - SETUID           # Required for mail operations
+            - CHOWN            # Required for mail file operations
+            - DAC_OVERRIDE     # Required for mail file access
+    
+    # Rspamd spam filter
+    rspamd:
+      enabled: true
+      replicas: 2
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      persistence:
+        size: 1Gi
+        storageClass: do-block-storage
+        accessMode: ReadWriteOnce
+      
+      # Security context hardening
+      securityContext:
+        runAsNonRoot: true   # Rspamd can run as non-root
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+        capabilities:
+          drop:
+            - ALL
+    
+    # ClamAV antivirus
+    clamav:
+      enabled: true
+      replicas: 1
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+      persistence:
+        size: 2Gi
+        storageClass: do-block-storage
+        accessMode: ReadWriteOnce
+      
+      # Security context hardening
+      securityContext:
+        runAsNonRoot: true   # ClamAV can run as non-root
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+        capabilities:
+          drop:
+            - ALL
+    
+    # Webmail (Roundcube)
+    webmail:
+      enabled: true
+      type: roundcube
+      replicas: 2
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      persistence:
+        size: 1Gi
+        storageClass: do-block-storage
+        accessMode: ReadWriteOnce
+      
+      # Security context hardening
+      securityContext:
+        runAsNonRoot: true   # Roundcube can run as non-root
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+        capabilities:
+          drop:
+            - ALL
+    
+    # Webdav support
+    webdav:
+      enabled: true
+      replicas: 1
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 256Mi
+      
+      # Security context hardening
+      securityContext:
+        runAsNonRoot: true   # WebDAV can run as non-root
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+        capabilities:
+          drop:
+            - ALL
+    
+    # Fetchmail
+    fetchmail:
+      enabled: false
+    
+    # Persistence for mail data
+    persistence:
+      enabled: true
+      storageClass: do-block-storage
+      accessMode: ReadWriteMany
+      size: 100Gi
+      claimNameOverride: mailu-storage
+    
+    # Global resource settings
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    
+    # Security contexts
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      capabilities:
+        add:
+          - NET_BIND_SERVICE
+          - DAC_OVERRIDE
+          - SETUID
+          - SETGID
+        drop:
+          - ALL
+    
+    # Pod security context
+    podSecurityContext:
+      runAsNonRoot: false  # Mailu requires root for some components
+      seccompProfile:
+        type: RuntimeDefault

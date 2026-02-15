@@ -1,0 +1,262 @@
+name: Deploy Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'apply'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+  push:
+    branches:
+      - main
+    paths:
+      - 'platform/**'
+      - '.github/workflows/terraform-deploy.yml'
+
+env:
+  TF_VERSION: '1.12.1'
+  NODE_VERSION: '22'
+  DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  TERRAFORM_STATE_BUCKET: ${{ secrets.TERRAFORM_STATE_BUCKET }}
+  TERRAFORM_STATE_REGION: ${{ secrets.TERRAFORM_STATE_REGION }}
+  NEXTCLOUD_BUCKET_ACCESS_KEY_ID: ${{ secrets.NEXTCLOUD_BUCKET_ACCESS_KEY_ID }}
+  NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY: ${{ secrets.NEXTCLOUD_BUCKET_SECRET_ACCESS_KEY }}
+  NEXTCLOUD_BUCKET_NAME: ${{ secrets.NEXTCLOUD_BUCKET_NAME }}
+  GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+jobs:
+  check-setup:
+    name: Check Repository Setup
+    runs-on: ubuntu-latest
+    outputs:
+      setup-complete: ${{ steps.setup-check.outputs.is-setup }}
+      should-skip: ${{ steps.setup-check.outputs.should-skip }}
+      is-deployed: ${{ steps.setup-check.outputs.is-deployed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Check if repository is set up
+        id: setup-check
+        uses: ./.github/actions/check-repository-status
+        env:
+          PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+      
+      - name: Check setup status (detailed)
+        if: steps.setup-check.outputs.should-skip != 'true'
+        id: check
+        uses: ./.github/actions/check-setup
+        with:
+          strict: true
+          digitalocean-token: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          terraform-state-bucket: ${{ secrets.TERRAFORM_STATE_BUCKET }}
+          terraform-state-region: ${{ secrets.TERRAFORM_STATE_REGION }}
+          project-name: ${{ secrets.PROJECT_NAME }}
+          admin-email: ${{ secrets.ADMIN_EMAIL }}
+          domain: ${{ secrets.DOMAIN }}
+
+  deploy-infrastructure:
+    name: Deploy Infrastructure with CDKTF
+    needs: check-setup
+    if: needs.check-setup.outputs.should-skip != 'true' && needs.check-setup.outputs.setup-complete == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Install PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      
+      - name: Build platform
+        run: pnpm run build
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: Install dependencies
+        run: pnpm install
+      
+      - name: Build platform
+        run: |
+          cd platform
+          pnpm run build
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.TERRAFORM_STATE_REGION }}
+      
+      - name: Install DigitalOcean CLI
+        run: |
+          # Install doctl for cleanup operations
+          curl -sL https://github.com/digitalocean/doctl/releases/download/v1.117.0/doctl-1.117.0-linux-amd64.tar.gz | tar -xzv
+          sudo mv doctl /usr/local/bin
+          doctl auth init --access-token ${{ env.DIGITALOCEAN_TOKEN }}
+      
+      - name: Get GitHub repository info
+        id: github
+        run: |
+          echo "owner=${GITHUB_REPOSITORY_OWNER}" >> "$GITHUB_OUTPUT"
+          echo "repo=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+      
+      - name: Set GitHub repository environment
+        run: |
+          echo "GITHUB_REPOSITORY=${{ github.repository }}" >> "$GITHUB_ENV"
+      
+      - name: Setup Kubernetes config
+        run: |
+          # Create kubeconfig directory
+          mkdir -p ~/.kube
+          
+          # Find the running cluster and create kubeconfig
+          CLUSTER_NAME=$(doctl kubernetes cluster list --format Name,Status --no-header | grep running | head -n1 | cut -d' ' -f1)
+          if [ -n "$CLUSTER_NAME" ]; then
+            echo "Setting up kubeconfig for cluster: $CLUSTER_NAME"
+            doctl kubernetes cluster kubeconfig save "$CLUSTER_NAME"
+            echo "✅ Kubeconfig configured for Flux deployment"
+          else
+            echo "⚠️ No running cluster found, kubeconfig setup skipped"
+          fi
+      
+      - name: Validate and Initialize Terraform State
+        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event.inputs.action == 'plan'
+        uses: ./.github/actions/validate-terraform-state
+        with:
+          terraform-state-bucket: ${{ env.TERRAFORM_STATE_BUCKET }}
+          terraform-state-region: ${{ env.TERRAFORM_STATE_REGION }}
+          working-directory: platform
+      
+      - name: CDKTF Plan
+        if: github.event.inputs.action == 'plan' || github.event.inputs.action == ''
+        run: |
+          cd platform
+          echo "📋 Running CDKTF plan..."
+          pnpm run plan
+      
+      - name: CDKTF Deploy
+        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        run: |
+          cd platform
+          echo "🚀 Deploying infrastructure with CDKTF..."
+          pnpm run deploy
+      
+      - name: Verify State Storage
+        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        uses: ./.github/actions/verify-state-storage
+        with:
+          terraform-state-bucket: ${{ env.TERRAFORM_STATE_BUCKET }}
+          expected-min-stacks: 3
+      
+      - name: CDKTF Destroy
+        if: github.event.inputs.action == 'destroy'
+        run: |
+          cd platform
+          echo "🗑️ Destroying infrastructure with CDKTF..."
+          pnpm run destroy
+      
+      - name: Infrastructure deployment complete
+        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        run: |
+          echo "🎉 Infrastructure deployment completed successfully!"
+      
+      
+      - name: Send deployment success notification
+        if: success() && (github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && needs.check-setup.outputs.is-deployed == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: email-smtp.us-east-1.amazonaws.com
+          server_port: 587
+          username: ${{ secrets.SES_SMTP_USERNAME }}
+          password: ${{ secrets.SES_SMTP_PASSWORD }}
+          subject: '✅ CDKTF Deployment Complete: ${{ github.repository }}'
+          to: ${{ secrets.ADMIN_EMAIL }}
+          from: 'GitOps Deployment <noreply@${{ secrets.DOMAIN }}>'
+          body: |
+            🎉 Your CDKTF infrastructure deployment has completed successfully!
+            
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            
+            🌐 Application URLs:
+            - Keycloak (Auth): https://auth.${{ secrets.DOMAIN }}
+            - Nextcloud (Files): https://cloud.${{ secrets.DOMAIN }}
+            - Mattermost (Chat): https://chat.${{ secrets.DOMAIN }}
+            - Mailu (Email): https://webmail.${{ secrets.DOMAIN }}
+            
+            🚀 Infrastructure Details:
+            - Kubernetes cluster deployed via DigitalOcean
+            - Flux GitOps reconciliation active
+            - External Secrets: Dynamic secret injection active
+            - TLS Certificates: Automatic via cert-manager
+            
+            📋 Next Steps:
+            1. Check DigitalOcean console for Kong Gateway LoadBalancer IP
+            2. Update DNS records to point to the LoadBalancer IP
+            3. Wait for TLS certificates to be issued automatically
+            4. Access applications using the URLs above
+            
+            Workflow URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            Happy GitOps! 🚀
+      
+      - name: Send deployment failure notification  
+        if: failure() && needs.check-setup.outputs.is-deployed == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: email-smtp.us-east-1.amazonaws.com
+          server_port: 587
+          username: ${{ secrets.SES_SMTP_USERNAME }}
+          password: ${{ secrets.SES_SMTP_PASSWORD }}
+          subject: '❌ CDKTF Deployment Failed: ${{ github.repository }}'
+          to: ${{ secrets.ADMIN_EMAIL }}
+          from: 'GitOps Deployment <noreply@${{ secrets.DOMAIN }}>'
+          body: |
+            ❌ Your CDKTF infrastructure deployment has failed.
+            
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            
+            🔍 Troubleshooting:
+            1. Check the workflow logs for detailed error messages
+            2. Verify your repository secrets are correctly configured
+            3. Ensure AWS credentials have proper permissions for S3 state storage
+            4. Check DigitalOcean resources and quota limits
+            5. Verify CDKTF configuration in platform/config.json
+            
+            📋 Common Issues:
+            - AWS S3 bucket permissions for Terraform state
+            - Insufficient DigitalOcean credits or quota limits
+            - Invalid SES configuration
+            - CDKTF dependencies or Node.js version issues
+            - Network connectivity to cloud providers
+            
+            Workflow URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            Please review the logs and try again.

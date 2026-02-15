@@ -1,0 +1,74 @@
+# RabbitMQ Cluster Operator
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq-cluster-operator
+  namespace: rabbitmq-operator
+  labels:
+    app.kubernetes.io/component: rabbitmq-operator
+    app.kubernetes.io/name: rabbitmq-cluster-operator
+    app.kubernetes.io/part-of: rabbitmq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq-cluster-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: rabbitmq-operator
+        app.kubernetes.io/name: rabbitmq-cluster-operator
+        app.kubernetes.io/part-of: rabbitmq
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - args:
+        - --metrics-bind-address=:8080
+        - --leader-elect
+        command:
+        - /manager
+        env:
+        - name: OPERATOR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: rabbitmqoperator/cluster-operator:2.6.0
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: operator
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          seccompProfile:
+            type: RuntimeDefault
+      serviceAccountName: rabbitmq-cluster-operator
+      terminationGracePeriodSeconds: 10

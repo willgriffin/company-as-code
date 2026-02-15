@@ -1,0 +1,22 @@
+# Scheduled backup - requires S3 backup destination configured
+# Uncomment and configure when backup storage is available
+# apiVersion: postgresql.cnpg.io/v1
+# kind: ScheduledBackup
+# metadata:
+#   name: example-org-postgres-backup
+#   namespace: example-org
+# spec:
+#   schedule: "0 3 * * *"
+#   backupOwnerReference: self
+#   cluster:
+#     name: example-org-postgres
+#   method: barmanObjectStore
+---
+# Placeholder - remove this when uncommenting the ScheduledBackup above
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-backup-config
+  namespace: example-org
+data:
+  note: "Configure ScheduledBackup when S3 backup storage is available"

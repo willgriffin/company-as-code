@@ -1,0 +1,10 @@
+# Tool versions for caching in GitHub Actions
+# This file is used to generate cache keys for tool installations
+terraform=1.12.2
+flux=2.6.4
+kubectl=1.34.0
+yq=4.47.1
+actionlint=1.7.7
+sops=3.10.2
+age=1.2.1
+gomplate=4.3.3

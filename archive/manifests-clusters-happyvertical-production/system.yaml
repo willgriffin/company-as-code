@@ -1,0 +1,251 @@
+# System deployments - ordered by dependencies
+---
+# Base layer - no dependencies
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: digitalocean-secrets
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/system/digitalocean-secrets"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+---
+# External secrets system - depends on digitalocean-secrets
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: external-secrets
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/system/external-secrets"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: digitalocean-secrets
+---
+# External secrets post-setup (ClusterSecretStore, etc)
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: external-secrets-post-setup
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/system/external-secrets/post-setup"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: external-secrets
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+      kind: HelmRelease
+      name: external-secrets
+      namespace: external-secrets
+---
+# Cert-manager - depends on external-secrets being fully ready
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: cert-manager
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/system/cert-manager"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: external-secrets-post-setup
+---
+# Cert-manager post-setup (ClusterIssuers, etc)
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: cert-manager-post-setup
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/system/cert-manager/post-setup"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: cert-manager
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
+      kind: HelmRelease
+      name: cert-manager
+      namespace: cert-manager
+---
+# Database operators - CloudNativePG
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: postgresql-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/system/postgresql-operator"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: external-secrets
+---
+# Redis operator
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: redis-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/system/redis-operator"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: external-secrets
+---
+# RabbitMQ operator
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: rabbitmq-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/system/rabbitmq-operator"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: external-secrets
+---
+# Keycloak operator - depends on database operator
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: keycloak-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/system/keycloak-operator"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: postgresql-operator
+---
+# Gateway API CRDs - foundational for Kong Gateway Operator
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: gateway-api
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/system/gateway-api"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+---
+# Kong Gateway Operator - modern approach
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kong-gateway-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/system/kong-gateway-operator"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: gateway-api
+---
+# Kong Gateway configuration - depends on operator and prerequisites
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kong-gateway
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/system/kong-gateway"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: kong-gateway-operator
+    - name: cert-manager-post-setup
+    - name: redis-operator
+    - name: external-secrets-post-setup
+---
+# External DNS - depends on kong for hostname management
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: external-dns
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/system/external-dns"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: kong-gateway
+---
+# Monitoring stack - depends on kong and cert-manager
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: monitoring
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/system/monitoring"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: kong-gateway
+    - name: cert-manager-post-setup
+---
+# Velero backup - depends on monitoring for alerting
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: velero
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: "./manifests/system/velero"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: monitoring

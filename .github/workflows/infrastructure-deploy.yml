@@ -1,0 +1,90 @@
+name: Infrastructure Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: 'Cloud provider to deploy'
+        required: true
+        type: choice
+        options:
+          - hetzner
+          - digitalocean
+      action:
+        description: 'Terraform action'
+        required: true
+        type: choice
+        options:
+          - plan
+          - deploy
+          - destroy
+
+jobs:
+  deploy:
+    name: Deploy Infrastructure (${{ inputs.provider }})
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+
+    - name: Setup tools
+      uses: ./.github/actions/setup-tools
+      with:
+        tools: 'kubectl'
+
+    - name: Install dependencies
+      working-directory: infrastructure/${{ inputs.provider }}
+      run: bun install
+
+    - name: CDKTF Plan
+      if: inputs.action == 'plan' || inputs.action == 'deploy'
+      working-directory: infrastructure/${{ inputs.provider }}
+      run: npx cdktf plan
+      env:
+        HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+        DOMAIN: ${{ secrets.DOMAIN }}
+        PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+        SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
+        STATE_BUCKET: ${{ secrets.STATE_BUCKET }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        HOSTED_ZONE_ID: ${{ secrets.HOSTED_ZONE_ID }}
+
+    - name: CDKTF Deploy
+      if: inputs.action == 'deploy'
+      working-directory: infrastructure/${{ inputs.provider }}
+      run: npx cdktf deploy --auto-approve
+      env:
+        HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+        DOMAIN: ${{ secrets.DOMAIN }}
+        PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+        SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
+        STATE_BUCKET: ${{ secrets.STATE_BUCKET }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        HOSTED_ZONE_ID: ${{ secrets.HOSTED_ZONE_ID }}
+
+    - name: CDKTF Destroy
+      if: inputs.action == 'destroy'
+      working-directory: infrastructure/${{ inputs.provider }}
+      run: npx cdktf destroy --auto-approve
+      env:
+        HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+        DOMAIN: ${{ secrets.DOMAIN }}
+        PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+        SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
+        STATE_BUCKET: ${{ secrets.STATE_BUCKET }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        HOSTED_ZONE_ID: ${{ secrets.HOSTED_ZONE_ID }}

@@ -1,0 +1,53 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: sablier
+  namespace: sablier
+spec:
+  interval: 30m
+  url: https://sablierapp.github.io/helm-charts
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: sablier
+  namespace: sablier
+spec:
+  interval: 30m
+  timeout: 10m
+  chart:
+    spec:
+      chart: sablier
+      version: "1.0.3"
+      sourceRef:
+        kind: HelmRepository
+        name: sablier
+        namespace: sablier
+  values:
+    replicas: 1
+    logLevel: "info"
+    image:
+      repository: sablierapp/sablier
+      pullPolicy: IfNotPresent
+    config:
+      provider:
+        name: kubernetes
+      sessions:
+        defaultDuration: 12h
+        expirationInterval: 5m
+      blocking:
+        defaultTimeout: 5m
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+    service:
+      type: ClusterIP
+      port: 10000
+    serviceAccount:
+      create: true
+    rbac:
+      create: true

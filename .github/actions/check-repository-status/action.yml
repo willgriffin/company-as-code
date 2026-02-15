@@ -1,0 +1,83 @@
+---
+name: 'Check Repository Status'
+description: 'Determines repository status: template, configured, or deployed'
+outputs:
+  is-setup:
+    description: 'Whether the repository has been set up (true/false)'
+    value: ${{ steps.check.outputs.is-setup }}
+  is-deployed:
+    description: 'Whether infrastructure directories exist (true/false)'
+    value: ${{ steps.check.outputs.is-deployed }}
+  should-skip:
+    description: 'Whether workflows should be skipped (true/false)'
+    value: ${{ steps.check.outputs.should-skip }}
+  status:
+    description: 'Repository status: template, configured, or deployed'
+    value: ${{ steps.check.outputs.status }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Check repository status
+      id: check
+      shell: bash
+      run: |
+        IS_SETUP="false"
+        IS_DEPLOYED="false"
+        SHOULD_SKIP="false"
+        STATUS="template"
+
+        # Check for TEMPLATE_DOMAIN placeholders (indicates unconfigured template)
+        TEMPLATE_PLACEHOLDERS=$(grep -r "TEMPLATE_DOMAIN" manifests/ 2>/dev/null | wc -l || echo "0")
+        if [ "$TEMPLATE_PLACEHOLDERS" -gt 0 ]; then
+          echo "Found $TEMPLATE_PLACEHOLDERS TEMPLATE_DOMAIN placeholder(s) - repository is still a template"
+          SHOULD_SKIP="true"
+          STATUS="template"
+          echo "is-setup=$IS_SETUP" >> "$GITHUB_OUTPUT"
+          echo "is-deployed=$IS_DEPLOYED" >> "$GITHUB_OUTPUT"
+          echo "should-skip=$SHOULD_SKIP" >> "$GITHUB_OUTPUT"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        # Check for .sops.yaml (indicates SOPS+age secret management is configured)
+        if [ -f ".sops.yaml" ]; then
+          echo "Found .sops.yaml - SOPS secret management is configured"
+          IS_SETUP="true"
+        else
+          echo "No .sops.yaml found - SOPS secret management not configured"
+        fi
+
+        # Check for infrastructure directories
+        if [ -d "infrastructure/hetzner" ] || [ -d "infrastructure/digitalocean" ]; then
+          echo "Found infrastructure directory"
+          IS_DEPLOYED="true"
+        else
+          echo "No infrastructure directory found (hetzner or digitalocean)"
+        fi
+
+        # Check for manifests/clusters directory
+        if [ -d "manifests/clusters" ]; then
+          echo "Found manifests/clusters directory"
+          IS_SETUP="true"
+        else
+          echo "No manifests/clusters directory found"
+        fi
+
+        # Determine overall status
+        if [ "$IS_SETUP" = "true" ] && [ "$IS_DEPLOYED" = "true" ]; then
+          STATUS="deployed"
+          echo "Repository is configured with infrastructure and manifests"
+        elif [ "$IS_SETUP" = "true" ]; then
+          STATUS="configured"
+          echo "Repository is configured but no infrastructure directory found"
+        else
+          STATUS="template"
+          SHOULD_SKIP="true"
+          echo "Repository appears to be a template - workflows may be skipped"
+        fi
+
+        echo "is-setup=$IS_SETUP" >> "$GITHUB_OUTPUT"
+        echo "is-deployed=$IS_DEPLOYED" >> "$GITHUB_OUTPUT"
+        echo "should-skip=$SHOULD_SKIP" >> "$GITHUB_OUTPUT"
+        echo "status=$STATUS" >> "$GITHUB_OUTPUT"

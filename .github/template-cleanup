@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# This script is run automatically when a repository is created from the template
+# It cleans up template-specific files and prepares the repository for customization
+
+echo "🧹 Cleaning up template files..."
+
+# Remove the template cleanup script itself
+rm -f .github/template-cleanup
+
+# Remove any template-specific documentation that shouldn't be in user repos
+# (Keep TEMPLATE_SETUP.md as it contains setup instructions)
+
+echo "✅ Template cleanup complete!"
+echo ""
+echo "Next steps:"
+echo "1. Copy config.yaml.example to config.yaml"
+echo "2. Customize config.yaml with your settings"
+echo "3. Set up GitHub secrets: DIGITALOCEAN_TOKEN and GITHUB_TOKEN"
+echo "4. Commit and push to trigger deployment"
+echo ""
+echo "📖 See TEMPLATE_SETUP.md for detailed instructions"

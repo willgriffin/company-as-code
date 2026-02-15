@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kanidm
+  namespace: example-org
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: idp.example-org.TEMPLATE_DOMAIN
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - idp.example-org.TEMPLATE_DOMAIN
+      secretName: kanidm-tls
+  rules:
+    - host: idp.example-org.TEMPLATE_DOMAIN
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kanidm
+                port:
+                  number: 8443

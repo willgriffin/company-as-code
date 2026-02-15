@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana
+  namespace: grafana
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    external-dns.alpha.kubernetes.io/hostname: grafana.TEMPLATE_DOMAIN
+    nginx.ingress.kubernetes.io/auth-url: http://oauth2-proxy.oauth2-proxy.svc.cluster.local:4180/oauth2/auth
+    nginx.ingress.kubernetes.io/auth-signin: https://oauth2.TEMPLATE_DOMAIN/oauth2/start?rd=https%3A%2F%2Fgrafana.TEMPLATE_DOMAIN%2F
+    nginx.ingress.kubernetes.io/auth-response-headers: X-Auth-Request-User,X-Auth-Request-Email
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - grafana.TEMPLATE_DOMAIN
+      secretName: grafana-tls
+  rules:
+    - host: grafana.TEMPLATE_DOMAIN
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 80

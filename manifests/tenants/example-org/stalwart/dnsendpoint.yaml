@@ -1,0 +1,13 @@
+# DNSEndpoint for mail server - points to your load balancer IP
+# Replace the target IP with your mail load balancer's IP
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: stalwart-mail-dns
+  namespace: example-org
+spec:
+  endpoints:
+    - dnsName: mail.example-org.TEMPLATE_DOMAIN
+      recordType: A
+      targets:
+        - "203.0.113.2"

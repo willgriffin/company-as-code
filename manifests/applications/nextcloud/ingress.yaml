@@ -1,0 +1,39 @@
+# NGINX Ingress for Nextcloud
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nextcloud
+  namespace: nextcloud
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "16G"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+    nginx.ingress.kubernetes.io/server-snippet: |
+      server_tokens off;
+      proxy_hide_header X-Powered-By;
+      rewrite ^/.well-known/webfinger /index.php/.well-known/webfinger last;
+      rewrite ^/.well-known/nodeinfo /index.php/.well-known/nodeinfo last;
+      rewrite ^/.well-known/host-meta /public.php?service=host-meta last;
+      rewrite ^/.well-known/host-meta.json /public.php?service=host-meta-json;
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "X-Forwarded-For"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - cloud.TEMPLATE_DOMAIN
+      secretName: nextcloud-tls
+  rules:
+    - host: cloud.TEMPLATE_DOMAIN
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nextcloud
+                port:
+                  number: 8080

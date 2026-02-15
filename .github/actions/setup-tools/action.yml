@@ -1,0 +1,207 @@
+---
+name: 'Setup GitOps Tools'
+description: >-
+  Install and cache CLI tools for GitOps workflows.
+  Reads versions from tool-versions.txt and installs only requested tools.
+inputs:
+  tools:
+    description: >-
+      Comma-separated list of tools to install.
+      Available: actionlint, terraform, flux, kubectl, yq, sops, age, gomplate
+    required: false
+    default: ''
+outputs:
+  cache-hit:
+    description: 'Whether the tools were restored from cache'
+    value: ${{ steps.cache-tools.outputs.cache-hit }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Read tool versions
+      id: versions
+      shell: bash
+      run: |
+        echo "Reading tool versions from tool-versions.txt..."
+        while IFS='=' read -r tool version; do
+          # Skip empty lines and comments
+          [[ -z "$tool" || "$tool" =~ ^# ]] && continue
+          echo "${tool}-version=${version}" >> "$GITHUB_OUTPUT"
+          echo "  ${tool}: ${version}"
+        done < tool-versions.txt
+
+    - name: Cache tools
+      id: cache-tools
+      uses: actions/cache@v4
+      with:
+        path: /usr/local/bin/gitops-tools
+        key: ${{ runner.os }}-tools-${{ hashFiles('tool-versions.txt') }}
+
+    - name: Create tools directory
+      if: steps.cache-tools.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        sudo mkdir -p /usr/local/bin/gitops-tools
+
+    - name: Install actionlint
+      if: >-
+        steps.cache-tools.outputs.cache-hit != 'true' &&
+        contains(inputs.tools, 'actionlint')
+      shell: bash
+      env:
+        VERSION: ${{ steps.versions.outputs.actionlint-version }}
+      run: |
+        echo "Installing actionlint v${VERSION}..."
+        curl -sLo actionlint.tar.gz \
+          "https://github.com/rhysd/actionlint/releases/download/v${VERSION}/actionlint_${VERSION}_linux_amd64.tar.gz"
+        tar xf actionlint.tar.gz actionlint
+        sudo mv actionlint /usr/local/bin/gitops-tools/
+        rm -f actionlint.tar.gz
+
+    - name: Install terraform
+      if: >-
+        steps.cache-tools.outputs.cache-hit != 'true' &&
+        contains(inputs.tools, 'terraform')
+      shell: bash
+      env:
+        VERSION: ${{ steps.versions.outputs.terraform-version }}
+      run: |
+        echo "Installing terraform v${VERSION}..."
+        curl -sLo terraform.zip \
+          "https://releases.hashicorp.com/terraform/${VERSION}/terraform_${VERSION}_linux_amd64.zip"
+        unzip -o terraform.zip terraform
+        sudo mv terraform /usr/local/bin/gitops-tools/
+        rm -f terraform.zip
+
+    - name: Install flux
+      if: >-
+        steps.cache-tools.outputs.cache-hit != 'true' &&
+        contains(inputs.tools, 'flux')
+      shell: bash
+      env:
+        VERSION: ${{ steps.versions.outputs.flux-version }}
+      run: |
+        echo "Installing flux v${VERSION}..."
+        curl -sLo flux.tar.gz \
+          "https://github.com/fluxcd/flux2/releases/download/v${VERSION}/flux_${VERSION}_linux_amd64.tar.gz"
+        tar xf flux.tar.gz flux
+        sudo mv flux /usr/local/bin/gitops-tools/
+        rm -f flux.tar.gz
+
+    - name: Install kubectl
+      if: >-
+        steps.cache-tools.outputs.cache-hit != 'true' &&
+        contains(inputs.tools, 'kubectl')
+      shell: bash
+      env:
+        VERSION: ${{ steps.versions.outputs.kubectl-version }}
+      run: |
+        echo "Installing kubectl v${VERSION}..."
+        curl -sLo kubectl \
+          "https://dl.k8s.io/release/v${VERSION}/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin/gitops-tools/
+
+    - name: Install yq
+      if: >-
+        steps.cache-tools.outputs.cache-hit != 'true' &&
+        contains(inputs.tools, 'yq')
+      shell: bash
+      env:
+        VERSION: ${{ steps.versions.outputs.yq-version }}
+      run: |
+        echo "Installing yq v${VERSION}..."
+        curl -sLo yq \
+          "https://github.com/mikefarah/yq/releases/download/v${VERSION}/yq_linux_amd64"
+        chmod +x yq
+        sudo mv yq /usr/local/bin/gitops-tools/
+
+    - name: Install sops
+      if: >-
+        steps.cache-tools.outputs.cache-hit != 'true' &&
+        contains(inputs.tools, 'sops')
+      shell: bash
+      env:
+        VERSION: ${{ steps.versions.outputs.sops-version }}
+      run: |
+        echo "Installing sops v${VERSION}..."
+        curl -sLo sops \
+          "https://github.com/getsops/sops/releases/download/v${VERSION}/sops-v${VERSION}.linux.amd64"
+        chmod +x sops
+        sudo mv sops /usr/local/bin/gitops-tools/
+
+    - name: Install age
+      if: >-
+        steps.cache-tools.outputs.cache-hit != 'true' &&
+        contains(inputs.tools, 'age')
+      shell: bash
+      env:
+        VERSION: ${{ steps.versions.outputs.age-version }}
+      run: |
+        echo "Installing age v${VERSION}..."
+        curl -sLo age.tar.gz \
+          "https://github.com/FiloSottile/age/releases/download/v${VERSION}/age-v${VERSION}-linux-amd64.tar.gz"
+        tar xf age.tar.gz
+        sudo mv age/age age/age-keygen /usr/local/bin/gitops-tools/
+        rm -rf age age.tar.gz
+
+    - name: Install gomplate
+      if: >-
+        steps.cache-tools.outputs.cache-hit != 'true' &&
+        contains(inputs.tools, 'gomplate')
+      shell: bash
+      env:
+        VERSION: ${{ steps.versions.outputs.gomplate-version }}
+      run: |
+        echo "Installing gomplate v${VERSION}..."
+        curl -sLo gomplate \
+          "https://github.com/hairyhenderson/gomplate/releases/download/v${VERSION}/gomplate_linux-amd64"
+        chmod +x gomplate
+        sudo mv gomplate /usr/local/bin/gitops-tools/
+
+    - name: Add tools to PATH
+      shell: bash
+      run: |
+        echo "/usr/local/bin/gitops-tools" >> "$GITHUB_PATH"
+
+    - name: Verify installations
+      shell: bash
+      env:
+        TOOLS: ${{ inputs.tools }}
+      run: |
+        echo "Verifying tool installations..."
+        TOOL_DIR="/usr/local/bin/gitops-tools"
+
+        if [[ "$TOOLS" == *"actionlint"* ]] && [ -f "$TOOL_DIR/actionlint" ]; then
+          echo "actionlint: $("$TOOL_DIR/actionlint" -version 2>&1 | head -1)"
+        fi
+
+        if [[ "$TOOLS" == *"terraform"* ]] && [ -f "$TOOL_DIR/terraform" ]; then
+          echo "terraform: $("$TOOL_DIR/terraform" version -json 2>/dev/null | head -1)"
+        fi
+
+        if [[ "$TOOLS" == *"flux"* ]] && [ -f "$TOOL_DIR/flux" ]; then
+          echo "flux: $("$TOOL_DIR/flux" --version 2>&1)"
+        fi
+
+        if [[ "$TOOLS" == *"kubectl"* ]] && [ -f "$TOOL_DIR/kubectl" ]; then
+          echo "kubectl: $("$TOOL_DIR/kubectl" version --client --short 2>/dev/null || "$TOOL_DIR/kubectl" version --client 2>&1 | head -1)"
+        fi
+
+        if [[ "$TOOLS" == *"yq"* ]] && [ -f "$TOOL_DIR/yq" ]; then
+          echo "yq: $("$TOOL_DIR/yq" --version 2>&1)"
+        fi
+
+        if [[ "$TOOLS" == *"sops"* ]] && [ -f "$TOOL_DIR/sops" ]; then
+          echo "sops: $("$TOOL_DIR/sops" --version 2>&1)"
+        fi
+
+        if [[ "$TOOLS" == *"age"* ]] && [ -f "$TOOL_DIR/age" ]; then
+          echo "age: $("$TOOL_DIR/age" --version 2>&1)"
+        fi
+
+        if [[ "$TOOLS" == *"gomplate"* ]] && [ -f "$TOOL_DIR/gomplate" ]; then
+          echo "gomplate: $("$TOOL_DIR/gomplate" --version 2>&1)"
+        fi
+
+        echo "Tool setup complete."

@@ -1,0 +1,40 @@
+# PostgreSQL cluster for Mattermost
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: mattermost-postgres
+  namespace: mattermost
+spec:
+  instances: 1
+  
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      effective_cache_size: "1GB"
+      work_mem: "4MB"
+      maintenance_work_mem: "64MB"
+      random_page_cost: "1.1"
+      effective_io_concurrency: "200"
+  
+  bootstrap:
+    initdb:
+      database: mattermost
+      owner: mattermost
+      secret:
+        name: mattermost-postgres-credentials
+  
+  storage:
+    size: 20Gi
+    storageClass: local-path
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  
+  monitoring:
+    enablePodMonitor: true

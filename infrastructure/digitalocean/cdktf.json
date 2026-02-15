@@ -1,0 +1,15 @@
+{
+  "language": "typescript",
+  "app": "npx tsx main.ts",
+  "projectId": "digitalocean-k3s",
+  "sendCrashReports": "false",
+  "terraformProviders": [
+    "digitalocean/digitalocean@~> 2.36.0",
+    "hashicorp/aws@~> 5.0"
+  ],
+  "terraformModules": [],
+  "context": {
+    "excludeStackIdFromLogicalIds": "true",
+    "allowSepCharsInLogicalIds": "true"
+  }
+}

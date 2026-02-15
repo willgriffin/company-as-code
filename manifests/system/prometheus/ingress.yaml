@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prometheus
+  namespace: prometheus
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    external-dns.alpha.kubernetes.io/hostname: prometheus.TEMPLATE_DOMAIN
+    nginx.ingress.kubernetes.io/auth-url: http://oauth2-proxy.oauth2-proxy.svc.cluster.local:4180/oauth2/auth
+    nginx.ingress.kubernetes.io/auth-signin: https://oauth2.TEMPLATE_DOMAIN/oauth2/start?rd=https%3A%2F%2Fprometheus.TEMPLATE_DOMAIN%2F
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - prometheus.TEMPLATE_DOMAIN
+      secretName: prometheus-tls
+  rules:
+    - host: prometheus.TEMPLATE_DOMAIN
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus-kube-prometheus-prometheus
+                port:
+                  number: 9090

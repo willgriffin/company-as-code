@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kanidm-config
+  namespace: example-org
+data:
+  server.toml: |
+    # Kanidm server configuration
+    # Replace TEMPLATE_DOMAIN with your tenant's domain
+    bindaddress = "[::]:8443"
+    ldapbindaddress = "[::]:3636"
+    db_path = "/data/kanidm.db"
+    tls_chain = "/tls/tls.crt"
+    tls_key = "/tls/tls.key"
+    domain = "idp.example-org.TEMPLATE_DOMAIN"
+    origin = "https://idp.example-org.TEMPLATE_DOMAIN"
+    [online_backup]
+    path = "/data/backups/"
+    schedule = "00 22 * * *"
+    versions = 7

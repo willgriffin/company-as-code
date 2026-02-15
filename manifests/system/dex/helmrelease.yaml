@@ -1,0 +1,113 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: dex
+  namespace: dex
+spec:
+  interval: 1h
+  url: https://charts.dexidp.io
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: dex
+  namespace: dex
+spec:
+  interval: 10m
+  chart:
+    spec:
+      chart: dex
+      version: "0.24.0"
+      sourceRef:
+        kind: HelmRepository
+        name: dex
+  valuesFrom:
+    - kind: Secret
+      name: dex-connectors
+      valuesKey: OAUTH2_PROXY_CLIENT_SECRET
+      targetPath: config.staticClients[0].secret
+    - kind: Secret
+      name: dex-connectors
+      valuesKey: GRAFANA_CLIENT_SECRET
+      targetPath: config.staticClients[1].secret
+    - kind: Secret
+      name: dex-connectors
+      valuesKey: LITELLM_CLIENT_SECRET
+      targetPath: config.staticClients[2].secret
+    - kind: Secret
+      name: dex-connectors
+      valuesKey: KANIDM_CLIENT_ID
+      targetPath: config.connectors[0].config.clientID
+    - kind: Secret
+      name: dex-connectors
+      valuesKey: KANIDM_CLIENT_SECRET
+      targetPath: config.connectors[0].config.clientSecret
+  values:
+    replicaCount: 1
+    image:
+      repository: ghcr.io/dexidp/dex
+      tag: v2.42.0
+    config:
+      issuer: https://auth.TEMPLATE_DOMAIN
+      storage:
+        type: kubernetes
+        config:
+          inCluster: true
+      web:
+        http: 0.0.0.0:5556
+      grpc:
+        addr: 0.0.0.0:5557
+      # Per-tenant Kanidm connector (add more connectors for additional tenants)
+      connectors:
+        - type: oidc
+          id: kanidm-example-org
+          name: Example Organization Identity
+          config:
+            issuer: https://idp.example-org.TEMPLATE_DOMAIN/oauth2/openid/dex
+            clientID: ""
+            clientSecret: ""
+            redirectURI: https://auth.TEMPLATE_DOMAIN/callback
+            scopes:
+              - openid
+              - email
+              - profile
+              - groups
+            userNameKey: preferred_username
+            insecureSkipEmailVerified: true
+      oauth2:
+        skipApprovalScreen: true
+        responseTypes: ["code", "token", "id_token"]
+      staticClients:
+        - id: oauth2-proxy
+          name: OAuth2 Proxy
+          secret: ""
+          redirectURIs:
+            - https://oauth2.TEMPLATE_DOMAIN/oauth2/callback
+        - id: grafana
+          name: Grafana
+          secret: ""
+          redirectURIs:
+            - https://grafana.TEMPLATE_DOMAIN/login/generic_oauth
+        - id: litellm
+          name: LiteLLM AI Gateway
+          secret: ""
+          redirectURIs:
+            - https://llm.TEMPLATE_DOMAIN/sso/callback
+      enablePasswordDB: true
+      staticPasswords: []
+    service:
+      type: ClusterIP
+      ports:
+        http:
+          port: 5556
+        grpc:
+          port: 5557
+    serviceMonitor:
+      enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
