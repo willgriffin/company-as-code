@@ -1,0 +1,32 @@
+apiVersion: minio.min.io/v2
+kind: Tenant
+metadata:
+  name: minio
+  namespace: my-tenant-storage
+spec:
+  image: quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z
+  imagePullPolicy: IfNotPresent
+  credsSecret:
+    name: minio-root-credentials
+  pools:
+    - servers: 4
+      name: pool-0
+      volumesPerServer: 1
+      volumeClaimTemplate:
+        metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          storageClassName: TEMPLATE_BULK_STORAGE_CLASS
+          resources:
+            requests:
+              storage: 250Gi
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "2"
+          memory: 4Gi
+  mountPath: /export
+  requestAutoCert: false

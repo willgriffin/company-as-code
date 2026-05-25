@@ -1,34 +1,23 @@
-# Tenant Flux Kustomizations
----
-# Example Organization tenant
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: tenant-example-org
+  name: tenant-my-tenant
   namespace: flux-system
 spec:
   interval: 10m
-  path: "./manifests/tenants/example-org"
+  path: ./manifests/tenants/my-tenant
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
   dependsOn:
+    - name: dex
+    - name: garage
+    - name: minio-operator
     - name: postgresql-operator
-    - name: redis-operator
-    - name: cert-manager-post-setup
+    - name: mariadb-operator
     - name: nginx-ingress
     - name: external-dns
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
-  healthChecks:
-    - apiVersion: apps/v1
-      kind: Deployment
-      name: kanidm
-      namespace: example-org
-    - apiVersion: apps/v1
-      kind: StatefulSet
-      name: stalwart
-      namespace: example-org
+    - name: arc-controller
+  timeout: 20m
+  wait: true

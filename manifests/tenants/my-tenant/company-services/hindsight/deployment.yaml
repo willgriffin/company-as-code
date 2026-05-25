@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hindsight
+  namespace: my-tenant-hindsight
+  labels:
+    app.kubernetes.io/name: hindsight
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hindsight
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: hindsight
+        app.kubernetes.io/part-of: company-services
+    spec:
+      containers:
+        - name: hindsight
+          image: ghcr.io/vectorize-io/hindsight-api:0.6.2-slim # {"$imagepolicy": "flux-system:hindsight"}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: PUBLIC_URL
+              value: https://hindsight.TEMPLATE_DOMAIN
+            - name: DATABASE_HOST
+              value: hindsight-postgres-rw.my-tenant-hindsight.svc.cluster.local
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 2
+              memory: 4Gi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30

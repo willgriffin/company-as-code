@@ -1,16 +1,8 @@
 .envrc
 .envrc.*
 
-*.tfstate
-*.tfstate.*
-.terraform/
-.terraform.lock.hcl
 crash.log
 crash.*.log
-override.tf
-override.tf.json
-*_override.tf
-*_override.tf.json
 # Local secrets - NEVER commit
 .envrc.secrets
 age.key
@@ -35,11 +27,6 @@ dist/
 *.tsbuildinfo
 *.d.ts.map
 *.js.map
-
-# CDKTF
-cdktf.out/
-.gen/
-cdktf.log*
 
 # Local tools
 .tools/

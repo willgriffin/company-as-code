@@ -1,0 +1,59 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: vikunja
+  namespace: my-tenant-vikunja
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: vikunja
+      version: 2.0.0
+      sourceRef:
+        kind: HelmRepository
+        name: vikunja
+        namespace: my-tenant-vikunja
+  values:
+    vikunja:
+      image:
+        repository: vikunja/vikunja
+      controller:
+        replicas: 1
+      envFrom:
+        - secretRef:
+            name: vikunja-secrets
+      env:
+        VIKUNJA_DATABASE_TYPE: postgres
+        VIKUNJA_DATABASE_HOST: vikunja-postgres-rw.my-tenant-vikunja.svc.cluster.local
+        VIKUNJA_DATABASE_DATABASE: vikunja
+        VIKUNJA_DATABASE_USER: vikunja
+        VIKUNJA_SERVICE_PUBLICURL: https://todo.TEMPLATE_DOMAIN/
+      persistence:
+        data:
+          enabled: true
+          size: 10Gi
+          storageClass: TEMPLATE_FAST_STORAGE_CLASS
+        database:
+          enabled: false
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 1Gi
+      ingress:
+        main:
+          enabled: true
+          ingressClassName: nginx
+          annotations:
+            cert-manager.io/cluster-issuer: letsencrypt-prod
+            external-dns.alpha.kubernetes.io/hostname: todo.TEMPLATE_DOMAIN
+          hosts:
+            - host: todo.TEMPLATE_DOMAIN
+              paths:
+                - path: /
+                  pathType: Prefix
+          tls:
+            - secretName: vikunja-tls
+              hosts: [todo.TEMPLATE_DOMAIN]

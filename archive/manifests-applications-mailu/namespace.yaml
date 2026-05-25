@@ -1,7 +1,0 @@
-# Mailu namespace
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: mailu
-  labels:
-    name: mailu

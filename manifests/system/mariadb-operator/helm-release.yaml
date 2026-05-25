@@ -1,0 +1,67 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: mariadb-operator
+  namespace: mariadb-operator
+spec:
+  interval: 1h
+  url: https://helm.mariadb.com/mariadb-operator
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: mariadb-operator-crds
+  namespace: mariadb-operator
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: mariadb-operator-crds
+      version: 26.3.0
+      sourceRef:
+        kind: HelmRepository
+        name: mariadb-operator
+        namespace: mariadb-operator
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: mariadb-operator
+  namespace: mariadb-operator
+spec:
+  interval: 30m
+  dependsOn:
+    - name: mariadb-operator-crds
+  chart:
+    spec:
+      chart: mariadb-operator
+      version: 26.3.0
+      sourceRef:
+        kind: HelmRepository
+        name: mariadb-operator
+        namespace: mariadb-operator
+  values:
+    crds:
+      enabled: false
+    metrics:
+      enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+    webhook:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          memory: 128Mi
+    certController:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          memory: 128Mi

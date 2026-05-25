@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-policy
+  namespace: velero
+data:
+  policy.md: |
+    Default daily Velero backups write to Garage.
+    Weekly and monthly archive schedules write directly to external versioned S3.
+    Use backup.company-as-code.io/include=true on project resources that need PVC/file backup.

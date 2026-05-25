@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kanidm
+  namespace: my-tenant-identity
+  labels:
+    app.kubernetes.io/name: kanidm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kanidm
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kanidm
+        app.kubernetes.io/part-of: company-services
+    spec:
+      containers:
+        - name: kanidm
+          image: kanidm/server:1.9.1 # {"$imagepolicy": "flux-system:kanidm"}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: https
+              containerPort: 8443
+            - name: ldap
+              containerPort: 3636
+          env:
+            - name: KANIDM_DOMAIN
+              value: idp.TEMPLATE_DOMAIN
+            - name: KANIDM_ORIGIN
+              value: https://idp.TEMPLATE_DOMAIN
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          readinessProbe:
+            tcpSocket:
+              port: https
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: https
+            initialDelaySeconds: 30
+            periodSeconds: 30
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: kanidm-data

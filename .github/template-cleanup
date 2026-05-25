@@ -1,23 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# This script is run automatically when a repository is created from the template
+# This script is run manually after a repository is created from the template.
 # It cleans up template-specific files and prepares the repository for customization
 
-echo "🧹 Cleaning up template files..."
+echo "Cleaning up template files..."
 
 # Remove the template cleanup script itself
 rm -f .github/template-cleanup
 
-# Remove any template-specific documentation that shouldn't be in user repos
-# (Keep TEMPLATE_SETUP.md as it contains setup instructions)
+# Keep the docs directory; it contains the setup and operations guidance.
 
-echo "✅ Template cleanup complete!"
+echo "Template cleanup complete."
 echo ""
 echo "Next steps:"
-echo "1. Copy config.yaml.example to config.yaml"
-echo "2. Customize config.yaml with your settings"
-echo "3. Set up GitHub secrets: DIGITALOCEAN_TOKEN and GITHUB_TOKEN"
-echo "4. Commit and push to trigger deployment"
+echo "1. Replace TEMPLATE_DOMAIN and storage class placeholders."
+echo "2. Create SOPS-encrypted secrets from *.secret.template.yaml files."
+echo "3. Select node templates under templates/nodes/ for your providers."
+echo "4. Commit and bootstrap Flux against manifests/clusters/my-cluster."
 echo ""
-echo "📖 See TEMPLATE_SETUP.md for detailed instructions"
+echo "See docs/DEPLOYMENT.md for details."

@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: renovate
+  namespace: my-tenant-renovate
+  labels:
+    app.kubernetes.io/name: renovate
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: renovate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: renovate
+        app.kubernetes.io/part-of: company-services
+    spec:
+      containers:
+        - name: renovate
+          image: renovate/renovate:39.2.4 # {"$imagepolicy": "flux-system:renovate"}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: PUBLIC_URL
+              value: https://renovate.TEMPLATE_DOMAIN
+            - name: DATABASE_HOST
+              value: renovate-postgres-rw.my-tenant-renovate.svc.cluster.local
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 2
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30

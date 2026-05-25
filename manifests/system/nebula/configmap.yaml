@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nebula-lighthouse-config
+  namespace: nebula
+data:
+  config.yml: |
+    pki:
+      ca: /config/ca.crt
+      cert: /config/host.crt
+      key: /config/host.key
+    static_host_map: {}
+    lighthouse:
+      am_lighthouse: true
+      interval: 60
+      hosts: []
+    listen:
+      host: 0.0.0.0
+      port: 4242
+    tun:
+      dev: nebula1
+    firewall:
+      outbound:
+        - port: any
+          proto: any
+          host: any
+      inbound:
+        - port: any
+          proto: any
+          host: any

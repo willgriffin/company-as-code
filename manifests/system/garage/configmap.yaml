@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: garage-config
+  namespace: garage
+data:
+  garage.toml: |
+    metadata_dir = "/var/lib/garage/meta"
+    data_dir = "/var/lib/garage/data"
+    db_engine = "sqlite"
+    replication_factor = 3
+    consistency_mode = "consistent"
+    metadata_auto_snapshot_interval = "6h"
+    rpc_bind_addr = "[::]:3901"
+    [kubernetes_discovery]
+    namespace = "garage"
+    service_name = "garage"
+    skip_crd = true
+    [s3_api]
+    s3_region = "garage"
+    api_bind_addr = "[::]:3900"
+    root_domain = ".s3.garage.svc.cluster.local"
+    [s3_web]
+    bind_addr = "[::]:3902"
+    root_domain = ".web.garage.svc.cluster.local"
+    [admin]
+    api_bind_addr = "[::]:3903"

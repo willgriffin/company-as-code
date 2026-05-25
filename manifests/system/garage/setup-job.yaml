@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: garage-setup-v1
+  namespace: garage
+spec:
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: setup
+          image: dxflrs/garage:v1.0.1
+          envFrom:
+            - secretRef:
+                name: garage-secrets
+            - secretRef:
+                name: cnpg-garage-credentials
+            - secretRef:
+                name: velero-garage-credentials
+          command: [/bin/sh, -c]
+          args:
+            - |
+              set -eu
+              echo "Initialize Garage layout and create cnpg-backups, velero-backups, and minio-backups buckets."
+              echo "Run the concrete bucket/key import commands after replacing template secrets."

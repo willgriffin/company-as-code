@@ -10,12 +10,8 @@ on:
       tag:
         description: 'Image tag'
         required: false
-        default: 'latest'
+        default: 'dev'
         type: string
-  push:
-    paths:
-      - 'images/**'
-    branches: [ main ]
 
 jobs:
   build:
@@ -46,9 +42,13 @@ jobs:
         INPUT_IMAGE: ${{ inputs.image }}
         INPUT_TAG: ${{ inputs.tag }}
       run: |
-        echo "context=images/${INPUT_IMAGE:-*}" >> "$GITHUB_OUTPUT"
-        echo "image_name=${INPUT_IMAGE:-app}" >> "$GITHUB_OUTPUT"
-        echo "image_tag=${INPUT_TAG:-latest}" >> "$GITHUB_OUTPUT"
+        test -n "$INPUT_IMAGE"
+        test -d "images/$INPUT_IMAGE"
+        {
+          echo "context=images/${INPUT_IMAGE}"
+          echo "image_name=${INPUT_IMAGE}"
+          echo "image_tag=${INPUT_TAG:-dev}"
+        } >> "$GITHUB_OUTPUT"
 
     - name: Build and push
       uses: docker/build-push-action@v5

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-tenant-domain
+  namespace: my-tenant
+data:
+  tenant: my-tenant
+  domain: TEMPLATE_DOMAIN
+  idp: idp.TEMPLATE_DOMAIN
+  mail: mail.TEMPLATE_DOMAIN
+  chat: chat.TEMPLATE_DOMAIN
+  todo: todo.TEMPLATE_DOMAIN
+  drive: drive.TEMPLATE_DOMAIN
+  git: git.TEMPLATE_DOMAIN
+  warden: warden.TEMPLATE_DOMAIN
+  analytics: analytics.TEMPLATE_DOMAIN
+  bifrost: bifrost.TEMPLATE_DOMAIN
+  context: context.TEMPLATE_DOMAIN
+  hermes: hermes.TEMPLATE_DOMAIN

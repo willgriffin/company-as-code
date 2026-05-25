@@ -1,6 +1,5 @@
 # Tool versions for caching in GitHub Actions
 # This file is used to generate cache keys for tool installations
-terraform=1.12.2
 flux=2.6.4
 kubectl=1.34.0
 yq=4.47.1

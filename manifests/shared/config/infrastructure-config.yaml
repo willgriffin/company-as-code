@@ -1,37 +1,23 @@
-# Shared infrastructure configuration
-# Replace TEMPLATE_DOMAIN with your actual domain
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: infrastructure-config
   namespace: flux-system
 data:
-  # Base domain - all services derive subdomains from this
-  base-domain: "TEMPLATE_DOMAIN"
-
-  # Application domains
-  auth-domain: "auth.TEMPLATE_DOMAIN"
-  cloud-domain: "cloud.TEMPLATE_DOMAIN"
-  chat-domain: "chat.TEMPLATE_DOMAIN"
-  mail-domain: "mail.TEMPLATE_DOMAIN"
-  ai-domain: "llm.TEMPLATE_DOMAIN"
-  grafana-domain: "grafana.TEMPLATE_DOMAIN"
-  prometheus-domain: "prometheus.TEMPLATE_DOMAIN"
-  git-domain: "git.TEMPLATE_DOMAIN"
-  homepage-domain: "homepage.TEMPLATE_DOMAIN"
-  oauth2-domain: "oauth2.TEMPLATE_DOMAIN"
-
-  # Cluster configuration
-  cluster-name: "my-cluster"
-  cluster-region: "us-east-1"
-
-  # Service endpoints
-  dex-issuer-url: "https://auth.TEMPLATE_DOMAIN"
-  oauth2-callback-url: "https://oauth2.TEMPLATE_DOMAIN/oauth2/callback"
-
-  # Storage class - override per provider
-  storage-class: "local-path"
-  storage-class-block: "local-path"
-
-  # Contact email for Let's Encrypt
-  acme-email: "admin@TEMPLATE_DOMAIN"
+  cluster-name: my-cluster
+  tenant-name: my-tenant
+  base-domain: TEMPLATE_DOMAIN
+  auth-domain: auth.TEMPLATE_DOMAIN
+  idp-domain: idp.TEMPLATE_DOMAIN
+  chat-domain: chat.TEMPLATE_DOMAIN
+  todo-domain: todo.TEMPLATE_DOMAIN
+  drive-domain: drive.TEMPLATE_DOMAIN
+  git-domain: git.TEMPLATE_DOMAIN
+  warden-domain: warden.TEMPLATE_DOMAIN
+  analytics-domain: analytics.TEMPLATE_DOMAIN
+  bifrost-domain: bifrost.TEMPLATE_DOMAIN
+  context-domain: context.TEMPLATE_DOMAIN
+  hermes-domain: hermes.TEMPLATE_DOMAIN
+  observe-domain: observe.TEMPLATE_DOMAIN
+  fast-storage-class: TEMPLATE_FAST_STORAGE_CLASS
+  bulk-storage-class: TEMPLATE_BULK_STORAGE_CLASS

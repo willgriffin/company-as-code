@@ -1,16 +1,13 @@
-# External DNS Helm repository
 apiVersion: source.toolkit.fluxcd.io/v1beta2
 kind: HelmRepository
 metadata:
   name: external-dns
   namespace: external-dns
 spec:
-  interval: 30m
+  interval: 1h
   url: https://kubernetes-sigs.github.io/external-dns/
 ---
-# External DNS Helm release
-# Configure the provider and domain filters for your DNS provider
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
+apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: external-dns
@@ -20,68 +17,42 @@ spec:
   chart:
     spec:
       chart: external-dns
-      version: "1.14.3"
+      version: 1.18.0
       sourceRef:
         kind: HelmRepository
         name: external-dns
         namespace: external-dns
   values:
-    # Provider: change to your DNS provider (route53, cloudflare, digitalocean, etc.)
-    provider: route53
-
-    # Domain filtering - replace with your domain
+    provider: aws
+    aws:
+      region: us-east-1
+      zoneType: public
     domainFilters:
-      - "TEMPLATE_DOMAIN"
-
-    # Source configuration
+      - TEMPLATE_DOMAIN
     sources:
       - service
       - ingress
-
-    # Policy configuration
+      - crd
     policy: sync
     registry: txt
-    txtOwnerId: "my-cluster"
-    txtPrefix: "external-dns-"
-
-    interval: 1m
-    triggerLoopOnEvent: true
-
-    logLevel: info
-    logFormat: text
-
+    txtOwnerId: my-cluster
     metrics:
       enabled: true
-      port: 7979
-
-    serviceMonitor:
-      enabled: true
-      namespace: external-dns
-      interval: 30s
-      scrapeTimeout: 10s
-
+    env:
+      - name: AWS_ACCESS_KEY_ID
+        valueFrom:
+          secretKeyRef:
+            name: external-dns-credentials
+            key: AWS_ACCESS_KEY_ID
+      - name: AWS_SECRET_ACCESS_KEY
+        valueFrom:
+          secretKeyRef:
+            name: external-dns-credentials
+            key: AWS_SECRET_ACCESS_KEY
     resources:
       requests:
-        cpu: 10m
-        memory: 32Mi
+        cpu: 20m
+        memory: 64Mi
       limits:
-        cpu: 100m
-        memory: 128Mi
-
-    securityContext:
-      runAsNonRoot: true
-      runAsUser: 65534
-      fsGroup: 65534
-      seccompProfile:
-        type: RuntimeDefault
-
-    containerSecurityContext:
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-          - ALL
-
-    extraEnvVarsSecret: external-dns-secrets
-
-    replicaCount: 1
+        cpu: 200m
+        memory: 256Mi

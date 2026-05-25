@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example-client-runner-policy
+  namespace: example-client
+data:
+  default-runner-set: arc-runner-my-domain

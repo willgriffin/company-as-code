@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example-client-buckets
+  namespace: example-client
+data:
+  buckets: |
+    example-client-assets
+    example-client-backups

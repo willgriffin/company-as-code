@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: contextforge
+  namespace: my-tenant-contextforge
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: contextforge
+  ports:
+    - name: http
+      port: 80
+      targetPort: 4444

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flux-image-automation-readme
+  namespace: flux-system
+data:
+  note: |
+    Install Flux image-reflector-controller and image-automation-controller through
+    manifests/clusters/my-cluster/flux-system/image-components.yaml. Runtime image
+    policy objects live under manifests/automation/images.

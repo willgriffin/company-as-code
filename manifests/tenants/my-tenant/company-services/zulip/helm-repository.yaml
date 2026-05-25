@@ -1,0 +1,8 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: zulip
+  namespace: my-tenant-zulip
+spec:
+  interval: 1h
+  url: https://zulip.github.io/docker-zulip/helm-charts

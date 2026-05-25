@@ -117,8 +117,12 @@ jobs:
         while IFS= read -r template; do
           DIR=$(dirname "$template")
           if [ ! -f "$DIR/README.md" ] && [ ! -f "$DIR/../README.md" ]; then
-            echo "Warning: No README.md found near template $template"
-            MISSING_DOCS=$((MISSING_DOCS + 1))
+            if [ -f "docs/SECRETS.md" ]; then
+              echo "Using central docs/SECRETS.md for template $template"
+            else
+              echo "Warning: No README.md found near template $template"
+              MISSING_DOCS=$((MISSING_DOCS + 1))
+            fi
           fi
         done < <(find manifests/ -name '*.secret.template.yaml' -type f 2>/dev/null)
 

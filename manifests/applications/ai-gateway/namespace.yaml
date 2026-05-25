@@ -1,7 +1,0 @@
-# AI Gateway namespace
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ai-gateway
-  labels:
-    name: ai-gateway

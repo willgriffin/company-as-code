@@ -13,40 +13,50 @@ metadata:
   name: dex
   namespace: dex
 spec:
-  interval: 10m
+  interval: 30m
   chart:
     spec:
       chart: dex
-      version: "0.24.0"
+      version: 0.24.0
       sourceRef:
         kind: HelmRepository
         name: dex
+        namespace: dex
   valuesFrom:
-    - kind: Secret
-      name: dex-connectors
-      valuesKey: OAUTH2_PROXY_CLIENT_SECRET
-      targetPath: config.staticClients[0].secret
-    - kind: Secret
-      name: dex-connectors
-      valuesKey: GRAFANA_CLIENT_SECRET
-      targetPath: config.staticClients[1].secret
-    - kind: Secret
-      name: dex-connectors
-      valuesKey: LITELLM_CLIENT_SECRET
-      targetPath: config.staticClients[2].secret
-    - kind: Secret
-      name: dex-connectors
-      valuesKey: KANIDM_CLIENT_ID
-      targetPath: config.connectors[0].config.clientID
     - kind: Secret
       name: dex-connectors
       valuesKey: KANIDM_CLIENT_SECRET
       targetPath: config.connectors[0].config.clientSecret
+    - kind: Secret
+      name: dex-connectors
+      valuesKey: FORGEJO_CLIENT_SECRET
+      targetPath: config.staticClients[0].secret
+    - kind: Secret
+      name: dex-connectors
+      valuesKey: VAULTWARDEN_CLIENT_SECRET
+      targetPath: config.staticClients[1].secret
+    - kind: Secret
+      name: dex-connectors
+      valuesKey: STALWART_CLIENT_SECRET
+      targetPath: config.staticClients[2].secret
+    - kind: Secret
+      name: dex-connectors
+      valuesKey: MATOMO_CLIENT_SECRET
+      targetPath: config.staticClients[3].secret
+    - kind: Secret
+      name: dex-connectors
+      valuesKey: CONTEXTFORGE_CLIENT_SECRET
+      targetPath: config.staticClients[4].secret
+    - kind: Secret
+      name: dex-connectors
+      valuesKey: VIKUNJA_CLIENT_SECRET
+      targetPath: config.staticClients[5].secret
+    - kind: Secret
+      name: dex-connectors
+      valuesKey: ZULIP_CLIENT_SECRET
+      targetPath: config.staticClients[6].secret
   values:
     replicaCount: 1
-    image:
-      repository: ghcr.io/dexidp/dex
-      tag: v2.42.0
     config:
       issuer: https://auth.TEMPLATE_DOMAIN
       storage:
@@ -55,55 +65,51 @@ spec:
           inCluster: true
       web:
         http: 0.0.0.0:5556
-      grpc:
-        addr: 0.0.0.0:5557
-      # Per-tenant Kanidm connector (add more connectors for additional tenants)
       connectors:
         - type: oidc
-          id: kanidm-example-org
-          name: Example Organization Identity
+          id: kanidm
+          name: Company Identity
           config:
-            issuer: https://idp.example-org.TEMPLATE_DOMAIN/oauth2/openid/dex
-            clientID: ""
+            issuer: https://idp.TEMPLATE_DOMAIN/oauth2/openid/dex
+            clientID: dex
             clientSecret: ""
             redirectURI: https://auth.TEMPLATE_DOMAIN/callback
-            scopes:
-              - openid
-              - email
-              - profile
-              - groups
+            scopes: [openid, email, profile, groups]
             userNameKey: preferred_username
             insecureSkipEmailVerified: true
       oauth2:
         skipApprovalScreen: true
-        responseTypes: ["code", "token", "id_token"]
+        responseTypes: [code, token, id_token]
       staticClients:
-        - id: oauth2-proxy
-          name: OAuth2 Proxy
+        - id: forgejo
+          name: Forgejo
           secret: ""
-          redirectURIs:
-            - https://oauth2.TEMPLATE_DOMAIN/oauth2/callback
-        - id: grafana
-          name: Grafana
+          redirectURIs: ["https://git.TEMPLATE_DOMAIN/user/oauth2/company/callback"]
+        - id: vaultwarden
+          name: Vaultwarden
           secret: ""
-          redirectURIs:
-            - https://grafana.TEMPLATE_DOMAIN/login/generic_oauth
-        - id: litellm
-          name: LiteLLM AI Gateway
+          redirectURIs: ["https://warden.TEMPLATE_DOMAIN/identity/connect/oidc-signin"]
+        - id: stalwart
+          name: Stalwart
           secret: ""
-          redirectURIs:
-            - https://llm.TEMPLATE_DOMAIN/sso/callback
-      enablePasswordDB: true
-      staticPasswords: []
-    service:
-      type: ClusterIP
-      ports:
-        http:
-          port: 5556
-        grpc:
-          port: 5557
-    serviceMonitor:
-      enabled: true
+          redirectURIs: ["https://mail.TEMPLATE_DOMAIN/authorize/code"]
+        - id: matomo
+          name: Matomo
+          secret: ""
+          redirectURIs: ["https://analytics.TEMPLATE_DOMAIN/index.php?module=LoginOIDC&action=callback&provider=oidc"]
+        - id: contextforge
+          name: ContextForge
+          secret: ""
+          redirectURIs: ["https://context.TEMPLATE_DOMAIN/auth/sso/callback/company"]
+        - id: vikunja
+          name: Vikunja
+          secret: ""
+          redirectURIs: ["https://todo.TEMPLATE_DOMAIN/auth/openid/company"]
+        - id: zulip
+          name: Zulip
+          secret: ""
+          redirectURIs: ["https://chat.TEMPLATE_DOMAIN/complete/oidc/"]
+      enablePasswordDB: false
     resources:
       requests:
         cpu: 50m

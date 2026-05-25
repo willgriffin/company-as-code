@@ -3,4 +3,4 @@ kind: Namespace
 metadata:
   name: cert-manager
   labels:
-    name: cert-manager
+    app.kubernetes.io/managed-by: company-as-code

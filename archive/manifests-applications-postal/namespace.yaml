@@ -1,7 +1,0 @@
-# Postal namespace
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: postal
-  labels:
-    name: postal
