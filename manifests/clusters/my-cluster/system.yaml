@@ -1,46 +1,4 @@
-# System component Flux Kustomizations
-# Dependency chain ensures ordered deployment
 ---
-# MetalLB - Layer 2 load balancer (first, no dependencies)
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
-  name: metallb
-  namespace: flux-system
-spec:
-  interval: 10m
-  path: "./manifests/system/metallb"
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      name: metallb
-      namespace: metallb-system
----
-# MetalLB post-setup (IP pools, depends on MetalLB)
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
-  name: metallb-post-setup
-  namespace: flux-system
-spec:
-  interval: 10m
-  path: "./manifests/system/metallb/post-setup"
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  dependsOn:
-    - name: metallb
----
-# cert-manager (no dependencies)
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -48,18 +6,15 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: "./manifests/system/cert-manager"
+  path: ./manifests/system/cert-manager
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      name: cert-manager
-      namespace: cert-manager
+  timeout: 10m
+  wait: true
+
 ---
-# cert-manager post-setup (ClusterIssuers, depends on cert-manager)
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -67,15 +22,47 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: "./manifests/system/cert-manager/post-setup"
+  path: ./manifests/system/cert-manager/post-setup
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
   dependsOn:
     - name: cert-manager
+
 ---
-# NGINX Ingress (depends on MetalLB post-setup + cert-manager post-setup)
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: metallb
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./manifests/system/metallb
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  timeout: 10m
+  wait: true
+
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: metallb-post-setup
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./manifests/system/metallb/post-setup
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: metallb
+
+---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -83,7 +70,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: "./manifests/system/nginx-ingress"
+  path: ./manifests/system/nginx-ingress
   prune: true
   sourceRef:
     kind: GitRepository
@@ -91,13 +78,10 @@ spec:
   dependsOn:
     - name: metallb-post-setup
     - name: cert-manager-post-setup
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      name: nginx-ingress
-      namespace: nginx-ingress
+  timeout: 10m
+  wait: true
+
 ---
-# External DNS (depends on cert-manager post-setup)
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -105,24 +89,17 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: "./manifests/system/external-dns"
+  path: ./manifests/system/external-dns
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
   dependsOn:
     - name: cert-manager-post-setup
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      name: external-dns
-      namespace: external-dns
+  timeout: 10m
+  wait: true
+
 ---
-# PostgreSQL operator (independent)
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -130,37 +107,31 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: "./manifests/system/postgresql-operator"
+  path: ./manifests/system/postgresql-operator
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      name: cloudnative-pg
-      namespace: postgresql-operator
+  timeout: 10m
+  wait: true
+
 ---
-# Redis operator (independent)
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: redis-operator
+  name: mariadb-operator
   namespace: flux-system
 spec:
   interval: 10m
-  path: "./manifests/system/redis-operator"
+  path: ./manifests/system/mariadb-operator
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      name: redis-operator
-      namespace: redis-operator
+  timeout: 10m
+  wait: true
+
 ---
-# Dex (depends on cert-manager-post-setup + nginx-ingress)
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -168,93 +139,121 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: "./manifests/system/dex"
+  path: ./manifests/system/dex
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
   dependsOn:
-    - name: cert-manager-post-setup
     - name: nginx-ingress
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v2
-      kind: HelmRelease
-      name: dex
-      namespace: dex
----
-# OAuth2 Proxy (depends on Dex)
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
-  name: oauth2-proxy
-  namespace: flux-system
-spec:
-  interval: 10m
-  path: "./manifests/system/oauth2-proxy"
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  dependsOn:
-    - name: dex
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
----
-# Prometheus (depends on cert-manager-post-setup + nginx-ingress)
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
-  name: prometheus
-  namespace: flux-system
-spec:
-  interval: 10m
-  path: "./manifests/system/prometheus"
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  dependsOn:
     - name: cert-manager-post-setup
-    - name: nginx-ingress
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      name: prometheus
-      namespace: prometheus
+  timeout: 10m
+  wait: true
+
 ---
-# Grafana (depends on Prometheus + OAuth2 Proxy)
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: grafana
+  name: nebula
   namespace: flux-system
 spec:
   interval: 10m
-  path: "./manifests/system/grafana"
+  path: ./manifests/system/nebula
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  timeout: 10m
+  wait: true
+
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: garage
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./manifests/system/garage
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
   dependsOn:
-    - name: prometheus
-    - name: oauth2-proxy
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      name: grafana
-      namespace: grafana
+    - name: nebula
+  timeout: 10m
+  wait: true
+
 ---
-# Velero (depends on cert-manager-post-setup)
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: garage-archive-sync
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./manifests/system/garage-archive-sync
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: garage
+
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: minio-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./manifests/system/minio-operator
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  timeout: 10m
+  wait: true
+
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: openobserve
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./manifests/system/openobserve
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: postgresql-operator
+    - name: nginx-ingress
+  timeout: 10m
+  wait: true
+
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: openobserve-collector
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./manifests/system/openobserve-collector
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: openobserve
+  timeout: 10m
+  wait: true
+
+---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -262,63 +261,60 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: "./manifests/system/velero"
+  path: ./manifests/system/velero
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
   dependsOn:
-    - name: cert-manager-post-setup
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v2beta1
-      kind: HelmRelease
-      name: velero
-      namespace: velero
+    - name: garage
+  timeout: 10m
+  wait: true
+
 ---
-# Tailscale Operator (independent)
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: tailscale-operator
+  name: arc-controller
   namespace: flux-system
 spec:
   interval: 10m
-  path: "./manifests/system/tailscale-operator"
+  path: ./manifests/system/arc-controller
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v2
-      kind: HelmRelease
-      name: tailscale-operator
-      namespace: tailscale
+  timeout: 10m
+  wait: true
+
 ---
-# Sablier - Scale-to-zero (depends on nginx-ingress)
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: sablier
+  name: flux-image-automation
   namespace: flux-system
 spec:
   interval: 10m
-  path: "./manifests/system/sablier"
+  path: ./manifests/system/flux-image-automation
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: image-automation-policies
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./manifests/automation/images
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
   dependsOn:
-    - name: nginx-ingress
-  healthChecks:
-    - apiVersion: helm.toolkit.fluxcd.io/v2
-      kind: HelmRelease
-      name: sablier
-      namespace: sablier
+    - name: flux-image-automation
+  timeout: 10m
+  wait: true

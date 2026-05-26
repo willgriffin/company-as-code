@@ -1,0 +1,63 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: forgejo
+  namespace: my-tenant-forgejo
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: forgejo
+      version: 16.2.0
+      sourceRef:
+        kind: HelmRepository
+        name: forgejo
+        namespace: my-tenant-forgejo
+  values:
+    image:
+      registry: codeberg.org
+      repository: forgejo/forgejo
+      tag: "12"
+    replicaCount: 1
+    gitea:
+      admin:
+        username: admin
+        email: admin@TEMPLATE_DOMAIN
+      config:
+        server:
+          DOMAIN: git.TEMPLATE_DOMAIN
+          ROOT_URL: https://git.TEMPLATE_DOMAIN
+          START_SSH_SERVER: true
+        database:
+          DB_TYPE: postgres
+          HOST: forgejo-postgres-rw:5432
+          SSL_MODE: disable
+        service:
+          DISABLE_REGISTRATION: true
+    postgresql:
+      enabled: false
+    persistence:
+      enabled: true
+      size: 50Gi
+      storageClass: TEMPLATE_BULK_STORAGE_CLASS
+    ingress:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/hostname: git.TEMPLATE_DOMAIN
+      hosts:
+        - host: git.TEMPLATE_DOMAIN
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: forgejo-tls
+          hosts: [git.TEMPLATE_DOMAIN]
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 2Gi

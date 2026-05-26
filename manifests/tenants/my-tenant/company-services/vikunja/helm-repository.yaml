@@ -1,0 +1,8 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: vikunja
+  namespace: my-tenant-vikunja
+spec:
+  interval: 1h
+  url: https://kolaente.dev/api/packages/vikunja/helm

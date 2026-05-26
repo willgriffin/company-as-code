@@ -3,4 +3,4 @@ kind: Namespace
 metadata:
   name: postgresql-operator
   labels:
-    name: postgresql-operator
+    app.kubernetes.io/managed-by: company-as-code

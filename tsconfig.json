@@ -12,18 +12,6 @@
     "allowSyntheticDefaultImports": true,
     "lib": ["ES2022"]
   },
-  "include": [
-    "scripts/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "platform",
-    "setup.ts"
-  ],
-  "references": [
-    {
-      "path": "./platform"
-    }
-  ]
+  "include": ["scripts/**/*.ts", "scripts/**/*.tsx", "infrastructure/**/*.ts", "infrastructure/**/*.tsx"],
+  "exclude": ["node_modules", "dist", "archive", "setup.ts"]
 }

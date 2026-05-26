@@ -7,7 +7,7 @@ inputs:
   tools:
     description: >-
       Comma-separated list of tools to install.
-      Available: actionlint, terraform, flux, kubectl, yq, sops, age, gomplate
+      Available: actionlint, flux, kubectl, yq, sops, age, gomplate
     required: false
     default: ''
 outputs:
@@ -57,21 +57,6 @@ runs:
         tar xf actionlint.tar.gz actionlint
         sudo mv actionlint /usr/local/bin/gitops-tools/
         rm -f actionlint.tar.gz
-
-    - name: Install terraform
-      if: >-
-        steps.cache-tools.outputs.cache-hit != 'true' &&
-        contains(inputs.tools, 'terraform')
-      shell: bash
-      env:
-        VERSION: ${{ steps.versions.outputs.terraform-version }}
-      run: |
-        echo "Installing terraform v${VERSION}..."
-        curl -sLo terraform.zip \
-          "https://releases.hashicorp.com/terraform/${VERSION}/terraform_${VERSION}_linux_amd64.zip"
-        unzip -o terraform.zip terraform
-        sudo mv terraform /usr/local/bin/gitops-tools/
-        rm -f terraform.zip
 
     - name: Install flux
       if: >-
@@ -174,10 +159,6 @@ runs:
 
         if [[ "$TOOLS" == *"actionlint"* ]] && [ -f "$TOOL_DIR/actionlint" ]; then
           echo "actionlint: $("$TOOL_DIR/actionlint" -version 2>&1 | head -1)"
-        fi
-
-        if [[ "$TOOLS" == *"terraform"* ]] && [ -f "$TOOL_DIR/terraform" ]; then
-          echo "terraform: $("$TOOL_DIR/terraform" version -json 2>/dev/null | head -1)"
         fi
 
         if [[ "$TOOLS" == *"flux"* ]] && [ -f "$TOOL_DIR/flux" ]; then

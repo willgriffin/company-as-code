@@ -1,0 +1,72 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: forgejo-postgres
+  namespace: my-tenant-forgejo
+  labels:
+    backup.company-as-code.io/target: garage
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:17
+  bootstrap:
+    initdb:
+      database: forgejo
+      owner: forgejo
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "128MB"
+      effective_cache_size: "512MB"
+      work_mem: "4MB"
+      maintenance_work_mem: "64MB"
+  storage:
+    storageClass: TEMPLATE_FAST_STORAGE_CLASS
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  backup:
+    barmanObjectStore:
+      destinationPath: s3://cnpg-backups/my-tenant-forgejo-forgejo/
+      endpointURL: http://garage.garage.svc.cluster.local:3900
+      s3Credentials:
+        accessKeyId:
+          name: garage-credentials
+          key: access-key-id
+        secretAccessKey:
+          name: garage-credentials
+          key: secret-access-key
+        region:
+          name: garage-credentials
+          key: region
+      wal:
+        compression: gzip
+        maxParallel: 2
+    retentionPolicy: "30d"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: forgejo-postgres-daily
+  namespace: my-tenant-forgejo
+spec:
+  schedule: "0 0 2 * * *"
+  backupOwnerReference: self
+  cluster:
+    name: forgejo-postgres
+  immediate: true
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: garage-credentials
+  namespace: my-tenant-forgejo
+type: Opaque
+stringData:
+  access-key-id: CHANGE_ME_CNPG_GARAGE_ACCESS_KEY_ID
+  secret-access-key: CHANGE_ME_CNPG_GARAGE_SECRET_ACCESS_KEY
+  region: garage

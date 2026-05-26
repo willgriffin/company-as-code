@@ -1,0 +1,47 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: openobserve
+  namespace: openobserve-collector
+spec:
+  interval: 1h
+  url: https://charts.openobserve.ai
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: openobserve-collector
+  namespace: openobserve-collector
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: openobserve-collector
+      version: 0.4.4
+      sourceRef:
+        kind: HelmRepository
+        name: openobserve
+        namespace: openobserve-collector
+  values:
+    k8sCluster: my-cluster
+    exporters:
+      otlphttp/openobserve:
+        endpoint: https://observe.TEMPLATE_DOMAIN/api/default/
+        headers:
+          Authorization: Basic CHANGE_ME_BASE64_EMAIL_COLON_PASSWORD
+      otlphttp/openobserve_k8s_events:
+        endpoint: https://observe.TEMPLATE_DOMAIN/api/default/
+        headers:
+          Authorization: Basic CHANGE_ME_BASE64_EMAIL_COLON_PASSWORD
+          stream-name: k8s_events
+    kube-state-metrics:
+      enabled: true
+    agent:
+      enabled: true
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi

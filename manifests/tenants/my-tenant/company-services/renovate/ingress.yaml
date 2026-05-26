@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: renovate
+  namespace: my-tenant-renovate
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    external-dns.alpha.kubernetes.io/hostname: renovate.TEMPLATE_DOMAIN
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - renovate.TEMPLATE_DOMAIN
+      secretName: renovate-tls
+  rules:
+    - host: renovate.TEMPLATE_DOMAIN
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: renovate
+                port:
+                  number: 80

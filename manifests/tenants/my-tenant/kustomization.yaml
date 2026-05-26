@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - config
+  - identity/kanidm
+  - mail/stalwart
+  - storage/postgres
+  - storage/minio
+  - storage/buckets
+  - runners/arc-runner-my-domain
+  - company-services/ai-gateway
+  - company-services/contextforge
+  - company-services/forgejo
+  - company-services/hermes
+  - company-services/hindsight
+  - company-services/matomo
+  - company-services/oxicloud
+  - company-services/renovate
+  - company-services/vaultwarden
+  - company-services/vikunja
+  - company-services/vikunja-mcp
+  - company-services/zulip
+  - projects/example-client

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-tenant-backup-policy
+  namespace: my-tenant
+data:
+  default-target: garage
+  cnpg-retention: 30d
+  velero-daily: garage
+  velero-archive: external-s3
+  minio-export: garage

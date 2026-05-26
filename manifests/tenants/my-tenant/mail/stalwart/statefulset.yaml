@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stalwart
+  namespace: my-tenant-mail
+spec:
+  serviceName: stalwart
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: stalwart
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: stalwart
+        backup.company-as-code.io/include: "true"
+    spec:
+      containers:
+        - name: stalwart
+          image: stalwartlabs/stalwart:v0.15.5 # {"$imagepolicy": "flux-system:stalwart"}
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: smtp
+              containerPort: 25
+            - name: submission
+              containerPort: 587
+            - name: imaps
+              containerPort: 993
+          env:
+            - name: STALWART_DOMAIN
+              value: TEMPLATE_DOMAIN
+          volumeMounts:
+            - name: data
+              mountPath: /opt/stalwart
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: TEMPLATE_FAST_STORAGE_CLASS
+        resources:
+          requests:
+            storage: 100Gi

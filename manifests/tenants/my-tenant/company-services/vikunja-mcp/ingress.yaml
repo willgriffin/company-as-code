@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vikunja-mcp
+  namespace: my-tenant-vikunja-mcp
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    external-dns.alpha.kubernetes.io/hostname: vikunja-mcp.TEMPLATE_DOMAIN
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - vikunja-mcp.TEMPLATE_DOMAIN
+      secretName: vikunja-mcp-tls
+  rules:
+    - host: vikunja-mcp.TEMPLATE_DOMAIN
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vikunja-mcp
+                port:
+                  number: 80

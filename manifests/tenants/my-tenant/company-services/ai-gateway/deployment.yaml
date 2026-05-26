@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bifrost
+  namespace: my-tenant-ai-gateway
+  labels:
+    app.kubernetes.io/name: bifrost
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bifrost
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bifrost
+        app.kubernetes.io/part-of: company-services
+    spec:
+      containers:
+        - name: bifrost
+          image: maximhq/bifrost:v1.4.22 # {"$imagepolicy": "flux-system:bifrost"}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: PUBLIC_URL
+              value: https://bifrost.TEMPLATE_DOMAIN
+            - name: DATABASE_HOST
+              value: bifrost-postgres-rw.my-tenant-ai-gateway.svc.cluster.local
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30

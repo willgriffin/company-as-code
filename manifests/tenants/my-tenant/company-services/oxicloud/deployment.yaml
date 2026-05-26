@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oxicloud
+  namespace: my-tenant-oxicloud
+  labels:
+    app.kubernetes.io/name: oxicloud
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: oxicloud
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: oxicloud
+        app.kubernetes.io/part-of: company-services
+    spec:
+      containers:
+        - name: oxicloud
+          image: diocrafts/oxicloud:0.5.6 # {"$imagepolicy": "flux-system:oxicloud"}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8086
+          env:
+            - name: PUBLIC_URL
+              value: https://drive.TEMPLATE_DOMAIN
+            - name: DATABASE_HOST
+              value: oxicloud-postgres-rw.my-tenant-oxicloud.svc.cluster.local
+          resources:
+            requests:
+              cpu: 250m
+              memory: 800Mi
+            limits:
+              cpu: 1
+              memory: 2Gi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30

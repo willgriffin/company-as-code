@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: contextforge
+  namespace: my-tenant-contextforge
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    external-dns.alpha.kubernetes.io/hostname: context.TEMPLATE_DOMAIN
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - context.TEMPLATE_DOMAIN
+      secretName: contextforge-tls
+  rules:
+    - host: context.TEMPLATE_DOMAIN
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: contextforge
+                port:
+                  number: 80

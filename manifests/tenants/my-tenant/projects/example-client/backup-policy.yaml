@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example-client-backup-policy
+  namespace: example-client
+data:
+  velero: garage-daily-and-external-archive
+  postgres: cnpg-to-garage
+  object-storage: minio-to-garage-to-external-s3

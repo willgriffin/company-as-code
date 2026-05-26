@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: openobserve
+  namespace: openobserve
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    external-dns.alpha.kubernetes.io/hostname: observe.TEMPLATE_DOMAIN
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - observe.TEMPLATE_DOMAIN
+      secretName: openobserve-tls
+  rules:
+    - host: observe.TEMPLATE_DOMAIN
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: openobserve-router
+                port:
+                  number: 5080

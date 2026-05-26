@@ -1,0 +1,72 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: bifrost-postgres
+  namespace: my-tenant-ai-gateway
+  labels:
+    backup.company-as-code.io/target: garage
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:17
+  bootstrap:
+    initdb:
+      database: bifrost
+      owner: bifrost
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "128MB"
+      effective_cache_size: "512MB"
+      work_mem: "4MB"
+      maintenance_work_mem: "64MB"
+  storage:
+    storageClass: TEMPLATE_FAST_STORAGE_CLASS
+    size: 20Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  backup:
+    barmanObjectStore:
+      destinationPath: s3://cnpg-backups/my-tenant-ai-gateway-bifrost/
+      endpointURL: http://garage.garage.svc.cluster.local:3900
+      s3Credentials:
+        accessKeyId:
+          name: garage-credentials
+          key: access-key-id
+        secretAccessKey:
+          name: garage-credentials
+          key: secret-access-key
+        region:
+          name: garage-credentials
+          key: region
+      wal:
+        compression: gzip
+        maxParallel: 2
+    retentionPolicy: "30d"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: bifrost-postgres-daily
+  namespace: my-tenant-ai-gateway
+spec:
+  schedule: "0 0 2 * * *"
+  backupOwnerReference: self
+  cluster:
+    name: bifrost-postgres
+  immediate: true
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: garage-credentials
+  namespace: my-tenant-ai-gateway
+type: Opaque
+stringData:
+  access-key-id: CHANGE_ME_CNPG_GARAGE_ACCESS_KEY_ID
+  secret-access-key: CHANGE_ME_CNPG_GARAGE_SECRET_ACCESS_KEY
+  region: garage

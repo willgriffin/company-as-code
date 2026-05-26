@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: prometheus
-  labels:
-    name: prometheus
-    app.kubernetes.io/name: prometheus
-    app.kubernetes.io/component: monitoring
-    app.kubernetes.io/part-of: observability

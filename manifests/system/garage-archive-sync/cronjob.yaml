@@ -1,0 +1,51 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: garage-archive-sync
+  namespace: garage-archive-sync
+spec:
+  schedule: "17 4 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: rclone
+              image: rclone/rclone:1.69.3
+              envFrom:
+                - secretRef:
+                    name: garage-archive-sync-credentials
+              env:
+                - name: GARAGE_ENDPOINT
+                  value: http://garage.garage.svc.cluster.local:3900
+                - name: GARAGE_REGION
+                  value: garage
+                - name: GARAGE_BUCKETS
+                  value: cnpg-backups velero-backups minio-backups
+              command: [/bin/sh, -c]
+              args:
+                - |
+                  set -eu
+                  cat >/tmp/rclone.conf <<EOF
+                  [garage]
+                  type = s3
+                  provider = Other
+                  access_key_id = ${GARAGE_ACCESS_KEY_ID}
+                  secret_access_key = ${GARAGE_SECRET_ACCESS_KEY}
+                  endpoint = ${GARAGE_ENDPOINT}
+                  region = ${GARAGE_REGION}
+                  force_path_style = true
+                  [external]
+                  type = s3
+                  provider = Other
+                  access_key_id = ${EXTERNAL_S3_ACCESS_KEY_ID}
+                  secret_access_key = ${EXTERNAL_S3_SECRET_ACCESS_KEY}
+                  endpoint = ${EXTERNAL_S3_ENDPOINT}
+                  region = ${EXTERNAL_S3_REGION}
+                  force_path_style = ${EXTERNAL_S3_FORCE_PATH_STYLE}
+                  EOF
+                  for bucket in ${GARAGE_BUCKETS}; do
+                    rclone copy "garage:${bucket}" "external:${EXTERNAL_S3_BUCKET}/${EXTERNAL_S3_PREFIX}/${bucket}" --config /tmp/rclone.conf --checksum --s3-no-check-bucket
+                  done

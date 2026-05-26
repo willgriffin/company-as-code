@@ -67,15 +67,13 @@ runs:
           fi
         fi
 
-        # Check for TEMPLATE_DOMAIN placeholders
+        # Template repositories should keep TEMPLATE_DOMAIN placeholders.
         if [ -d "manifests" ]; then
           TEMPLATE_COUNT=$(grep -r "TEMPLATE_DOMAIN" manifests/ 2>/dev/null | wc -l || echo "0")
           if [ "$TEMPLATE_COUNT" -gt 0 ]; then
-            ERRORS="${ERRORS}\nFound $TEMPLATE_COUNT TEMPLATE_DOMAIN placeholder(s) in manifests/ - these must be replaced with actual domain values"
-            VALID="false"
-            grep -r "TEMPLATE_DOMAIN" manifests/ 2>/dev/null | head -10 || true
+            echo "Found $TEMPLATE_COUNT TEMPLATE_DOMAIN placeholder(s), expected for the reusable template"
           else
-            echo "No TEMPLATE_DOMAIN placeholders found"
+            echo "No TEMPLATE_DOMAIN placeholders found; repository may be configured for a real deployment"
           fi
         fi
 

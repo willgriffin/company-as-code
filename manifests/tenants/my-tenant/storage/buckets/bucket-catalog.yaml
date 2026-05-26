@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-tenant-bucket-catalog
+  namespace: my-tenant
+data:
+  app-buckets: |
+    openobserve
+    oxicloud
+    forgejo
+    matomo
+  backup-buckets: |
+    cnpg-backups
+    velero-backups
+    minio-backups

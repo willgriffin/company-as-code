@@ -4,6 +4,4 @@ dist/
 *.yaml
 *.yml
 *.md
-platform/cdktf.out/
-platform/terraform.*/
 .git/

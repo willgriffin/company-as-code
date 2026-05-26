@@ -1,16 +1,17 @@
 {
-  "name": "@startup-gitops/monorepo",
+  "name": "company-as-code",
   "version": "2.0.0",
   "private": true,
-  "description": "k3s multicloud GitOps template with CDKTF and SOPS+age secrets",
+  "description": "Reusable k3s multicloud GitOps company platform template",
   "scripts": {
     "build": "bun run build:root",
-    "build:root": "tsc --noEmit",
-    "typecheck": "tsc --noEmit",
+    "build:root": "bun run typecheck",
+    "typecheck": "bash -c 'if find scripts infrastructure -type f \\( -name \"*.ts\" -o -name \"*.tsx\" \\) | grep -q .; then bunx --bun tsc --noEmit; else echo \"No active TypeScript sources\"; fi'",
+    "test": "bash -c 'echo \"No automated tests configured for template-only repo\"'",
     "lint": "bun run lint:workflows",
     "lint:workflows": "bash -c 'if command -v actionlint &> /dev/null; then actionlint; else echo \"actionlint not installed, skipping\"; fi'",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format": "bunx --bun prettier --write .",
+    "format:check": "bunx --bun prettier --check ."
   },
   "devDependencies": {
     "@types/node": "^22.15.32",

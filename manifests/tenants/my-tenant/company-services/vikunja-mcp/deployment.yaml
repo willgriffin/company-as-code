@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vikunja-mcp
+  namespace: my-tenant-vikunja-mcp
+  labels:
+    app.kubernetes.io/name: vikunja-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vikunja-mcp
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vikunja-mcp
+        app.kubernetes.io/part-of: company-services
+    spec:
+      containers:
+        - name: vikunja-mcp
+          image: ghcr.io/example/vikunja-mcp:0.1.0 # {"$imagepolicy": "flux-system:vikunja-mcp"}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: PUBLIC_URL
+              value: https://vikunja-mcp.TEMPLATE_DOMAIN
+            - name: DATABASE_HOST
+              value: vikunja-mcp-postgres-rw.my-tenant-vikunja-mcp.svc.cluster.local
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30

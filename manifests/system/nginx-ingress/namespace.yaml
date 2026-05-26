@@ -3,4 +3,4 @@ kind: Namespace
 metadata:
   name: nginx-ingress
   labels:
-    name: nginx-ingress
+    app.kubernetes.io/managed-by: company-as-code

@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: minio-backup-export
+  namespace: my-tenant-storage
+spec:
+  schedule: "43 3 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: rclone
+              image: rclone/rclone:1.69.3
+              envFrom:
+                - secretRef:
+                    name: minio-backup-credentials
+              command: [/bin/sh, -c]
+              args:
+                - echo "Mirror selected MinIO buckets to Garage minio-backups with rclone copy after credentials are configured."

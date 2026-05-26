@@ -1,0 +1,109 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: zulip
+  namespace: my-tenant-zulip
+spec:
+  interval: 30m
+  timeout: 20m
+  chart:
+    spec:
+      chart: zulip
+      version: 2.0.0
+      sourceRef:
+        kind: HelmRepository
+        name: zulip
+        namespace: my-tenant-zulip
+  values:
+    image:
+      repository: ghcr.io/zulip/zulip-server
+      tag: 12.0-1
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: "2"
+        memory: 4Gi
+    ingress:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/hostname: chat.TEMPLATE_DOMAIN
+      hosts:
+        - host: chat.TEMPLATE_DOMAIN
+          paths:
+            - path: /
+      tls:
+        - secretName: zulip-tls
+          hosts: [chat.TEMPLATE_DOMAIN]
+    zulip:
+      environment:
+        SETTING_EXTERNAL_HOST: chat.TEMPLATE_DOMAIN
+        SETTING_ZULIP_ADMINISTRATOR: admin@TEMPLATE_DOMAIN
+        SETTING_INSTALLATION_NAME: Company Chat
+        ZULIP_AUTH_BACKENDS: EmailAuthBackend,GenericOpenIdConnectBackend
+      persistence:
+        enabled: true
+        size: 20Gi
+        storageClass: TEMPLATE_FAST_STORAGE_CLASS
+    postgresql:
+      enabled: true
+      auth:
+        existingSecret: zulip-secrets
+      primary:
+        persistence:
+          enabled: true
+          size: 20Gi
+          storageClass: TEMPLATE_FAST_STORAGE_CLASS
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+    rabbitmq:
+      enabled: true
+      auth:
+        existingPasswordSecret: zulip-secrets
+        existingSecretPasswordKey: rabbitmq-password
+        existingErlangSecret: zulip-secrets
+        existingSecretErlangKey: rabbitmq-erlang-cookie
+      persistence:
+        enabled: true
+        size: 10Gi
+        storageClass: TEMPLATE_FAST_STORAGE_CLASS
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: "1"
+          memory: 1Gi
+    redis:
+      enabled: true
+      architecture: standalone
+      auth:
+        existingSecret: zulip-secrets
+        existingSecretPasswordKey: redis-password
+      master:
+        persistence:
+          enabled: false
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+    memcached:
+      enabled: true
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi

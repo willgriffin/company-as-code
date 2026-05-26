@@ -3,4 +3,4 @@ kind: Namespace
 metadata:
   name: dex
   labels:
-    app.kubernetes.io/name: dex
+    app.kubernetes.io/managed-by: company-as-code

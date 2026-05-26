@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nebula-lighthouse
+  namespace: nebula
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nebula-lighthouse
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nebula-lighthouse
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: nebula
+          image: nebulaoss/nebula:1.10.3
+          args: ["-config", "/config/config.yml"]
+          ports:
+            - name: nebula
+              containerPort: 4242
+              protocol: UDP
+          volumeMounts:
+            - name: config
+              mountPath: /config/config.yml
+              subPath: config.yml
+            - name: certs
+              mountPath: /config/ca.crt
+              subPath: ca.crt
+            - name: certs
+              mountPath: /config/host.crt
+              subPath: host.crt
+            - name: certs
+              mountPath: /config/host.key
+              subPath: host.key
+            - name: dev-net-tun
+              mountPath: /dev/net/tun
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi
+          securityContext:
+            capabilities:
+              add: [NET_ADMIN]
+      volumes:
+        - name: config
+          configMap:
+            name: nebula-lighthouse-config
+        - name: certs
+          secret:
+            secretName: nebula-lighthouse-certs
+        - name: dev-net-tun
+          hostPath:
+            path: /dev/net/tun
+            type: CharDevice

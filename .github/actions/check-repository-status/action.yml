@@ -48,12 +48,12 @@ runs:
           echo "No .sops.yaml found - SOPS secret management not configured"
         fi
 
-        # Check for infrastructure directories
-        if [ -d "infrastructure/hetzner" ] || [ -d "infrastructure/digitalocean" ]; then
-          echo "Found infrastructure directory"
+        # Check for provider template directories
+        if [ -d "infrastructure/providers" ] || [ -d "templates/nodes" ]; then
+          echo "Found provider template directory"
           IS_DEPLOYED="true"
         else
-          echo "No infrastructure directory found (hetzner or digitalocean)"
+          echo "No provider template directory found"
         fi
 
         # Check for manifests/clusters directory

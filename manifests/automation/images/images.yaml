@@ -1,0 +1,377 @@
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: bifrost
+  namespace: flux-system
+spec:
+  image: maximhq/bifrost
+  interval: 6h
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: bifrost
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: bifrost
+  policy:
+    semver:
+      range: ">=0.0.0"
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: contextforge
+  namespace: flux-system
+spec:
+  image: ghcr.io/ibm/mcp-context-forge
+  interval: 6h
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: contextforge
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: contextforge
+  policy:
+    semver:
+      range: ">=0.0.0"
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: hindsight
+  namespace: flux-system
+spec:
+  image: ghcr.io/vectorize-io/hindsight-api
+  interval: 6h
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: hindsight
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: hindsight
+  policy:
+    semver:
+      range: ">=0.0.0"
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: oxicloud
+  namespace: flux-system
+spec:
+  image: diocrafts/oxicloud
+  interval: 6h
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: oxicloud
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: oxicloud
+  policy:
+    semver:
+      range: ">=0.0.0"
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: vikunja
+  namespace: flux-system
+spec:
+  image: vikunja/vikunja
+  interval: 6h
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: vikunja
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: vikunja
+  policy:
+    semver:
+      range: ">=0.0.0"
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: zulip
+  namespace: flux-system
+spec:
+  image: ghcr.io/zulip/zulip-server
+  interval: 6h
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: zulip
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: zulip
+  policy:
+    semver:
+      range: ">=0.0.0"
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: matomo
+  namespace: flux-system
+spec:
+  image: matomo
+  interval: 6h
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: matomo
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: matomo
+  policy:
+    semver:
+      range: ">=0.0.0"
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: forgejo
+  namespace: flux-system
+spec:
+  image: codeberg.org/forgejo/forgejo
+  interval: 6h
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: forgejo
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: forgejo
+  policy:
+    semver:
+      range: ">=0.0.0"
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: vaultwarden
+  namespace: flux-system
+spec:
+  image: vaultwarden/server
+  interval: 6h
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: vaultwarden
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: vaultwarden
+  policy:
+    semver:
+      range: ">=0.0.0"
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: openobserve
+  namespace: flux-system
+spec:
+  image: o2cr.ai/openobserve/openobserve
+  interval: 6h
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: openobserve
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: openobserve
+  policy:
+    semver:
+      range: ">=0.0.0"
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: garage
+  namespace: flux-system
+spec:
+  image: dxflrs/garage
+  interval: 6h
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: garage
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: garage
+  policy:
+    semver:
+      range: ">=0.0.0"
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: renovate
+  namespace: flux-system
+spec:
+  image: renovate/renovate
+  interval: 6h
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: renovate
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: renovate
+  policy:
+    semver:
+      range: ">=0.0.0"
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: arc-runner
+  namespace: flux-system
+spec:
+  image: ghcr.io/actions/actions-runner
+  interval: 6h
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: arc-runner
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: arc-runner
+  policy:
+    semver:
+      range: ">=0.0.0"
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: hermes-gateway
+  namespace: flux-system
+spec:
+  image: ghcr.io/example/hermes-gateway
+  interval: 6h
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: hermes-gateway
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: hermes-gateway
+  policy:
+    semver:
+      range: ">=0.0.0"
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: hermes-workspace
+  namespace: flux-system
+spec:
+  image: ghcr.io/example/hermes-workspace
+  interval: 6h
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: hermes-workspace
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: hermes-workspace
+  policy:
+    semver:
+      range: ">=0.0.0"
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: vikunja-mcp
+  namespace: flux-system
+spec:
+  image: ghcr.io/example/vikunja-mcp
+  interval: 6h
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: vikunja-mcp
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: vikunja-mcp
+  policy:
+    semver:
+      range: ">=0.0.0"
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageUpdateAutomation
+metadata:
+  name: company-services
+  namespace: flux-system
+spec:
+  interval: 1h
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        name: flux-image-automation
+        email: flux-image-automation@TEMPLATE_DOMAIN
+      messageTemplate: "Update images: {{range .Updated.Images}}{{println .}}{{end}}"
+    push:
+      branch: main
+  update:
+    path: ./manifests
+    strategy: Setters
