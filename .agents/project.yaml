@@ -1,0 +1,37 @@
+{
+  "schema": "https://happyvertical.com/schemas/agent-project/v1",
+  "policy": {
+    "profile": "personal",
+    "revision": "1.0.0"
+  },
+  "tracker": {
+    "provider": "github",
+    "repository": "willgriffin/company-as-code",
+    "project_url": null
+  },
+  "labels": {
+    "claim": "agent: implementation",
+    "blocked": "status: blocked",
+    "dispatch": {
+      "claude": "dispatch: claude",
+      "codex": "dispatch: codex",
+      "hermes": "dispatch: hermes"
+    }
+  },
+  "memory": {
+    "provider": "hindsight",
+    "bank": "repo-willgriffin-company-as-code",
+    "package_tags": []
+  },
+  "instructions": {
+    "canonical": "AGENTS.md",
+    "adapters": [
+      "claude",
+      "gemini",
+      "copilot"
+    ]
+  },
+  "skills": {
+    "paths": []
+  }
+}
