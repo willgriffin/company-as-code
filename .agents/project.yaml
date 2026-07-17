@@ -15,7 +15,8 @@
     "dispatch": {
       "claude": "dispatch: claude",
       "codex": "dispatch: codex",
-      "hermes": "dispatch: hermes"
+      "hermes": "dispatch: hermes",
+      "zcode": "dispatch: zcode"
     }
   },
   "memory": {
@@ -33,5 +34,8 @@
   },
   "skills": {
     "paths": []
+  },
+  "runtime": {
+    "agent_lifecycle_stage": "compatibility"
   }
 }

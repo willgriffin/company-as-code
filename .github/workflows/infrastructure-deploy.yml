@@ -16,7 +16,6 @@ on:
 
 jobs:
   validate-template:
-    name: Validate ${{ inputs.provider }} template
     runs-on: ubuntu-latest
 
     steps:

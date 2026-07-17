@@ -3,6 +3,8 @@ name: Agent Policy
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft, labeled, unlabeled]
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -52,7 +54,14 @@ jobs:
           tar -xzf "$archive" -C "$policy_dir"
           echo "HV_POLICY_DIR=$policy_dir" >> "$GITHUB_ENV"
       - name: Validate lifecycle
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number }}
-        run: python3 "$HV_POLICY_DIR/scripts/hv-agent" check-pr "$PR_NUMBER"
+          MERGE_GROUP_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+          MERGE_GROUP_HEAD_REF: ${{ github.event.merge_group.head_ref }}
+        run: |
+          "$HV_POLICY_DIR/scripts/hv-agent-lifecycle-prs" | while IFS= read -r number; do
+            python3 "$HV_POLICY_DIR/scripts/hv-agent" check-pr "$number"
+          done
