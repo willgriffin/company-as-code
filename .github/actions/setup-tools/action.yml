@@ -35,7 +35,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: /usr/local/bin/gitops-tools
-        key: ${{ runner.os }}-tools-${{ hashFiles('tool-versions.txt') }}
+        key: ${{ runner.os }}-tools-${{ hashFiles('tool-versions.txt') }}-${{ inputs.tools }}
 
     - name: Create tools directory
       if: steps.cache-tools.outputs.cache-hit != 'true'
