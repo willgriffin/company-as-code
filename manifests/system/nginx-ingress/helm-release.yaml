@@ -31,6 +31,9 @@ spec:
         default: true
       service:
         type: LoadBalancer
+        nodePorts:
+          http: 30080
+          https: 30443
       metrics:
         enabled: true
       admissionWebhooks:

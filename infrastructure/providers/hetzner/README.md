@@ -23,7 +23,9 @@ npm run plan
 ```
 
 The minimal HCloud bindings used by this adapter are checked in under `.gen/`
-and record provider schema 1.54.0. This keeps ordinary validation independent
+and pin provider schema 1.54.0 exactly. The checked-in OpenTofu lock file records
+the provider checksums, and the plan command copies it into the synthesized stack
+before initializing in read-only lock mode. This keeps ordinary validation independent
 of the CDKTF generator toolchain. OpenTofu and a configured HCloud token are
 required for `npm run plan`; synthesis and type checking do not contact
 Hetzner.
@@ -58,12 +60,20 @@ SSH key.
 | `IMAGE` | `ubuntu-24.04` | Server image |
 | `ENABLE_LOAD_BALANCER` | `false` | Create and attach one load balancer |
 | `LOAD_BALANCER_TYPE` | `lb11` | Load balancer type |
-| `LOAD_BALANCER_PORTS` | `80,443` | TCP ports to expose and health-check |
+| `LOAD_BALANCER_PORTS` | `80,443` | Public TCP listener ports |
+| `LOAD_BALANCER_DESTINATION_PORTS` | `30080,30443` | Corresponding ingress-nginx NodePorts and health-check ports |
 
 The firewall always permits TCP, UDP, and ICMP from the configured private
 network. Public SSH is disabled by default; provide a narrow
 `SSH_ALLOWED_CIDRS` value when break-glass access is needed. Public ports are
 only opened when listed in `FIREWALL_PUBLIC_TCP_PORTS`.
+
+The optional load balancer forwards public ports 80 and 443 to the explicit
+ingress-nginx NodePorts 30080 and 30443. Keep both lists the same length and in
+matching order. The HCloud firewall permits that path only from the private
+network, while the Ansible and NixOS examples admit those NodePorts only from
+reviewed cluster ranges or interfaces. Adjust all four contracts together if
+the NodePorts change.
 
 ## Plan-only workflow
 

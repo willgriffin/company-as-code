@@ -26,14 +26,14 @@
     dest: /tmp/nebula.tar.gz
     checksum: "sha256:{{ nebula_archive_sha256 }}"
     mode: "0600"
-  when: nebula_installed.rc != 0 or nebula_version not in (nebula_installed.stdout | default(''))
+  when: nebula_installed.rc != 0 or nebula_version not in (nebula_installed.stdout | default('')).split()
 
 - name: Extract Nebula archive
   ansible.builtin.unarchive:
     src: /tmp/nebula.tar.gz
     dest: /tmp
     remote_src: true
-  when: nebula_installed.rc != 0 or nebula_version not in (nebula_installed.stdout | default(''))
+  when: nebula_installed.rc != 0 or nebula_version not in (nebula_installed.stdout | default('')).split()
 
 - name: Install Nebula binaries
   ansible.builtin.copy:
@@ -44,7 +44,7 @@
   loop:
     - nebula
     - nebula-cert
-  when: nebula_installed.rc != 0 or nebula_version not in (nebula_installed.stdout | default(''))
+  when: nebula_installed.rc != 0 or nebula_version not in (nebula_installed.stdout | default('')).split()
 
 - name: Create Nebula configuration directory
   ansible.builtin.file:

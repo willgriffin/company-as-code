@@ -41,6 +41,9 @@ cluster_firewall_rules:
   - { port: "10250", proto: "tcp" }
   - { port: "2379", proto: "tcp" }
   - { port: "2380", proto: "tcp" }
+  # Explicit ingress-nginx NodePorts used by the optional Hetzner load balancer.
+  - { port: "30080", proto: "tcp" }
+  - { port: "30443", proto: "tcp" }
 
 nebula_enabled: false
 nebula_version: "1.10.3"

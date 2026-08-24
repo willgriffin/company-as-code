@@ -167,15 +167,29 @@ class TemplateContractTests(unittest.TestCase):
         self.assertIn("python3-debian", ansible_vars)
         self.assertIn('port: "2379"', ansible_vars)
         self.assertIn('port: "2380"', ansible_vars)
+        self.assertIn('port: "30080"', ansible_vars)
+        self.assertIn('port: "30443"', ansible_vars)
         self.assertIn("cfg.flannelInterface != \"\" && lib.elem", k3s_nix)
         self.assertIn('lib.hasInfix "--flannel-iface"', k3s_nix)
+        self.assertIn("ingressNodePorts", k3s_nix)
 
         k3s_tasks = (ROOT / "ansible/roles/k3s_server/tasks/main.yml").read_text(
             encoding="utf-8"
         )
         self.assertIn("/usr/local/bin/k3s --version", k3s_tasks)
-        self.assertIn("k3s_version not in", k3s_tasks)
+        self.assertIn(
+            "k3s_version not in (k3s_installed_version.stdout | default('')).split()",
+            k3s_tasks,
+        )
         self.assertNotIn("creates: /usr/local/bin/k3s", k3s_tasks)
+
+        nebula_tasks = (ROOT / "ansible/roles/nebula/tasks/main.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            "nebula_version not in (nebula_installed.stdout | default('')).split()",
+            nebula_tasks,
+        )
 
     def test_hermes_runtime_image_inputs_have_one_digest_contract(self) -> None:
         environment = (ROOT / ".env.example").read_text(encoding="utf-8")
@@ -217,6 +231,60 @@ class TemplateContractTests(unittest.TestCase):
         source = (ROOT / "infrastructure/hetzner/main.ts").read_text(encoding="utf-8")
         self.assertIn("if (['0', 'false', 'no', 'off'].includes(normalized))", source)
         self.assertIn("throw new Error(", source)
+
+    def test_hetzner_numbers_ports_and_provider_fail_closed(self) -> None:
+        adapter = ROOT / "infrastructure/hetzner"
+        source = (adapter / "main.ts").read_text(encoding="utf-8")
+        cdktf = (adapter / "cdktf.json").read_text(encoding="utf-8")
+        provider = (adapter / ".gen/providers/hcloud/provider/index.ts").read_text(
+            encoding="utf-8"
+        )
+        package = (adapter / "package.json").read_text(encoding="utf-8")
+        lockfile = (adapter / ".terraform.lock.hcl").read_text(encoding="utf-8")
+
+        self.assertIn("if (!/^\\d+$/.test(raw))", source)
+        self.assertNotIn("Number.parseInt", source)
+        self.assertIn("port < 1 || port > 65535", source)
+        self.assertIn("LOAD_BALANCER_DESTINATION_PORTS", source)
+        self.assertIn("loadBalancerPorts.length !== loadBalancerDestinationPorts.length", source)
+        self.assertIn('"hetznercloud/hcloud@= 1.54.0"', cdktf)
+        self.assertIn("providerVersionConstraint: '= 1.54.0'", provider)
+        self.assertIn("-lockfile=readonly", package)
+        self.assertIn('provider "registry.opentofu.org/hetznercloud/hcloud"', lockfile)
+        self.assertIn('version     = "1.54.0"', lockfile)
+
+    def test_hetzner_ingress_port_map_is_explicit_end_to_end(self) -> None:
+        source = (ROOT / "infrastructure/hetzner/main.ts").read_text(encoding="utf-8")
+        nginx = (MANIFESTS / "system/nginx-ingress/helm-release.yaml").read_text(
+            encoding="utf-8"
+        )
+        provider_docs = (ROOT / "infrastructure/providers/hetzner/README.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("destinationPort,", source)
+        self.assertIn("port: destinationPort", source)
+        self.assertIn("http: 30080", nginx)
+        self.assertIn("https: 30443", nginx)
+        self.assertIn("LOAD_BALANCER_DESTINATION_PORTS", provider_docs)
+
+    def test_tenant_prune_is_held_for_destructive_upgrade_migration(self) -> None:
+        tenants = (MANIFESTS / "clusters/my-cluster/tenants.yaml").read_text(
+            encoding="utf-8"
+        )
+        deployment = (ROOT / "docs/DEPLOYMENT.md").read_text(encoding="utf-8")
+        self.assertIn("prune: false", tenants)
+        for retained_contract in (
+            "my-tenant-hermes",
+            "hermes-agent-data",
+            "50 GiB",
+            "hermes-workspace-files",
+            "100 GiB",
+            "garage-credentials",
+            "*.secret.enc.yaml",
+            "prune: true",
+        ):
+            with self.subTest(retained_contract=retained_contract):
+                self.assertIn(retained_contract, deployment)
 
     def test_sops_check_inspects_every_secret_payload_value(self) -> None:
         script = (CI_SCRIPTS / "check-plaintext-secrets.sh").read_text(encoding="utf-8")

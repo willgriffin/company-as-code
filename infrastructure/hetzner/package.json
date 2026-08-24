@@ -8,7 +8,8 @@
     "build": "tsc --pretty",
     "typecheck": "tsc --noEmit",
     "synth": "tsx main.ts",
-    "plan": "npm run synth && tofu -chdir=cdktf.out/stacks/hetzner init -backend=false -input=false && tofu -chdir=cdktf.out/stacks/hetzner plan -input=false"
+    "prepare:plan": "npm run synth && cp .terraform.lock.hcl cdktf.out/stacks/hetzner/.terraform.lock.hcl",
+    "plan": "npm run prepare:plan && tofu -chdir=cdktf.out/stacks/hetzner init -backend=false -input=false -lockfile=readonly && tofu -chdir=cdktf.out/stacks/hetzner plan -input=false"
   },
   "dependencies": {
     "cdktf": "^0.21.0",

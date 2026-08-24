@@ -88,7 +88,7 @@ export class HcloudProvider extends cdktf.TerraformProvider {
       terraformGeneratorMetadata: {
         providerName: 'hcloud',
         providerVersion: '1.54.0',
-        providerVersionConstraint: '~> 1.54.0',
+        providerVersionConstraint: '= 1.54.0',
       },
       terraformProviderSource: 'hetznercloud/hcloud',
     });

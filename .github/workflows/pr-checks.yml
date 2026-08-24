@@ -57,6 +57,21 @@ jobs:
             exit 1
           fi
 
+      - name: Reject malformed infrastructure numbers and port maps
+        run: |
+          if SERVER_COUNT=1oops npm run synth --prefix infrastructure/hetzner; then
+            echo "Malformed server count unexpectedly synthesized" >&2
+            exit 1
+          fi
+          if FIREWALL_PUBLIC_TCP_PORTS=22oops npm run synth --prefix infrastructure/hetzner; then
+            echo "Malformed firewall port unexpectedly synthesized" >&2
+            exit 1
+          fi
+          if LOAD_BALANCER_PORTS=80 LOAD_BALANCER_DESTINATION_PORTS=30080,30443 npm run synth --prefix infrastructure/hetzner; then
+            echo "Mismatched load-balancer port map unexpectedly synthesized" >&2
+            exit 1
+          fi
+
       - name: Install Nix
         uses: cachix/install-nix-action@08dcb3a5e62fa31e2da3d490afc4176ef55ecd72 # v30
         with:

@@ -32,6 +32,7 @@ interface HetznerConfig {
   loadBalancerEnabled: boolean;
   loadBalancerType: string;
   loadBalancerPorts: number[];
+  loadBalancerDestinationPorts: number[];
 }
 
 const env = (name: string, fallback?: string): string | undefined => {
@@ -51,8 +52,16 @@ const booleanEnv = (name: string, fallback: boolean): boolean => {
 };
 
 const integerEnv = (name: string, fallback: number, minimum = 0): number => {
-  const value = Number.parseInt(env(name) ?? '', 10);
-  return Number.isFinite(value) && value >= minimum ? value : fallback;
+  const raw = env(name);
+  if (raw === undefined) return fallback;
+  if (!/^\d+$/.test(raw)) {
+    throw new Error(`${name} must be a whole number; received ${JSON.stringify(raw)}`);
+  }
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < minimum) {
+    throw new Error(`${name} must be a whole number greater than or equal to ${minimum}`);
+  }
+  return value;
 };
 
 const listEnv = (name: string, fallback: string[] = []): string[] => {
@@ -65,8 +74,37 @@ const listEnv = (name: string, fallback: string[] = []): string[] => {
         .filter(item => item.length > 0);
 };
 
+const portListEnv = (name: string, fallback: number[] = []): number[] => {
+  const rawPorts = listEnv(name, fallback.map(String));
+  const ports = rawPorts.map(raw => {
+    if (!/^\d+$/.test(raw)) {
+      throw new Error(`${name} contains an invalid TCP port ${JSON.stringify(raw)}`);
+    }
+    const port = Number(raw);
+    if (!Number.isSafeInteger(port) || port < 1 || port > 65535) {
+      throw new Error(`${name} TCP ports must be between 1 and 65535; received ${raw}`);
+    }
+    return port;
+  });
+  if (new Set(ports).size !== ports.length) {
+    throw new Error(`${name} must not contain duplicate TCP ports`);
+  }
+  return ports;
+};
+
 function loadConfig(): HetznerConfig {
   const loadBalancerEnabled = booleanEnv('ENABLE_LOAD_BALANCER', false);
+  const loadBalancerPorts = portListEnv('LOAD_BALANCER_PORTS', [80, 443]);
+  const loadBalancerDestinationPorts = portListEnv(
+    'LOAD_BALANCER_DESTINATION_PORTS',
+    [30080, 30443]
+  );
+  if (loadBalancerPorts.length !== loadBalancerDestinationPorts.length) {
+    throw new Error(
+      'LOAD_BALANCER_PORTS and LOAD_BALANCER_DESTINATION_PORTS must contain the same number of ports'
+    );
+  }
+
   return {
     token: env('HCLOUD_TOKEN'),
     namePrefix: env('NAME_PREFIX', 'cluster')!,
@@ -80,20 +118,15 @@ function loadConfig(): HetznerConfig {
     // An empty list intentionally creates no public SSH rule. Add an explicit
     // allow-list before applying if the nodes need public SSH access.
     sshAllowedCidrs: listEnv('SSH_ALLOWED_CIDRS'),
-    publicTcpPorts: listEnv('FIREWALL_PUBLIC_TCP_PORTS').flatMap(port => {
-      const parsed = Number.parseInt(port, 10);
-      return Number.isInteger(parsed) && parsed > 0 ? [parsed] : [];
-    }),
+    publicTcpPorts: portListEnv('FIREWALL_PUBLIC_TCP_PORTS'),
     serverCount: integerEnv('SERVER_COUNT', 1, 0),
     serverType: env('SERVER_TYPE', 'cpx11')!,
     location: env('LOCATION', 'fsn1')!,
     image: env('IMAGE', 'ubuntu-24.04')!,
     loadBalancerEnabled,
     loadBalancerType: env('LOAD_BALANCER_TYPE', 'lb11')!,
-    loadBalancerPorts: listEnv('LOAD_BALANCER_PORTS', ['80', '443']).flatMap(port => {
-      const parsed = Number.parseInt(port, 10);
-      return Number.isInteger(parsed) && parsed > 0 ? [parsed] : [];
-    }),
+    loadBalancerPorts,
+    loadBalancerDestinationPorts,
   };
 }
 
@@ -235,15 +268,17 @@ class HetznerStack extends TerraformStack {
         ]);
       }
 
-      for (const port of config.loadBalancerPorts) {
-        new LoadBalancerService(this, `load-balancer-service-${port}`, {
+      for (let index = 0; index < config.loadBalancerPorts.length; index += 1) {
+        const listenPort = config.loadBalancerPorts[index];
+        const destinationPort = config.loadBalancerDestinationPorts[index];
+        new LoadBalancerService(this, `load-balancer-service-${listenPort}`, {
           loadBalancerId: loadBalancer.id,
           protocol: 'tcp',
-          listenPort: port,
-          destinationPort: port,
+          listenPort,
+          destinationPort,
           healthCheck: {
             protocol: 'tcp',
-            port,
+            port: destinationPort,
             interval: 15,
             timeout: 10,
             retries: 3,

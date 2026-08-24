@@ -64,7 +64,7 @@
     mode: "0700"
   when: >-
     k3s_installed_version.rc != 0 or
-    k3s_version not in (k3s_installed_version.stdout | default(''))
+    k3s_version not in (k3s_installed_version.stdout | default('')).split()
 
 - name: Install the pinned k3s release
   ansible.builtin.command: /tmp/k3s-install.sh
@@ -73,7 +73,7 @@
     INSTALL_K3S_EXEC: "{{ k3s_role }}"
   when: >-
     k3s_installed_version.rc != 0 or
-    k3s_version not in (k3s_installed_version.stdout | default(''))
+    k3s_version not in (k3s_installed_version.stdout | default('')).split()
   notify: Restart k3s
 
 - name: Enable and start k3s server or agent

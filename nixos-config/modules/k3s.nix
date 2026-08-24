@@ -58,6 +58,12 @@ in
       description = "Reviewed private or mesh interfaces allowed to carry k3s node traffic.";
     };
 
+    ingressNodePorts = lib.mkOption {
+      type = lib.types.listOf lib.types.port;
+      default = [ 30080 30443 ];
+      description = "Ingress NodePorts accepted only on reviewed cluster interfaces.";
+    };
+
     disableTraefik = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -118,7 +124,7 @@ in
     ];
 
     networking.firewall.interfaces = lib.genAttrs cfg.clusterInterfaces (_: {
-      allowedTCPPorts = [ 10250 ] ++ lib.optionals (cfg.role == "server") [
+      allowedTCPPorts = [ 10250 ] ++ cfg.ingressNodePorts ++ lib.optionals (cfg.role == "server") [
         6443
         2379
         2380

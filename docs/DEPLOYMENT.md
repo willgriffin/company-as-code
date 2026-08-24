@@ -3,6 +3,35 @@
 Deploy in layers. The example cluster is a starting point, not a turnkey
 production environment.
 
+## Existing-install migration hold
+
+The `tenant-my-tenant` Flux Kustomization intentionally has `prune: false`.
+This is an upgrade safety hold, not the desired steady state. Earlier versions
+owned a `my-tenant-hermes` namespace with `hermes-agent-data` (50 GiB) and
+`hermes-workspace-files` (100 GiB) PVCs, and deployed backup credentials such
+as `garage-credentials` directly. This version moves Hermes declarations to
+the separately reconciled operator consumer and replaces deployable plaintext
+Secret examples with non-deployable SOPS templates. Pruning during that first
+reconciliation could otherwise delete data or credentials before the
+replacement is usable.
+
+For an existing installation:
+
+1. leave tenant pruning disabled and reconcile the new tree;
+2. inventory every retained Secret and PVC, create encrypted
+   `*.secret.enc.yaml` replacements from the provided templates, add them to
+   their owning Kustomizations, and prove backup/restore still works;
+3. keep the legacy Hermes workload stopped only after its data has been copied
+   or deliberately retired; the suspended zero-replica operator example does
+   not migrate either legacy PVC automatically; and
+4. in a later reviewed change, confirm no retained object is still required,
+   then change only the tenant Kustomization back to `prune: true`.
+
+For a fresh installation, add all required encrypted Secret resources first.
+Pruning may then be enabled before the initial Flux reconciliation because no
+legacy tenant objects exist. Never treat changing the flag as proof that a
+data migration or restore test succeeded.
+
 ## 1. Prepare the host layer
 
 Start from the generic examples in `nixos-config/` or `ansible/`, then use the
