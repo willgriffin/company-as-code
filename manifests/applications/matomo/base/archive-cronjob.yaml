@@ -21,6 +21,13 @@ spec:
             app.kubernetes.io/part-of: company-services
         spec:
           restartPolicy: Never
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: matomo
+                  topologyKey: kubernetes.io/hostname
           securityContext:
             fsGroup: 33
             seccompProfile:

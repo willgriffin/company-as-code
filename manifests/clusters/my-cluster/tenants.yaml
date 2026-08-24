@@ -9,6 +9,7 @@ spec:
   # Migration hold: keep legacy PVCs and Secrets until the operator/secret
   # cutover in docs/DEPLOYMENT.md has been completed and reviewed.
   prune: false
+  suspend: true
   sourceRef:
     kind: GitRepository
     name: flux-system

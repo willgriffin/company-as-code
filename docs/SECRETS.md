@@ -20,6 +20,8 @@ For a deployment:
 
 Keep templates out of deployable `resources:` lists. A template accidentally
 mounted as a Kubernetes Secret is still a plaintext configuration failure.
+The CI scanner inspects top-level Secrets and Secrets nested in Kubernetes
+`List` or `SecretList` documents; wrapping a Secret does not change this rule.
 
 ## Key custody
 

@@ -22,7 +22,11 @@ is_sops_encrypted_document() {
   yq -e '
     select(documentIndex == '"$2"') |
     select(.sops != null) |
-    [((.data // {})[]), ((.stringData // {})[])] as $payload |
+    [
+      .. |
+      select(tag == "!!map" and .apiVersion == "v1" and .kind == "Secret" and .metadata.name != null) |
+      ([((.data // {})[])] + [((.stringData // {})[])])[]
+    ] as $payload |
     select(($payload | length) > 0) |
     select(([$payload[] |
       select((tag != "!!str") or (test("^ENC\\[AES256_GCM,") | not))
@@ -33,7 +37,11 @@ is_sops_encrypted_document() {
 is_safe_template_document() {
   yq -e '
     select(documentIndex == '"$2"') |
-    [((.data // {})[]), ((.stringData // {})[])] as $payload |
+    [
+      .. |
+      select(tag == "!!map" and .apiVersion == "v1" and .kind == "Secret" and .metadata.name != null) |
+      ([((.data // {})[])] + [((.stringData // {})[])])[]
+    ] as $payload |
     select(($payload | length) > 0) |
     select(([$payload[] |
       select(
@@ -55,7 +63,14 @@ is_safe_template_document() {
 failures=0
 while IFS= read -r file; do
   if ! secret_document_indexes=$(
-    yq -N 'select(tag == "!!map") | select(.kind == "Secret") | documentIndex' "$file"
+    yq -N '
+      select(tag == "!!map") |
+      select([
+        .. |
+        select(tag == "!!map" and .apiVersion == "v1" and .kind == "Secret" and .metadata.name != null)
+      ] | length > 0) |
+      documentIndex
+    ' "$file"
   ); then
     echo "::error file=$file::Unable to inspect YAML documents for plaintext Secrets" >&2
     failures=$((failures + 1))

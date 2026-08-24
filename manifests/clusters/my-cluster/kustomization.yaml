@@ -5,3 +5,18 @@ resources:
   - system.yaml
   - applications.yaml
   - tenants.yaml
+patches:
+  # Flux decryption is configured per Kustomization and is not inherited from
+  # the bootstrap reconciliation. Apply it to every child so encrypted
+  # resources work regardless of which system/application/tenant owns them.
+  - target:
+      group: kustomize.toolkit.fluxcd.io
+      version: v1
+      kind: Kustomization
+    patch: |-
+      - op: add
+        path: /spec/decryption
+        value:
+          provider: sops
+          secretRef:
+            name: sops-age

@@ -285,6 +285,7 @@ class TemplateContractTests(unittest.TestCase):
         )
         deployment = (ROOT / "docs/DEPLOYMENT.md").read_text(encoding="utf-8")
         self.assertIn("prune: false", tenants)
+        self.assertIn("suspend: true", tenants)
         for retained_contract in (
             "my-tenant-hermes",
             "hermes-agent-data",
@@ -294,7 +295,8 @@ class TemplateContractTests(unittest.TestCase):
             "garage-credentials",
             "*.secret.enc.yaml",
             "prune: true",
-            "flux suspend kustomization tenant-my-tenant",
+            "flux suspend kustomization flux-system",
+            "flux resume kustomization flux-system",
             "true false",
             "does not rediscover objects orphaned",
             "my-tenant-matomo/matomo-data",
@@ -305,12 +307,28 @@ class TemplateContractTests(unittest.TestCase):
 
     def test_sops_check_inspects_every_secret_payload_value(self) -> None:
         script = (CI_SCRIPTS / "check-plaintext-secrets.sh").read_text(encoding="utf-8")
-        self.assertIn("[((.data // {})[]), ((.stringData // {})[])]", script)
+        self.assertIn('.kind == "Secret"', script)
+        self.assertIn(".. |", script)
         self.assertIn('test("^ENC\\\\[AES256_GCM,")', script)
         self.assertIn("$payload | length", script)
         self.assertIn("documentIndex", script)
         self.assertIn("is_safe_template_document", script)
         self.assertIn("Secret template payloads must all use approved placeholders", script)
+
+    def test_cluster_flux_children_receive_sops_decryption(self) -> None:
+        cluster = (
+            MANIFESTS / "clusters/my-cluster/kustomization.yaml"
+        ).read_text(encoding="utf-8")
+        for contract in (
+            "group: kustomize.toolkit.fluxcd.io",
+            "version: v1",
+            "kind: Kustomization",
+            "path: /spec/decryption",
+            "provider: sops",
+            "name: sops-age",
+        ):
+            with self.subTest(contract=contract):
+                self.assertIn(contract, cluster)
 
     def test_matomo_domain_patch_preserves_ingress_routing_and_tls_secret(self) -> None:
         patch = (
@@ -318,6 +336,14 @@ class TemplateContractTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("secretName: matomo-tls", patch)
         self.assertIn("http:\n        paths:", patch)
+
+    def test_matomo_archive_job_is_colocated_with_rwo_workload(self) -> None:
+        archive = (
+            MANIFESTS / "applications/matomo/base/archive-cronjob.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("requiredDuringSchedulingIgnoredDuringExecution", archive)
+        self.assertIn("app.kubernetes.io/name: matomo", archive)
+        self.assertIn("topologyKey: kubernetes.io/hostname", archive)
 
     def test_secret_templates_are_not_deployable_kustomization_resources(self) -> None:
         for kustomization in MANIFESTS.rglob("kustomization.yaml"):

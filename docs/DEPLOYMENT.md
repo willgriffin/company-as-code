@@ -13,19 +13,36 @@ introduced by the new base. Flux can observe a new Git revision before it
 applies a `prune: false` change to the child Kustomization, so the checked-in
 flag alone cannot make that transition atomic.
 
-Before changing the cluster's Git source or ref, an operator must stop tenant
-reconciliation and disable pruning on the live object:
+Before changing the cluster's Git source or ref, an operator must suspend both
+the owning bootstrap Kustomization and its tenant child, then disable pruning
+on the live child object:
 
 ```sh
+flux suspend kustomization flux-system --namespace flux-system
 flux suspend kustomization tenant-my-tenant --namespace flux-system
 kubectl patch kustomization tenant-my-tenant --namespace flux-system \
   --type merge --patch '{"spec":{"prune":false}}'
+kubectl get kustomization flux-system --namespace flux-system \
+  -o jsonpath='{.spec.suspend}{"\n"}'
 kubectl get kustomization tenant-my-tenant --namespace flux-system \
   -o jsonpath='{.spec.suspend}{" "}{.spec.prune}{"\n"}'
 ```
 
-Do not update the Git source unless the last command prints `true false`.
-Then complete this staged migration while reconciliation remains suspended:
+Do not update the Git source unless those commands print `true` and then
+`true false`. Advance the source to this revision, whose checked-in tenant
+state is also `suspend: true` and `prune: false`, then let the root install that
+owned state and verify the child again:
+
+```sh
+flux resume kustomization flux-system --namespace flux-system
+flux reconcile kustomization flux-system --namespace flux-system --with-source
+kubectl get kustomization tenant-my-tenant --namespace flux-system \
+  -o jsonpath='{.spec.suspend}{" "}{.spec.prune}{"\n"}'
+```
+
+Do not continue unless the last command still prints `true false`. The root may
+remain active because the new Git revision now owns those safe child fields.
+Complete this staged migration while tenant reconciliation remains suspended:
 
 1. inventory every retained Secret and PVC; create encrypted
    `*.secret.enc.yaml` replacements from the provided templates and add them
@@ -34,9 +51,9 @@ Then complete this staged migration while reconciliation remains suspended:
    running Matomo pod's complete `/var/www/html` tree into it with an approved
    one-shot copy/restore job, and verify at least `config/config.ini.php`,
    installed plugins, and uploaded assets before the new Deployment mounts it;
-3. update the Git source, confirm the live tenant Kustomization is still
-   suspended with pruning disabled, then resume it and prove database backups,
-   restores, Matomo, and the replacement Secrets work; and
+3. resume `tenant-my-tenant` only after the retained data and encrypted
+   replacements are ready, then prove database backups, restores, Matomo, and
+   the replacement Secrets work; and
 4. migrate or explicitly retire the legacy Hermes data. The suspended,
    zero-replica operator example does not copy either legacy PVC.
 
@@ -47,9 +64,10 @@ example, delete `my-tenant-hermes` only when both PVCs are intentionally being
 retired), record that destructive decision, and then re-enable pruning for
 future changes.
 
-For a fresh installation, add all required encrypted Secret resources first;
-there is no legacy filesystem or inventory to migrate, so pruning may be
-enabled before the initial Flux reconciliation.
+For a fresh installation, add all required encrypted Secret resources first.
+There is no legacy filesystem or inventory to migrate, so change the tenant to
+`prune: true` in deployment-owned Git and resume it after the initial system
+reconciliation succeeds.
 
 ## 1. Prepare the host layer
 
@@ -98,6 +116,11 @@ Use `./reset-to-template.sh --check` before deployment to find remaining
 4. Bootstrap Flux against `manifests/clusters/my-cluster`, or apply the
    generated Flux bootstrap resources through the organization's approved
    process.
+
+The cluster Kustomize entrypoint patches every child Flux Kustomization with
+the `sops-age` decryption reference. Flux decryption is per reconciliation; do
+not remove that patch or assume a parent Kustomization passes decryption to its
+children.
 
 See [Secrets](SECRETS.md) for the encryption and review rules.
 
