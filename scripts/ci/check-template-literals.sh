@@ -35,6 +35,7 @@ is_allowed_dependency_identity() {
     "$MANIFEST_ROOT"/shared/templates/hermes-agent/placeholder.yaml|\
     "$MANIFEST_ROOT"/tenants/my-tenant/company-services/hermes/agent.yaml|\
     "$MANIFEST_ROOT"/tenants/my-tenant/company-services/hermes/organization.yaml|\
+    "$MANIFEST_ROOT"/tenants/my-tenant/company-services/hermes/secrets.secret.template.yaml|\
     "$MANIFEST_ROOT"/tenants/my-tenant/company-services/hermes/workload.yaml)
       [[ "$line" =~ willgriffin\.dev/ ]]
       ;;

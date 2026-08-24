@@ -8,6 +8,8 @@ metadata:
     app.kubernetes.io/managed-by: company-as-code
     app.kubernetes.io/part-of: org-as-code
 spec:
+  # Observation is safe by default even if directoryApply is later enabled.
+  activate: false
   identity:
     slug: example-agent
     email: example-agent@example.invalid
@@ -17,7 +19,7 @@ spec:
   contractRef:
     name: example-agent
     repository: https://example.invalid/agent-contract.git
-    ref: main
+    ref: TEMPLATE_AGENT_CONTRACT_REF
   memory:
     bankId: repo-example-example.invalid
   envPolicy: gated

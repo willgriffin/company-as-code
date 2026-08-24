@@ -116,7 +116,9 @@ for file in "${files[@]}"; do
   if [[ "$in_place" == true ]]; then
     tmp=$(mktemp "${TMPDIR:-/tmp}/company-as-code.XXXXXX")
     trap 'rm -f "$tmp"' EXIT
-    cp "$repo_root/$file" "$tmp"
+    # Preserve executable and other source modes when the temporary file is
+    # moved back over a tracked file (including this script itself).
+    cp -p "$repo_root/$file" "$tmp"
     for replacement in "${replacements[@]}"; do
       token=${replacement%%=*}
       value=${replacement#*=}

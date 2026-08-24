@@ -17,7 +17,25 @@ ROOT = Path(__file__).resolve().parents[1]
 MANIFESTS = ROOT / "manifests"
 CI_SCRIPTS = ROOT / "scripts" / "ci"
 SOURCE_IDENTITIES = re.compile(r"(?i)(?<![a-z0-9_-])(happyvertical|willgriffin)(?![a-z0-9_-])")
-RESOURCE_LINE = re.compile(r"^\s+-\s+([^\s#]+)\s*(?:#.*)?$")
+
+
+def _kustomization_resources(content: str) -> list[str]:
+    """Return only top-level entries from a Kustomization resources block."""
+
+    resources: list[str] = []
+    in_resources = False
+    for line in content.splitlines():
+        if line == "resources:":
+            in_resources = True
+            continue
+        if not in_resources:
+            continue
+        if line and not line.startswith((" ", "\t")):
+            break
+        match = re.match(r"^\s+-\s+([^\s#]+)\s*(?:#.*)?$", line)
+        if match:
+            resources.append(match.group(1))
+    return resources
 
 
 def _is_allowed_dependency_identity(path: Path, line: str) -> bool:
@@ -43,6 +61,7 @@ def _is_allowed_dependency_identity(path: Path, line: str) -> bool:
         "manifests/shared/templates/hermes-agent/placeholder.yaml",
         "manifests/tenants/my-tenant/company-services/hermes/agent.yaml",
         "manifests/tenants/my-tenant/company-services/hermes/organization.yaml",
+        "manifests/tenants/my-tenant/company-services/hermes/secrets.secret.template.yaml",
         "manifests/tenants/my-tenant/company-services/hermes/workload.yaml",
     }
     return relative in expected_hermes_api and bool(re.search(r"willgriffin\.dev/", line))
@@ -66,8 +85,9 @@ class TemplateContractTests(unittest.TestCase):
         self.assertTrue(kustomizations, "manifest tree has no Kustomizations")
 
         for kustomization in kustomizations:
-            for match in RESOURCE_LINE.finditer(kustomization.read_text(encoding="utf-8")):
-                resource = match.group(1)
+            for resource in _kustomization_resources(
+                kustomization.read_text(encoding="utf-8")
+            ):
                 if resource.startswith(("http://", "https://", "oci://")):
                     continue
                 target = (kustomization.parent / resource).resolve()
@@ -103,6 +123,8 @@ class TemplateContractTests(unittest.TestCase):
         self.assertNotIn("hostNetwork:", daemonset)
         self.assertNotIn("hostPID:", daemonset)
         self.assertNotIn("hostPort:", daemonset)
+        for collector in ("arp", "ipvs", "netdev", "netstat", "sockstat", "softnet"):
+            self.assertIn(f"--no-collector.{collector}", daemonset)
 
     def test_node_exporter_has_a_per_pod_openobserve_scrape_path(self) -> None:
         daemonset = (MANIFESTS / "system/node-exporter/daemonset.yaml").read_text(
@@ -150,6 +172,26 @@ class TemplateContractTests(unittest.TestCase):
             cluster,
             r"(?s)name: rabbitmq-operator.*?dependsOn:.*?- name: cert-manager",
         )
+
+    def test_rabbitmq_operator_image_is_digest_pinned_at_render_time(self) -> None:
+        kustomization = (
+            MANIFESTS / "system/rabbitmq-operator/kustomization.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "digest: sha256:2727b84b835ada97247bbb65ebfa6998168b4e8ee11b0e6cece56ac2c9c4f0fb",
+            kustomization,
+        )
+
+    def test_reset_script_preserves_tracked_file_modes(self) -> None:
+        reset_script = (ROOT / "reset-to-template.sh").read_text(encoding="utf-8")
+        self.assertIn('cp -p "$repo_root/$file" "$tmp"', reset_script)
+
+    def test_matomo_domain_patch_preserves_ingress_routing_and_tls_secret(self) -> None:
+        patch = (
+            MANIFESTS / "tenants/my-tenant/company-services/matomo/domain.patch.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("secretName: matomo-tls", patch)
+        self.assertIn("http:\n        paths:", patch)
 
     def test_secret_templates_are_not_deployable_kustomization_resources(self) -> None:
         for kustomization in MANIFESTS.rglob("kustomization.yaml"):

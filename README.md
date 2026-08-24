@@ -59,8 +59,9 @@ base is not a promise that every application is enabled in every cluster.
 Hermes is a special boundary: the operator and runtime are released from the
 separately versioned `org-as-code` repository. This repository contains a
 suspended, opt-in consumer of its signed, pinned chart. The current published
-CRDs cannot yet express secret-backed workloads, so workload actuation remains
-disabled. See [Hermes](docs/HERMES.md).
+CRDs support typed same-namespace Secret references; the example keeps both
+actuation gates disabled, sets `activate: false`, and remains suspended at zero
+replicas. See [Hermes](docs/HERMES.md).
 
 ## Safety and validation
 

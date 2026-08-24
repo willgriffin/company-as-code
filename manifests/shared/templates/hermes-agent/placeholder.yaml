@@ -10,4 +10,5 @@ data:
   kind: HermesWorkload
   safeReplicas: "0"
   safeSuspend: "true"
-  requiredFields: image,resources,scheduling,egress
+  safeActivate: "false"
+  supportedFields: image,secrets,resources,scheduling,egress

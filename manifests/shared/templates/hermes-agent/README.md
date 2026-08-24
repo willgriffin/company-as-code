@@ -7,6 +7,7 @@ image, resource and scheduling constraints, and explicit egress rules.
 The safe template defaults are suspended with zero replicas. Consumers must
 make activation and any network egress an explicit reviewed change.
 
-The pinned v0.1.2 operator CRD does not yet admit typed Secret references.
-Keep workloads suspended until a signed release adds that schema; do not place
-credential values in `spec.env`.
+The pinned v0.1.2 operator supports typed same-namespace Secret references.
+Referenced Secrets must carry `org.willgriffin.dev/managed-secret: "true"` and
+must be delivered through `env`, a read-only `mountPath`, or both. Keep secret
+values out of `spec.env` and store only encrypted Secret manifests in Git.

@@ -53,6 +53,18 @@ spec:
             # node's persistent storage mounts for capacity reporting.
             - --collector.filesystem.mount-points-exclude=^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+|var/lib/kubelet/.+|var/lib/rancher/k3s/agent/.+)($|/)
             - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$
+            # Without hostNetwork, /proc/net resolves in the pod network
+            # namespace. Disable those collectors instead of publishing
+            # misleading pod-interface series as node metrics.
+            - --no-collector.arp
+            - --no-collector.ipvs
+            - --no-collector.netdev
+            - --no-collector.netstat
+            - --no-collector.nfs
+            - --no-collector.nfsd
+            - --no-collector.sockstat
+            - --no-collector.softnet
+            - --no-collector.udp_queues
             - --web.listen-address=:9100
           ports:
             - name: metrics

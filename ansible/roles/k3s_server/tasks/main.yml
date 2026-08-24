@@ -18,6 +18,17 @@
   when:
     - k3s_role != "server" or not (k3s_cluster_init | default(false) | bool)
 
+- name: Require an explicit Flannel interface consistent with the selected mesh
+  ansible.builtin.assert:
+    that:
+      - (k3s_flannel_interface | string | length) > 0
+      - not (nebula_enabled | bool) or k3s_flannel_interface == nebula_interface
+      - not (tailscale_enabled | bool) or k3s_flannel_interface == "tailscale0"
+    fail_msg: >-
+      Set k3s_flannel_interface to a reviewed private interface. When Nebula or
+      Tailscale is enabled it must be nebula_interface or tailscale0,
+      respectively, so VXLAN uses the interface opened by the firewall policy.
+
 - name: Create k3s configuration directory
   ansible.builtin.file:
     path: /etc/rancher/k3s

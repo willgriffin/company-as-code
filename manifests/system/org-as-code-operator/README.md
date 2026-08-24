@@ -13,8 +13,8 @@ The package is intentionally inert for consumers: it manages only the generic
 workload application gates to `false`. Enable those values only as part of a
 reviewed consumer rollout.
 
-The v0.1.2 CRDs do not admit the `Agent.spec.activate` or
-`HermesWorkload.spec.secrets` fields used by some production overlays. The
-example deliberately omits both and remains inactive. Do not enable a
-secret-backed workload until a newer signed chart admits and preserves the
-secret-reference schema.
+The v0.1.2 CRDs admit `Agent.spec.activate` and typed,
+same-namespace `HermesWorkload.spec.secrets`. The example sets activation to
+false, references an optional labeled Secret, and remains inactive. Encrypt
+the Secret template, pin the workload image and agent contract, and review the
+global actuation gates before enabling a live workload.

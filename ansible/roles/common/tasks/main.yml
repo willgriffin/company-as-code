@@ -18,7 +18,7 @@
 - name: Persist required kernel modules
   ansible.builtin.copy:
     dest: /etc/modules-load.d/k3s.conf
-    content: "{{ kernel_modules | join('\\n') }}\\n"
+    content: "{{ kernel_modules | join('\\n') + '\\n' }}"
     mode: "0644"
 
 - name: Configure k3s sysctl settings
@@ -48,9 +48,11 @@
   ansible.builtin.assert:
     that:
       - cluster_allowed_cidrs | length > 0 or nebula_enabled | bool or tailscale_enabled | bool
+      - not (nebula_enabled | bool and tailscale_enabled | bool)
     fail_msg: >-
       Set cluster_allowed_cidrs to reviewed private node ranges, or enable a
       configured Nebula or Tailscale interface, before enabling the firewall.
+      Select at most one mesh transport per host.
 
 - name: Set UFW defaults
   ansible.builtin.command: "ufw default {{ item.policy }} {{ item.direction }}"

@@ -25,6 +25,7 @@ these external values:
 | `tailscale_auth_key` | `tailscale` | short-lived external auth key |
 | `management_allowed_cidrs` | `common` | private inventory; reviewed SSH source ranges |
 | `cluster_allowed_cidrs` | `common` | private inventory; node-to-node source ranges when no trusted mesh interface is used |
+| `k3s_flannel_interface` | `k3s_server` | private inventory; reviewed private interface, or the selected mesh interface |
 
 Set `nebula_enabled: true` or `tailscale_enabled: true` only after their
 inputs are available. Set `nebula_allowed_groups` to the smallest required
@@ -43,6 +44,8 @@ The common role fails before enabling UFW unless
 ports are opened only to `cluster_allowed_cidrs`; when Nebula or Tailscale is
 selected, only the same API, kubelet, flannel, and embedded-etcd ports are
 opened on that interface. The role never marks the whole mesh as trusted.
+The k3s role also requires an explicit Flannel interface and verifies that it
+matches `nebula_interface` or `tailscale0` when that mesh is selected.
 
 The example pins both bootstrap release versions and SHA-256 checksums. When
 changing `k3s_version`, `k3s_install_script_url`, `nebula_version`, or

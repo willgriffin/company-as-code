@@ -4,3 +4,11 @@ kind: Kustomization
 resources:
   # Vendored operator and CRDs; see UPSTREAM.md for provenance and checksum.
   - cluster-operator-v2.22.5.yaml
+
+# The upstream install artifact uses a mutable tag. Preserve the reviewed
+# artifact byte-for-byte, then make the deployed multi-architecture image
+# immutable through Kustomize.
+images:
+  - name: ghcr.io/rabbitmq/cluster-operator
+    newName: ghcr.io/rabbitmq/cluster-operator
+    digest: sha256:2727b84b835ada97247bbb65ebfa6998168b4e8ee11b0e6cece56ac2c9c4f0fb

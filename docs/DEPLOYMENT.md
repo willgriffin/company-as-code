@@ -78,10 +78,9 @@ Hermes is reconciled separately from its workload declarations. Both Flux
 Kustomizations are suspended by default. After adding encrypted registry
 credentials, resume only the signed, pinned `org-as-code` chart with
 `workloadApply: false`; inspect its CRDs, status, and rendered objects before
-considering the example workload. The current chart has no typed
-`HermesWorkload.spec.secrets` contract, so keep workload actuation disabled for
-secret-backed runtimes. The chart's version and signature policy are
-documented in [Hermes](HERMES.md).
+considering the example workload. Keep credential values out of workload
+environment maps: use its typed `HermesWorkload.spec.secrets` references and
+label encrypted runtime Secrets as documented in [Hermes](HERMES.md).
 
 ## 5. Validate
 

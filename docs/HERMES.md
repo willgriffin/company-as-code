@@ -41,10 +41,14 @@ Flux Kustomizations in `manifests/clusters/my-cluster/applications.yaml`.
 Supply encrypted pull Secrets and review the published CRDs before removing
 either suspension; the rest of the tenant can reconcile independently.
 
-The v0.1.2 chart also has a material schema limit: it does not admit
-`Agent.spec.activate` or `HermesWorkload.spec.secrets`. The checked-in example
-omits both. It must remain non-actuating until a newer signed release preserves
-typed secret references for the runtime.
+The v0.1.2 chart admits both `Agent.spec.activate` and typed,
+same-namespace `HermesWorkload.spec.secrets`. The checked-in example sets
+`activate: false`, keeps the workload suspended at zero replicas, and references
+an optional runtime Secret whose template carries the operator's required
+`org.willgriffin.dev/managed-secret: "true"` label. A referenced Secret must be
+delivered through environment variables, a read-only mount, or both. Replace
+the example's contract ref and runtime image digest, encrypt the Secret, and
+review both global actuation gates before enabling any live workload.
 
 ## Generic fleet declaration
 
@@ -64,13 +68,16 @@ spec:
     name: example-agent
   suspend: true
   persistence: durable
-  image: TEMPLATE_HERMES_RUNTIME_IMAGE
+  image: TEMPLATE_HERMES_RUNTIME_IMAGE@sha256:TEMPLATE_HERMES_RUNTIME_DIGEST
+  secrets:
+    - name: hermes-runtime-secrets
+      env: true
+      optional: true
 ```
 
 With the default actuation gate and suspended workload, this object is observed
 but does not launch a runtime. A live replica and secret-backed provider
-configuration are deployment-specific decisions and require a compatible
-operator release.
+configuration remain deployment-specific, explicitly reviewed decisions.
 
 ## Boundary with the existing workload tree
 

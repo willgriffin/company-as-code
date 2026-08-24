@@ -85,7 +85,7 @@ class HermesOperatorContractTests(unittest.TestCase):
 
         agent = read(HERMES / "agent.yaml")
         self.assertIn("kind: Agent", agent)
-        self.assertNotIn("activate:", agent)
+        self.assertIn("activate: false", agent)
         for field in ("identity:", "contractRef:", "memory:", "envPolicy:"):
             with self.subTest(field=field):
                 self.assertIn(field, agent)
@@ -97,7 +97,10 @@ class HermesOperatorContractTests(unittest.TestCase):
         self.assertIn("replicas: 0", workload)
         self.assertIn("suspend: true", workload)
         self.assertIn("persistence: durable", workload)
-        self.assertNotIn("secrets:", workload)
+        self.assertIn("secrets:", workload)
+        self.assertIn("name: hermes-runtime-secrets", workload)
+        self.assertIn("optional: true", workload)
+        self.assertIn("@sha256:TEMPLATE_HERMES_RUNTIME_DIGEST", workload)
         for field in ("image:", "resources:", "scheduling:", "egress:"):
             with self.subTest(field=field):
                 self.assertIn(field, workload)
@@ -107,7 +110,8 @@ class HermesOperatorContractTests(unittest.TestCase):
         self.assertIn("kind: HermesWorkload", template)
         self.assertIn('safeReplicas: "0"', template)
         self.assertIn('safeSuspend: "true"', template)
-        self.assertRegex(template, r"requiredFields: .*image.*resources.*scheduling.*egress")
+        self.assertIn('safeActivate: "false"', template)
+        self.assertRegex(template, r"supportedFields: .*image.*secrets.*resources.*scheduling.*egress")
 
 
 if __name__ == "__main__":
