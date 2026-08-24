@@ -20,6 +20,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 package-lock.json
+!infrastructure/hetzner/package-lock.json
 yarn.lock
 
 # TypeScript
@@ -28,9 +29,14 @@ dist/
 *.d.ts.map
 *.js.map
 
+# Python test caches
+__pycache__/
+*.py[cod]
+
 # Local tools
 .tools/
 actionlint
+.ci/
 
 # Flux manifest configuration
 manifests/.backups/

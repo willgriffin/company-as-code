@@ -1,0 +1,29 @@
+---
+# Recover one host over its ordinary SSH address, then restore its Nebula
+# identity. Invoke with --limit and a private bootstrap_public_host value.
+
+- name: Bootstrap Nebula on one host
+  hosts: all
+  gather_facts: false
+  serial: 1
+  any_errors_fatal: true
+  vars:
+    ansible_host: "{{ bootstrap_public_host }}"
+    nebula_enabled: true
+  pre_tasks:
+    - name: Require one explicit recovery target
+      ansible.builtin.assert:
+        that:
+          - ansible_play_hosts_all | length == 1
+          - bootstrap_public_host is defined
+          - (bootstrap_public_host | string | length) > 0
+          - nebula_ip is defined
+          - (nebula_ip | string | length) > 0
+        fail_msg: >-
+          Select exactly one host and provide its verified reachable address and
+          mesh address through private vars.
+    - name: Wait for SSH
+      ansible.builtin.wait_for_connection:
+        timeout: 300
+  roles:
+    - nebula

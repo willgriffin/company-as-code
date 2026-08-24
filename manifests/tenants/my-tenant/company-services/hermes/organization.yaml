@@ -1,0 +1,11 @@
+apiVersion: org.willgriffin.dev/v1alpha1
+kind: Organization
+metadata:
+  name: org
+  namespace: org-example
+  labels:
+    app.kubernetes.io/managed-by: company-as-code
+    app.kubernetes.io/part-of: org-as-code
+spec:
+  domains:
+    - example.invalid

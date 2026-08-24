@@ -1,0 +1,20 @@
+# org-as-code operator
+
+This package installs the signed v0.1.2 `org-as-code` OCI chart and its CRDs
+through Flux. The chart source is pinned to the release digest and accepts
+only the upstream GitHub Actions Cosign identity.
+
+The chart and manager image are private GHCR artifacts. Create SOPS-encrypted
+copies of both `*.secret.template.yaml` files and add the encrypted filenames
+to `kustomization.yaml` before enabling this package.
+
+The package is intentionally inert for consumers: it manages only the generic
+`org-example` namespace, has no active namespaces, and sets both directory and
+workload application gates to `false`. Enable those values only as part of a
+reviewed consumer rollout.
+
+The v0.1.2 CRDs do not admit the `Agent.spec.activate` or
+`HermesWorkload.spec.secrets` fields used by some production overlays. The
+example deliberately omits both and remains inactive. Do not enable a
+secret-backed workload until a newer signed chart admits and preserves the
+secret-reference schema.

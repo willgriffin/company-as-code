@@ -1,0 +1,19 @@
+# NVIDIA GPU time-slicing configuration. This controls scheduling shares, not
+# memory isolation; workloads can still exhaust the GPU's available memory.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nvidia-device-plugin-config
+  namespace: kube-system
+data:
+  config.yaml: |
+    version: v1
+    flags:
+      migStrategy: none
+    sharing:
+      timeSlicing:
+        renameByDefault: false
+        failRequestsGreaterThanOne: false
+        resources:
+          - name: nvidia.com/gpu
+            replicas: 8

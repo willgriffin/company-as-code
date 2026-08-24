@@ -1,4 +1,5 @@
 node_modules/
+infrastructure/hetzner/.gen/
 dist/
 *.json
 *.yaml

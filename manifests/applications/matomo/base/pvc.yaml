@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: matomo-data
+  namespace: matomo
+  labels:
+    app.kubernetes.io/name: matomo-data
+    app.kubernetes.io/part-of: matomo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 5Gi

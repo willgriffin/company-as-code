@@ -3,4 +3,5 @@ kind: Kustomization
 resources:
   - ../../shared/config
   - system.yaml
+  - applications.yaml
   - tenants.yaml

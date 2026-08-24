@@ -1,0 +1,63 @@
+---
+- name: Set hostname from inventory
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Install common packages
+  ansible.builtin.apt:
+    name: "{{ common_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Load required kernel modules
+  ansible.builtin.command: "modprobe {{ item }}"
+  loop: "{{ kernel_modules }}"
+  changed_when: false
+
+- name: Persist required kernel modules
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/k3s.conf
+    content: "{{ kernel_modules | join('\\n') }}\\n"
+    mode: "0644"
+
+- name: Configure k3s sysctl settings
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-k3s.conf
+    content: |-
+      {% for key, value in sysctl_settings.items() %}
+      {{ key }}={{ value }}
+      {% endfor %}
+    mode: "0644"
+  notify: Reload sysctl
+
+- name: Install UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+
+- name: Set UFW defaults
+  ansible.builtin.command: "ufw default {{ item.policy }} {{ item.direction }}"
+  loop:
+    - { policy: deny, direction: incoming }
+    - { policy: allow, direction: outgoing }
+  changed_when: false
+
+- name: Allow required firewall ports
+  ansible.builtin.command: "ufw allow {{ item.port }}/{{ item.proto }}"
+  loop: "{{ firewall_rules }}"
+  changed_when: false
+
+- name: Allow mesh interface when configured
+  ansible.builtin.command: "ufw allow in on {{ nebula_interface }}"
+  when: nebula_enabled | bool
+  changed_when: false
+
+- name: Allow Tailscale interface when configured
+  ansible.builtin.command: ufw allow in on tailscale0
+  when: tailscale_enabled | bool
+  changed_when: false
+
+- name: Enable UFW
+  ansible.builtin.command: ufw --force enable
+  changed_when: false

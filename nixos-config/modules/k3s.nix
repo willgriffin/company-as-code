@@ -1,8 +1,100 @@
-{ lib, config, ... }:
+{ config, lib, ... }:
+
+let
+  cfg = config.company.k3s;
+  serverFlags = [
+    "--write-kubeconfig-mode=0640"
+  ]
+    ++ lib.optional cfg.disableTraefik "--disable=traefik"
+    ++ lib.optional cfg.disableServiceLB "--disable=servicelb"
+    ++ lib.optional cfg.clusterInit "--cluster-init";
+  agentFlags = lib.optional (cfg.serverAddress != null) "--server=${cfg.serverAddress}";
+  networkFlags = lib.optional (cfg.flannelInterface != null)
+    "--flannel-iface=${cfg.flannelInterface}";
+  labelFlags = lib.mapAttrsToList (name: value: "--node-label=${name}=${value}") cfg.labels;
+  taintFlags = map (taint: "--node-taint=${taint}") cfg.taints;
+in
 {
-  options.company.k3s.enable = lib.mkEnableOption "k3s node over Nebula";
-  config = lib.mkIf config.company.k3s.enable {
-    services.k3s.enable = true;
-    services.k3s.extraFlags = [ "--flannel-iface=nebula1" ];
+  options.company.k3s = {
+    enable = lib.mkEnableOption "k3s Kubernetes node";
+
+    role = lib.mkOption {
+      type = lib.types.enum [ "server" "agent" ];
+      default = "server";
+      description = "Whether this host runs a k3s control plane or worker agent.";
+    };
+
+    clusterInit = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Initialize a new embedded-etcd cluster on this server.";
+    };
+
+    serverAddress = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "https://control-plane.example.invalid:6443";
+      description = "Existing k3s API URL used by an agent or joining server.";
+    };
+
+    tokenFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      example = "/run/secrets/k3s-token";
+      description = "Runtime path containing the external cluster token.";
+    };
+
+    flannelInterface = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "nebula1";
+      description = "Optional interface used for k3s pod networking.";
+    };
+
+    disableTraefik = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Disable the bundled Traefik deployment.";
+    };
+
+    disableServiceLB = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Disable the bundled ServiceLB deployment.";
+    };
+
+    labels = lib.mkOption {
+      type = lib.types.attrsOf lib.types.str;
+      default = {};
+      description = "Additional labels applied to this k3s node.";
+    };
+
+    taints = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      description = "Optional taints applied to this k3s node.";
+    };
+
+    extraFlags = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      description = "Additional flags passed to k3s after the safe defaults.";
+    };
+  };
+
+  config = lib.mkIf cfg.enable {
+    services.k3s = {
+      enable = true;
+      role = cfg.role;
+      extraFlags = (if cfg.role == "server" then serverFlags else agentFlags)
+        ++ networkFlags
+        ++ labelFlags
+        ++ taintFlags
+        ++ cfg.extraFlags;
+    } // lib.optionalAttrs (cfg.serverAddress != null) {
+      serverAddr = cfg.serverAddress;
+    } // lib.optionalAttrs (cfg.tokenFile != null) {
+      tokenFile = cfg.tokenFile;
+    };
   };
 }

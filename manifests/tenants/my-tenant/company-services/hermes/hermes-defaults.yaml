@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hermes-defaults
+  namespace: org-example
+  labels:
+    app.kubernetes.io/managed-by: company-as-code
+    app.kubernetes.io/part-of: org-as-code
+data:
+  config: |
+    model:
+      provider: openai
+    memory:
+      provider: disabled
+    platforms:
+      zulip:
+        enabled: false

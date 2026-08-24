@@ -1,0 +1,23 @@
+apiVersion: org.willgriffin.dev/v1alpha1
+kind: Agent
+metadata:
+  name: example-agent
+  namespace: org-example
+  labels:
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/managed-by: company-as-code
+    app.kubernetes.io/part-of: org-as-code
+spec:
+  identity:
+    slug: example-agent
+    email: example-agent@example.invalid
+    displayName: Example Agent
+    idpAccount: example-agent
+    deprovisionPolicy: Retain
+  contractRef:
+    name: example-agent
+    repository: https://example.invalid/agent-contract.git
+    ref: main
+  memory:
+    bankId: repo-example-example.invalid
+  envPolicy: gated

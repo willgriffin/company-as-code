@@ -1,0 +1,70 @@
+---
+- name: Require a k3s token from an external input
+  ansible.builtin.assert:
+    that:
+      - k3s_token is defined
+      - (k3s_token | string | length) > 0
+    fail_msg: >-
+      Set k3s_token through an external secret manager or a private vars file;
+      it must never be committed to this repository.
+  no_log: true
+
+- name: Require an API address for joining nodes
+  ansible.builtin.assert:
+    that:
+      - k3s_server_address is defined
+      - (k3s_server_address | string | length) > 0
+    fail_msg: Set k3s_server_address for non-initial servers and workers.
+  when:
+    - k3s_role != "server" or not (k3s_cluster_init | default(false) | bool)
+
+- name: Create k3s configuration directory
+  ansible.builtin.file:
+    path: /etc/rancher/k3s
+    state: directory
+    mode: "0755"
+
+- name: Write k3s token file
+  ansible.builtin.copy:
+    content: "{{ k3s_token }}\n"
+    dest: /etc/rancher/k3s/token
+    mode: "0600"
+  no_log: true
+  notify: Restart k3s
+
+- name: Template k3s configuration
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: /etc/rancher/k3s/config.yaml
+    mode: "0644"
+  notify: Restart k3s
+
+- name: Check for installed k3s
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary
+
+- name: Download the pinned k3s installer
+  ansible.builtin.get_url:
+    url: "{{ k3s_install_script_url }}"
+    dest: /tmp/k3s-install.sh
+    checksum: "sha256:{{ k3s_install_script_sha256 }}"
+    mode: "0700"
+  when: not k3s_binary.stat.exists
+
+- name: Install the pinned k3s release
+  ansible.builtin.command: /tmp/k3s-install.sh
+  environment:
+    INSTALL_K3S_VERSION: "{{ k3s_version }}"
+    INSTALL_K3S_EXEC: "{{ k3s_role }}"
+  args:
+    creates: /usr/local/bin/k3s
+  when: not k3s_binary.stat.exists
+  notify: Restart k3s
+
+- name: Enable and start k3s server or agent
+  ansible.builtin.systemd:
+    name: "{{ 'k3s' if k3s_role == 'server' else 'k3s-agent' }}"
+    enabled: true
+    state: started
+    daemon_reload: true

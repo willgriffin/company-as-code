@@ -1,0 +1,48 @@
+# The operator is installed but cannot actuate directory or workload changes
+# until a consumer explicitly enables the reviewed gates.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: org-as-code
+  namespace: org-as-code-system
+  labels:
+    app.kubernetes.io/part-of: org-as-code
+spec:
+  interval: 30m
+  timeout: 10m
+  suspend: false
+  releaseName: org-as-code
+  targetNamespace: org-as-code-system
+  storageNamespace: org-as-code-system
+  chartRef:
+    kind: OCIRepository
+    name: org-as-code-chart
+    namespace: flux-system
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  rollback:
+    cleanupOnFail: true
+  values:
+    namespace:
+      name: org-as-code-system
+      create: false
+    imagePullSecrets:
+      - name: org-as-code-registry
+    managedNamespaces:
+      - org-example
+    activeNamespaces: []
+    directoryApply: false
+    workloadApply: false
+    emitNamespaceGates: true
+    emitTenantRole: false
+    emitClusterRoleBinding: false
+    emitProviderEnv: false
+    providers:
+      warden:
+        url: ""

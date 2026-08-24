@@ -1,0 +1,14 @@
+{
+  "language": "typescript",
+  "app": "npx tsx main.ts",
+  "projectId": "template-hetzner",
+  "sendCrashReports": "false",
+  "terraformProviders": [
+    "hetznercloud/hcloud@~> 1.54.0"
+  ],
+  "terraformModules": [],
+  "context": {
+    "excludeStackIdFromLogicalIds": "true",
+    "allowSepCharsInLogicalIds": "true"
+  }
+}

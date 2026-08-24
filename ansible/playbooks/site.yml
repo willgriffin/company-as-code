@@ -1,0 +1,31 @@
+---
+# Provision the generic hybrid k3s inventory. Supply private inventory values
+# and external secret variables before running this playbook.
+
+- name: Prepare k3s control-plane nodes
+  hosts: control_plane
+  serial: 1
+  any_errors_fatal: true
+  roles:
+    - common
+    - role: tailscale
+      when: tailscale_enabled | bool
+    - role: nebula
+      when: nebula_enabled | bool
+    - role: k3s_server
+      vars:
+        k3s_role: server
+
+- name: Prepare k3s worker nodes
+  hosts: workers
+  serial: 1
+  any_errors_fatal: true
+  roles:
+    - common
+    - role: tailscale
+      when: tailscale_enabled | bool
+    - role: nebula
+      when: nebula_enabled | bool
+    - role: k3s_server
+      vars:
+        k3s_role: agent

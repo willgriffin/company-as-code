@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: node-exporter
+  namespace: node-exporter
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: node-exporter
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow the collector namespace to scrape node-exporter. Consumers can
+    # adjust this selector when their metrics collector uses another label.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: metrics
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/component: metrics-collector
+      ports:
+        - protocol: TCP
+          port: 9100
+  egress: []

@@ -1,0 +1,48 @@
+---
+# Safe, organization-neutral defaults. Credentials and node addresses belong
+# in a private inventory, environment, Ansible Vault, or another secret store.
+k3s_version: "v1.34.3+k3s1"
+k3s_install_script_url: "https://raw.githubusercontent.com/k3s-io/k3s/v1.34.3%2Bk3s1/install.sh"
+k3s_install_script_sha256: "40b487f0d8ef4f5d1bf422e7bb6228cc7789c40ecc66c5ab067d396bbee9816e"
+k3s_server_group: control_plane
+k3s_disable:
+  - traefik
+  - servicelb
+k3s_flannel_interface: "eth0"
+k3s_audit_enabled: false
+
+common_packages:
+  - ca-certificates
+  - conntrack
+  - curl
+  - git
+  - jq
+  - python3
+
+kernel_modules:
+  - overlay
+  - br_netfilter
+
+sysctl_settings:
+  net.ipv4.ip_forward: "1"
+  net.bridge.bridge-nf-call-iptables: "1"
+  net.bridge.bridge-nf-call-ip6tables: "1"
+
+firewall_rules:
+  - { port: "22", proto: "tcp" }
+  - { port: "6443", proto: "tcp" }
+  - { port: "8472", proto: "udp" }
+  - { port: "10250", proto: "tcp" }
+
+nebula_enabled: false
+nebula_version: "1.10.3"
+nebula_arch: "amd64"
+nebula_archive_sha256: "99ac335caeb69d02a6b6b00a3d4b5d0a36ec3971df480a1cc50e6db378342955"
+nebula_interface: "nebula1"
+nebula_listen_port: 4242
+nebula_lighthouse_ip: ""
+nebula_lighthouse_public_endpoint: ""
+nebula_allowed_groups: []
+
+tailscale_enabled: false
+tailscale_args: "--accept-dns=false"

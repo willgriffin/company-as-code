@@ -12,7 +12,6 @@ resources:
   - company-services/ai-gateway
   - company-services/contextforge
   - company-services/forgejo
-  - company-services/hermes
   - company-services/hindsight
   - company-services/matomo
   - company-services/oxicloud

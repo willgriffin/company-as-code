@@ -7,7 +7,7 @@
     "build": "bun run build:root",
     "build:root": "bun run typecheck",
     "typecheck": "bash -c 'if find scripts infrastructure -type f \\( -name \"*.ts\" -o -name \"*.tsx\" \\) | grep -q .; then bunx --bun tsc --noEmit; else echo \"No active TypeScript sources\"; fi'",
-    "test": "bash -c 'echo \"No automated tests configured for template-only repo\"'",
+    "test": "bash scripts/ci/run-contract-tests.sh",
     "lint": "bun run lint:workflows",
     "lint:workflows": "bash -c 'if command -v actionlint &> /dev/null; then actionlint; else echo \"actionlint not installed, skipping\"; fi'",
     "format": "bunx --bun prettier --write .",
