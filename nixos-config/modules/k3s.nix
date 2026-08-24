@@ -112,7 +112,7 @@ in
         message = "When Tailscale is enabled, company.k3s.flannelInterface must be tailscale0.";
       }
       {
-        assertion = lib.all (flag: !(lib.hasPrefix "--flannel-iface" flag)) cfg.extraFlags;
+        assertion = lib.all (flag: !(lib.hasInfix "--flannel-iface" flag)) cfg.extraFlags;
         message = "Do not override --flannel-iface through company.k3s.extraFlags; use company.k3s.flannelInterface.";
       }
     ];
