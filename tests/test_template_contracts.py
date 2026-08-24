@@ -223,6 +223,7 @@ class TemplateContractTests(unittest.TestCase):
         self.assertIn("(.data // {}) + (.stringData // {})", script)
         self.assertIn('test("^ENC\\\\[AES256_GCM,")', script)
         self.assertIn("$payload | length", script)
+        self.assertIn("documentIndex", script)
 
     def test_matomo_domain_patch_preserves_ingress_routing_and_tls_secret(self) -> None:
         patch = (

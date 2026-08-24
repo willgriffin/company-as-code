@@ -18,12 +18,9 @@ if [ ! -d "$MANIFEST_ROOT" ]; then
   exit 1
 fi
 
-is_secret_manifest() {
-  yq -e 'select(.kind == "Secret")' "$1" >/dev/null 2>&1
-}
-
-is_sops_encrypted() {
+is_sops_encrypted_document() {
   yq -e '
+    select(documentIndex == '"$2"') |
     select(.sops != null) |
     ((.data // {}) + (.stringData // {})) as $payload |
     select(($payload | length) > 0) |
@@ -35,12 +32,31 @@ is_sops_encrypted() {
 
 failures=0
 while IFS= read -r file; do
-  is_secret_manifest "$file" || continue
+  if ! secret_document_indexes=$(
+    yq -N 'select(tag == "!!map") | select(.kind == "Secret") | documentIndex' "$file"
+  ); then
+    echo "::error file=$file::Unable to inspect YAML documents for plaintext Secrets" >&2
+    failures=$((failures + 1))
+    continue
+  fi
+  [[ -n "$secret_document_indexes" ]] || continue
+
+  secret_found=false
+  payloads_encrypted=true
+  while IFS= read -r document_index; do
+    secret_found=true
+    if ! is_sops_encrypted_document "$file" "$document_index"; then
+      payloads_encrypted=false
+      break
+    fi
+  done <<< "$secret_document_indexes"
+
+  [[ "$secret_found" == true ]] || continue
 
   case "$file" in
     *.secret.template.yaml) continue ;;
   esac
-  if is_sops_encrypted "$file"; then
+  if [[ "$payloads_encrypted" == true ]]; then
     continue
   fi
 
