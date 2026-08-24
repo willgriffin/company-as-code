@@ -111,6 +111,10 @@ in
         assertion = !config.company.tailscale.enable || cfg.flannelInterface == "tailscale0";
         message = "When Tailscale is enabled, company.k3s.flannelInterface must be tailscale0.";
       }
+      {
+        assertion = lib.all (flag: !(lib.hasPrefix "--flannel-iface" flag)) cfg.extraFlags;
+        message = "Do not override --flannel-iface through company.k3s.extraFlags; use company.k3s.flannelInterface.";
+      }
     ];
 
     networking.firewall.interfaces = lib.genAttrs cfg.clusterInterfaces (_: {

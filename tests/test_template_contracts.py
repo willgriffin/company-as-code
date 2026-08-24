@@ -165,6 +165,7 @@ class TemplateContractTests(unittest.TestCase):
         self.assertIn('port: "2379"', ansible_vars)
         self.assertIn('port: "2380"', ansible_vars)
         self.assertIn("cfg.flannelInterface != \"\" && lib.elem", k3s_nix)
+        self.assertIn('lib.hasPrefix "--flannel-iface"', k3s_nix)
 
         k3s_tasks = (ROOT / "ansible/roles/k3s_server/tasks/main.yml").read_text(
             encoding="utf-8"
