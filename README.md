@@ -76,9 +76,10 @@ Rename or replace them before deployment.
    ./reset-to-template.sh --check
    ```
 
-4. Create each required encrypted Secret from its adjacent
-   `*.secret.template.yaml`; never deploy the template or commit plaintext
-   values. Follow [Secrets](docs/SECRETS.md).
+4. Generate the deployment's age key, replace the placeholder recipient in
+   `.sops.yaml` with its public recipient, then create each required encrypted
+   Secret from the adjacent `*.secret.template.yaml`. Never deploy the template
+   or commit plaintext values. Follow [Secrets](docs/SECRETS.md).
 5. Follow [Deployment](docs/DEPLOYMENT.md) to prepare hosts, bootstrap Flux,
    and reconcile only the selected system and tenant components.
 
@@ -105,11 +106,12 @@ boundaries—is in the
 Never commit credentials, tokens, private keys, provider state, backups, or
 exported application data. For deployment:
 
-1. copy a required `*.secret.template.yaml` to `*.secret.enc.yaml`;
-2. replace every placeholder locally;
-3. encrypt `data` and `stringData` with SOPS using the deployment's age
-   recipient; and
-4. add only the encrypted file to its owning Kustomization.
+1. replace the placeholder age recipient in `.sops.yaml` with the deployment's
+   public recipient;
+2. copy a required `*.secret.template.yaml` to `*.secret.enc.yaml`;
+3. replace every placeholder locally;
+4. encrypt `data` and `stringData` with SOPS using that public recipient; and
+5. add only the encrypted file to its owning Kustomization.
 
 Keep templates out of deployable `resources:` lists. Store the age private key
 and recovery material outside Git. See [Secrets](docs/SECRETS.md) for the full

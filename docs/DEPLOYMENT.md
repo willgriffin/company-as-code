@@ -108,12 +108,15 @@ Use `./reset-to-template.sh --check` before deployment to find remaining
 
 1. Create an age key for the cluster and store the private material outside
    Git (password vault plus an offline recovery copy).
-2. Copy each required `*.secret.template.yaml` to an encrypted
+2. Replace the placeholder `age:` recipient in `.sops.yaml` with the generated
+   public recipient. The `SOPS_AGE_RECIPIENT` example variable does not update
+   this file automatically.
+3. Copy each required `*.secret.template.yaml` to an encrypted
    `*.secret.enc.yaml`, replace placeholders, encrypt with SOPS, and add only
    the encrypted file to the owning Kustomization.
-3. Create the Flux Git credentials and `flux-system/sops-age` secrets in the
+4. Create the Flux Git credentials and `flux-system/sops-age` secrets in the
    bootstrap namespace.
-4. Bootstrap Flux against `manifests/clusters/my-cluster`, or apply the
+5. Bootstrap Flux against `manifests/clusters/my-cluster`, or apply the
    generated Flux bootstrap resources through the organization's approved
    process.
 
@@ -161,7 +164,11 @@ Run the repository checks before opening a change:
 bun run typecheck
 bun run lint
 bun run format:check
+bun run build
 bun run test
+scripts/ci/render-kustomizations.sh
+scripts/ci/check-plaintext-secrets.sh
+scripts/ci/check-template-literals.sh
 kubectl kustomize manifests/clusters/my-cluster
 ```
 

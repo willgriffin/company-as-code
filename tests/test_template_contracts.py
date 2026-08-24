@@ -230,6 +230,34 @@ class TemplateContractTests(unittest.TestCase):
             kustomization,
         )
 
+    def test_redis_operator_image_is_digest_pinned_after_helm_render(self) -> None:
+        release = (MANIFESTS / "system/redis-operator/helm-release.yaml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("postRenderers:", release)
+        self.assertIn(
+            "digest: sha256:c3af8183cbe157053fa09642f375f90acdf4a355981d2d506ed3e1b94c047eb8",
+            release,
+        )
+        self.assertIn("imageTag: v0.20.2", release)
+
+    def test_new_optional_system_modules_are_suspended_by_default(self) -> None:
+        cluster = (MANIFESTS / "clusters/my-cluster/system.yaml").read_text(
+            encoding="utf-8"
+        )
+        for name in (
+            "redis-operator",
+            "rabbitmq-operator",
+            "gateway-api",
+            "node-exporter",
+            "openobserve-collector",
+        ):
+            with self.subTest(name=name):
+                self.assertRegex(
+                    cluster,
+                    rf"(?s)name: {re.escape(name)}.*?path: .*?\n  prune: true\n(?:  #.*\n)?  suspend: true",
+                )
+
     def test_reset_script_preserves_tracked_file_modes(self) -> None:
         reset_script = (ROOT / "reset-to-template.sh").read_text(encoding="utf-8")
         self.assertIn('cp -p "$repo_root/$file" "$tmp"', reset_script)

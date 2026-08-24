@@ -141,6 +141,8 @@ spec:
   interval: 10m
   path: ./manifests/system/redis-operator
   prune: true
+  # Optional cluster-scoped operator. Review the enabled Redis workloads first.
+  suspend: true
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -162,6 +164,8 @@ spec:
   interval: 10m
   path: ./manifests/system/rabbitmq-operator
   prune: true
+  # Optional cluster-scoped operator. Resume only for selected RabbitMQ workloads.
+  suspend: true
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -185,6 +189,8 @@ spec:
   interval: 10m
   path: ./manifests/system/gateway-api
   prune: true
+  # Optional CRDs. Resume only when a selected Gateway implementation needs them.
+  suspend: true
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -201,6 +207,8 @@ spec:
   interval: 10m
   path: ./manifests/system/node-exporter
   prune: true
+  # Optional host-metrics DaemonSet. Review node access before resuming it.
+  suspend: true
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -326,6 +334,8 @@ spec:
   interval: 10m
   path: ./manifests/system/openobserve-collector
   prune: true
+  # Suspended with its optional node-exporter dependency by default.
+  suspend: true
   sourceRef:
     kind: GitRepository
     name: flux-system
