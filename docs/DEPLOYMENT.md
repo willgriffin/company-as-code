@@ -170,6 +170,7 @@ scripts/ci/render-kustomizations.sh
 scripts/ci/check-plaintext-secrets.sh
 scripts/ci/check-template-literals.sh
 kubectl kustomize manifests/clusters/my-cluster
+git diff --check
 ```
 
 Then verify Flux health, certificate issuance, storage provisioning, backup
