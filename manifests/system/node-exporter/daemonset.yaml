@@ -22,6 +22,13 @@ spec:
       app.kubernetes.io/name: node-exporter
   template:
     metadata:
+      annotations:
+        # The pinned OpenObserve collector chart discovers annotated pods and
+        # scrapes every DaemonSet replica directly rather than load-balancing
+        # node metrics through a single Service endpoint.
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9100"
+        prometheus.io/scrape: "true"
       labels:
         app.kubernetes.io/name: node-exporter
         app.kubernetes.io/part-of: observability

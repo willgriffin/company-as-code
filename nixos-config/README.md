@@ -13,6 +13,13 @@ Build or inspect one with `nix flake check` and
 Install a selected host with `nixos-rebuild --flake .#control-plane` after
 adding the target's generated hardware configuration and boot settings.
 
+Before deployment, replace the examples' nonexistent `private0` placeholder.
+Set `company.common.managementInterfaces` to the reviewed private or mesh
+interfaces that may receive SSH, and `company.k3s.clusterInterfaces` to those
+that carry node traffic. The module opens SSH only on the former; on the latter
+it opens kubelet and flannel traffic on every node, plus the API and embedded
+etcd peer ports on server nodes. It never trusts an entire mesh interface.
+
 ## Optional modules
 
 `modules/nebula.nix` and `modules/tailscale.nix` provide alternative mesh

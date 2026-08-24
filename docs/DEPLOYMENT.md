@@ -19,6 +19,11 @@ Add hardware configuration, reachable addresses, host keys, and secret
 material through private inventory or an external secret manager; do not add
 them to this repository.
 
+The NixOS examples use a deliberately nonexistent `private0` interface. Before
+deployment, replace it in both `company.common.managementInterfaces` and
+`company.k3s.clusterInterfaces` with reviewed private or mesh interfaces. This
+keeps SSH and node ports closed on public interfaces by default.
+
 ## 2. Configure the template
 
 Copy `.env.example` as a local planning file, then replace placeholders in the
@@ -51,7 +56,8 @@ See [Secrets](SECRETS.md) for the encryption and review rules.
 For Ansible hosts, set a narrow `management_allowed_cidrs` value in private
 inventory before the first run. The bootstrap intentionally refuses to enable
 UFW with globally reachable SSH; cluster ports are likewise limited to
-`cluster_allowed_cidrs` or a trusted mesh interface.
+`cluster_allowed_cidrs` or the required Kubernetes ports on a configured mesh
+interface. No mesh interface is trusted wholesale.
 
 ## 4. Reconcile in dependency order
 

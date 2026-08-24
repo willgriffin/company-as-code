@@ -3,6 +3,10 @@
 {
   networking.hostName = "control-plane";
 
+  # Safe evaluation-only placeholder. Replace with a reviewed private or mesh
+  # interface before deploying this example to a host.
+  company.common.managementInterfaces = [ "private0" ];
+
   company.k3s = {
     enable = true;
     role = "server";
@@ -10,6 +14,7 @@
     tokenFile = "/run/secrets/k3s-token";
     # Set to "nebula1" when the optional Nebula module is enabled.
     flannelInterface = null;
+    clusterInterfaces = [ "private0" ];
   };
 
   # Optional overlays are intentionally disabled in the example. Enable one

@@ -86,9 +86,8 @@ in
       };
     };
 
-    networking.firewall = {
-      allowedUDPPorts = [ cfg.listenPort ];
-      trustedInterfaces = [ cfg.interface ];
-    };
+    # The public underlay needs only Nebula's listener. Services on the mesh
+    # interface remain subject to the host firewall and their Nebula ACLs.
+    networking.firewall.allowedUDPPorts = [ cfg.listenPort ];
   };
 }

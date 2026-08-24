@@ -1,5 +1,8 @@
 { config, lib, pkgs, ... }:
 
+let
+  cfg = config.company.common;
+in
 {
   imports = [
     ./k3s.nix
@@ -9,13 +12,29 @@
     ./nvidia.nix
   ];
 
-  options.company.common.enable = lib.mkOption {
-    type = lib.types.bool;
-    default = true;
-    description = "Enable common NixOS host defaults.";
+  options.company.common = {
+    enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Enable common NixOS host defaults.";
+    };
+
+    managementInterfaces = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      example = [ "nebula1" ];
+      description = "Interfaces on which SSH management access is accepted.";
+    };
   };
 
-  config = lib.mkIf config.company.common.enable {
+  config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = cfg.managementInterfaces != [];
+        message = "Set company.common.managementInterfaces to reviewed private or mesh interfaces before deploying a host.";
+      }
+    ];
+
     # Keep these defaults safe for a newly copied example.  A host can opt out
     # of the common module when it needs a distribution-specific base.
     nixpkgs.config.allowUnfree = true;
@@ -28,7 +47,12 @@
     };
 
     networking.useDHCP = lib.mkDefault true;
-    networking.firewall.enable = true;
+    networking.firewall = {
+      enable = true;
+      interfaces = lib.genAttrs cfg.managementInterfaces (_: {
+        allowedTCPPorts = [ 22 ];
+      });
+    };
 
     # Evaluation-safe placeholders for the example hosts. Replace these with
     # generated hardware configuration and the target's boot-loader settings.

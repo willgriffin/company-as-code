@@ -51,6 +51,13 @@ in
       description = "Optional interface used for k3s pod networking.";
     };
 
+    clusterInterfaces = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      example = [ "nebula1" ];
+      description = "Reviewed private or mesh interfaces allowed to carry k3s node traffic.";
+    };
+
     disableTraefik = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -83,6 +90,22 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = cfg.clusterInterfaces != [];
+        message = "Set company.k3s.clusterInterfaces to reviewed private or mesh interfaces before enabling k3s.";
+      }
+    ];
+
+    networking.firewall.interfaces = lib.genAttrs cfg.clusterInterfaces (_: {
+      allowedTCPPorts = [ 10250 ] ++ lib.optionals (cfg.role == "server") [
+        6443
+        2379
+        2380
+      ];
+      allowedUDPPorts = [ 8472 ];
+    });
+
     services.k3s = {
       enable = true;
       role = cfg.role;

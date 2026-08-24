@@ -41,7 +41,8 @@ running against real infrastructure.
 The common role fails before enabling UFW unless
 `management_allowed_cidrs` contains at least one reviewed source range. Cluster
 ports are opened only to `cluster_allowed_cidrs`; when Nebula or Tailscale is
-selected, the corresponding trusted interface carries cluster traffic instead.
+selected, only the same API, kubelet, flannel, and embedded-etcd ports are
+opened on that interface. The role never marks the whole mesh as trusted.
 
 The example pins both bootstrap release versions and SHA-256 checksums. When
 changing `k3s_version`, `k3s_install_script_url`, `nebula_version`, or

@@ -18,6 +18,7 @@ common_packages:
   - git
   - jq
   - python3
+  - python3-debian
 
 kernel_modules:
   - overlay
@@ -36,6 +37,8 @@ cluster_firewall_rules:
   - { port: "6443", proto: "tcp" }
   - { port: "8472", proto: "udp" }
   - { port: "10250", proto: "tcp" }
+  - { port: "2379", proto: "tcp" }
+  - { port: "2380", proto: "tcp" }
 
 nebula_enabled: false
 nebula_version: "1.10.3"

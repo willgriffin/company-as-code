@@ -104,6 +104,53 @@ class TemplateContractTests(unittest.TestCase):
         self.assertNotIn("hostPID:", daemonset)
         self.assertNotIn("hostPort:", daemonset)
 
+    def test_node_exporter_has_a_per_pod_openobserve_scrape_path(self) -> None:
+        daemonset = (MANIFESTS / "system/node-exporter/daemonset.yaml").read_text(
+            encoding="utf-8"
+        )
+        service = (MANIFESTS / "system/node-exporter/service.yaml").read_text(
+            encoding="utf-8"
+        )
+        collector = (MANIFESTS / "system/openobserve-collector/helm-release.yaml").read_text(
+            encoding="utf-8"
+        )
+        cluster = (MANIFESTS / "clusters/my-cluster/system.yaml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('prometheus.io/scrape: "true"', daemonset)
+        self.assertIn('prometheus.io/port: "9100"', daemonset)
+        self.assertIn("clusterIP: None", service)
+        self.assertIn("gateway:\n      enabled: true", collector)
+        self.assertRegex(
+            cluster,
+            r"(?s)name: openobserve-collector.*?dependsOn:.*?- name: node-exporter",
+        )
+
+    def test_host_firewalls_require_scoped_management_and_cluster_inputs(self) -> None:
+        common_nix = (ROOT / "nixos-config/modules/common.nix").read_text(encoding="utf-8")
+        k3s_nix = (ROOT / "nixos-config/modules/k3s.nix").read_text(encoding="utf-8")
+        ansible_vars = (ROOT / "ansible/inventory/group_vars/all.yml").read_text(
+            encoding="utf-8"
+        )
+        ansible_tasks = (ROOT / "ansible/roles/common/tasks/main.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("managementInterfaces", common_nix)
+        self.assertIn("clusterInterfaces", k3s_nix)
+        self.assertIn("cluster_allowed_cidrs | length > 0 or", ansible_tasks)
+        self.assertIn("python3-debian", ansible_vars)
+        self.assertIn('port: "2379"', ansible_vars)
+        self.assertIn('port: "2380"', ansible_vars)
+
+    def test_rabbitmq_operator_waits_for_cert_manager(self) -> None:
+        cluster = (MANIFESTS / "clusters/my-cluster/system.yaml").read_text(
+            encoding="utf-8"
+        )
+        self.assertRegex(
+            cluster,
+            r"(?s)name: rabbitmq-operator.*?dependsOn:.*?- name: cert-manager",
+        )
+
     def test_secret_templates_are_not_deployable_kustomization_resources(self) -> None:
         for kustomization in MANIFESTS.rglob("kustomization.yaml"):
             for line in kustomization.read_text(encoding="utf-8").splitlines():

@@ -165,6 +165,8 @@ spec:
   sourceRef:
     kind: GitRepository
     name: flux-system
+  dependsOn:
+    - name: cert-manager
   healthChecks:
     - apiVersion: apps/v1
       kind: Deployment
@@ -329,6 +331,7 @@ spec:
     name: flux-system
   dependsOn:
     - name: openobserve
+    - name: node-exporter
   timeout: 10m
   wait: true
 

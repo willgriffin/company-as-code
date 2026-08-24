@@ -44,6 +44,14 @@
       Set management_allowed_cidrs in private inventory before enabling the
       host firewall. The template never opens SSH to every source address.
 
+- name: Require an explicit cluster network or mesh
+  ansible.builtin.assert:
+    that:
+      - cluster_allowed_cidrs | length > 0 or nebula_enabled | bool or tailscale_enabled | bool
+    fail_msg: >-
+      Set cluster_allowed_cidrs to reviewed private node ranges, or enable a
+      configured Nebula or Tailscale interface, before enabling the firewall.
+
 - name: Set UFW defaults
   ansible.builtin.command: "ufw default {{ item.policy }} {{ item.direction }}"
   loop:
@@ -68,13 +76,17 @@
   when: nebula_enabled | bool
   changed_when: false
 
-- name: Allow mesh interface when configured
-  ansible.builtin.command: "ufw allow in on {{ nebula_interface }}"
+- name: Allow required cluster ports on the Nebula interface
+  ansible.builtin.command: >-
+    ufw allow in on {{ nebula_interface }} to any port {{ item.port }} proto {{ item.proto }}
+  loop: "{{ cluster_firewall_rules }}"
   when: nebula_enabled | bool
   changed_when: false
 
-- name: Allow Tailscale interface when configured
-  ansible.builtin.command: ufw allow in on tailscale0
+- name: Allow required cluster ports on the Tailscale interface
+  ansible.builtin.command: >-
+    ufw allow in on tailscale0 to any port {{ item.port }} proto {{ item.proto }}
+  loop: "{{ cluster_firewall_rules }}"
   when: tailscale_enabled | bool
   changed_when: false
 

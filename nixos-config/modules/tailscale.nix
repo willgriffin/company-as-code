@@ -25,8 +25,6 @@ in
       enable = true;
     };
 
-    networking.firewall.trustedInterfaces = [ "tailscale0" ];
-
     # Authentication is intentionally out of the flake. Authenticate after
     # deployment with `tailscale up` and an externally managed auth key.
     environment.etc."company/tailscale-flags".text = ''

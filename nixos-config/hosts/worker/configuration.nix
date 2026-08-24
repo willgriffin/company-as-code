@@ -3,12 +3,17 @@
 {
   networking.hostName = "worker";
 
+  # Safe evaluation-only placeholder. Replace with a reviewed private or mesh
+  # interface before deploying this example to a host.
+  company.common.managementInterfaces = [ "private0" ];
+
   company.k3s = {
     enable = true;
     role = "agent";
     serverAddress = "https://control-plane.example.invalid:6443";
     tokenFile = "/run/secrets/k3s-token";
     flannelInterface = null;
+    clusterInterfaces = [ "private0" ];
   };
 
   company.nebula.enable = false;

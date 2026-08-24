@@ -36,6 +36,11 @@ spec:
           stream-name: k8s_events
     kube-state-metrics:
       enabled: true
+    # Chart 0.4.4's gateway Prometheus receiver discovers pods carrying the
+    # prometheus.io/scrape annotation. The node-exporter DaemonSet uses that
+    # contract so every node is scraped independently and exported here.
+    gateway:
+      enabled: true
     agent:
       enabled: true
       resources:
