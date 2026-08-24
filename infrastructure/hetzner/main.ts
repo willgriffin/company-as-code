@@ -42,7 +42,12 @@ const env = (name: string, fallback?: string): string | undefined => {
 const booleanEnv = (name: string, fallback: boolean): boolean => {
   const value = env(name);
   if (value === undefined) return fallback;
-  return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
+  const normalized = value.toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  throw new Error(
+    `${name} must be one of true/false, 1/0, yes/no, or on/off; received ${JSON.stringify(value)}`
+  );
 };
 
 const integerEnv = (name: string, fallback: number, minimum = 0): number => {

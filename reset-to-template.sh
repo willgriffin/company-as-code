@@ -13,7 +13,8 @@ Usage:
 
 --check       List unresolved template markers (read-only; default).
 --set         Prepare a literal TOKEN replacement. TOKEN must begin with
-              TEMPLATE_ or be CHANGE_ME. Values are never interpreted as code.
+              TEMPLATE_. Secret CHANGE_ME markers are check-only and must be
+              handled through the documented encrypted-Secret workflow.
 --in-place    Apply --set replacements to tracked non-secret text files.
               Without this flag, print the files that would change.
 --help        Show this help.
@@ -64,7 +65,7 @@ while IFS= read -r file; do
   files+=("$file")
 done < <(
   cd "$repo_root"
-  git ls-files -z -- '*.yaml' '*.yml' '*.md' '*.env.example' '*.sh' '*.json' '*.toml' '*.tf' '*.hcl' |
+  git ls-files -z -- '*.yaml' '*.yml' '*.md' '*.json' '*.toml' '*.tf' '*.hcl' |
     while IFS= read -r -d '' file; do
       case "$file" in
         *.secret.template.yaml|*.secret.template.yml|*.secret.enc.yaml|*.secret.enc.yml|.git/*) continue ;;
@@ -95,8 +96,8 @@ fi
 
 for replacement in "${replacements[@]}"; do
   token=${replacement%%=*}
-  [[ "$replacement" == *=* && "$token" =~ ^(TEMPLATE_[A-Z0-9_]+|CHANGE_ME)$ ]] || {
-    echo "Invalid replacement (use TEMPLATE_NAME=VALUE or CHANGE_ME=VALUE): $replacement" >&2
+  [[ "$replacement" == *=* && "$token" =~ ^TEMPLATE_[A-Z0-9_]+$ ]] || {
+    echo "Invalid replacement (use a non-secret TEMPLATE_NAME=VALUE token): $replacement" >&2
     exit 2
   }
 done
@@ -116,13 +117,12 @@ for file in "${files[@]}"; do
   if [[ "$in_place" == true ]]; then
     tmp=$(mktemp "${TMPDIR:-/tmp}/company-as-code.XXXXXX")
     trap 'rm -f "$tmp"' EXIT
-    # Preserve executable and other source modes when the temporary file is
-    # moved back over a tracked file (including this script itself).
+    # Preserve source modes when the temporary file replaces a tracked file.
     cp -p "$repo_root/$file" "$tmp"
     for replacement in "${replacements[@]}"; do
       token=${replacement%%=*}
       value=${replacement#*=}
-      TOKEN="$token" VALUE="$value" perl -0pi -e 's/\Q$ENV{TOKEN}\E/$ENV{VALUE}/g' "$tmp"
+      TOKEN="$token" VALUE="$value" perl -0pi -e 's/(?<![A-Z0-9_])\Q$ENV{TOKEN}\E(?![A-Z0-9_])/$ENV{VALUE}/g' "$tmp"
     done
     if cmp -s "$tmp" "$repo_root/$file"; then
       rm -f "$tmp"

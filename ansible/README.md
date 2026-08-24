@@ -51,6 +51,8 @@ The common role treats UFW as authoritative: after validating all inputs, it
 resets the existing UFW rules and rebuilds the declared allow-list. Put every
 required host rule in this inventory contract; unmanaged UFW rules are removed
 so retired source ranges and disabled mesh interfaces cannot retain access.
+Every intended rule is dry-run validated before the reset, and an `always`
+handler re-enables UFW if live policy application fails.
 
 The example pins both bootstrap release versions and SHA-256 checksums. When
 changing `k3s_version`, `k3s_install_script_url`, `nebula_version`, or

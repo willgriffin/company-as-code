@@ -23,7 +23,14 @@ is_secret_manifest() {
 }
 
 is_sops_encrypted() {
-  grep -qE '^[[:space:]]*sops:' "$1" && grep -q 'ENC\[AES256_GCM' "$1"
+  yq -e '
+    select(.sops != null) |
+    ((.data // {}) + (.stringData // {})) as $payload |
+    select(($payload | length) > 0) |
+    select(([$payload[] |
+      select((tag != "!!str") or (test("^ENC\\[AES256_GCM,") | not))
+    ] | length) == 0)
+  ' "$1" >/dev/null 2>&1
 }
 
 failures=0

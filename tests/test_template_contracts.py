@@ -161,6 +161,9 @@ class TemplateContractTests(unittest.TestCase):
         self.assertIn("clusterInterfaces", k3s_nix)
         self.assertIn("cluster_allowed_cidrs | length > 0 or", ansible_tasks)
         self.assertIn("ufw --force reset", ansible_tasks)
+        self.assertIn("ufw --dry-run allow", ansible_tasks)
+        self.assertIn("always:", ansible_tasks)
+        self.assertIn("Re-enable UFW even if live policy application fails", ansible_tasks)
         self.assertIn("python3-debian", ansible_vars)
         self.assertIn('port: "2379"', ansible_vars)
         self.assertIn('port: "2380"', ansible_vars)
@@ -204,6 +207,22 @@ class TemplateContractTests(unittest.TestCase):
     def test_reset_script_preserves_tracked_file_modes(self) -> None:
         reset_script = (ROOT / "reset-to-template.sh").read_text(encoding="utf-8")
         self.assertIn('cp -p "$repo_root/$file" "$tmp"', reset_script)
+        self.assertNotIn("|CHANGE_ME)$", reset_script)
+        self.assertNotIn("'*.env.example'", reset_script)
+        self.assertNotIn("'*.sh'", reset_script)
+        self.assertIn("(?<![A-Z0-9_])", reset_script)
+        self.assertIn("(?![A-Z0-9_])", reset_script)
+
+    def test_hetzner_boolean_inputs_fail_closed(self) -> None:
+        source = (ROOT / "infrastructure/hetzner/main.ts").read_text(encoding="utf-8")
+        self.assertIn("if (['0', 'false', 'no', 'off'].includes(normalized))", source)
+        self.assertIn("throw new Error(", source)
+
+    def test_sops_check_inspects_every_secret_payload_value(self) -> None:
+        script = (CI_SCRIPTS / "check-plaintext-secrets.sh").read_text(encoding="utf-8")
+        self.assertIn("(.data // {}) + (.stringData // {})", script)
+        self.assertIn('test("^ENC\\\\[AES256_GCM,")', script)
+        self.assertIn("$payload | length", script)
 
     def test_matomo_domain_patch_preserves_ingress_routing_and_tls_secret(self) -> None:
         patch = (
