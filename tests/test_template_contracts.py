@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -84,8 +85,26 @@ class TemplateContractTests(unittest.TestCase):
         action = (ROOT / ".github/actions/setup-tools/action.yml").read_text(
             encoding="utf-8"
         )
-        self.assertIn("tools_cache_key=${REQUESTED_TOOLS//,/-}", action)
-        self.assertIn("tools_cache_key=${tools_cache_key}", action)
+        transformations = [
+            line.strip()
+            for line in action.splitlines()
+            if line.strip().startswith("tools_cache_key=${")
+        ]
+        self.assertEqual(2, len(transformations))
+        completed = subprocess.run(
+            [
+                "bash",
+                "-c",
+                "set -euo pipefail\n"
+                + "\n".join(transformations)
+                + '\nprintf "%s" "$tools_cache_key"',
+            ],
+            check=True,
+            capture_output=True,
+            env={"REQUESTED_TOOLS": "flux,kubectl yq"},
+            text=True,
+        )
+        self.assertEqual("flux-kubectl-yq", completed.stdout)
         self.assertIn("steps.versions.outputs.tools_cache_key", action)
         self.assertNotIn("hashFiles('tool-versions.txt') }}-${{ inputs.tools", action)
 
