@@ -80,6 +80,15 @@ class TemplateContractTests(unittest.TestCase):
                 self.assertTrue(script.is_file(), f"missing validation script: {script}")
                 self.assertTrue(script.stat().st_mode & 0o111, f"not executable: {script}")
 
+    def test_tool_cache_key_sanitizes_multi_tool_inputs(self) -> None:
+        action = (ROOT / ".github/actions/setup-tools/action.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("tools_cache_key=${REQUESTED_TOOLS//,/-}", action)
+        self.assertIn("tools_cache_key=${tools_cache_key}", action)
+        self.assertIn("steps.versions.outputs.tools_cache_key", action)
+        self.assertNotIn("hashFiles('tool-versions.txt') }}-${{ inputs.tools", action)
+
     def test_every_manifest_kustomization_resource_exists(self) -> None:
         kustomizations = sorted(MANIFESTS.rglob("kustomization.yaml"))
         self.assertTrue(kustomizations, "manifest tree has no Kustomizations")
