@@ -22,7 +22,7 @@ is_sops_encrypted_document() {
   yq -e '
     select(documentIndex == '"$2"') |
     select(.sops != null) |
-    ((.data // {}) + (.stringData // {})) as $payload |
+    [((.data // {})[]), ((.stringData // {})[])] as $payload |
     select(($payload | length) > 0) |
     select(([$payload[] |
       select((tag != "!!str") or (test("^ENC\\[AES256_GCM,") | not))

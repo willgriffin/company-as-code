@@ -220,7 +220,7 @@ class TemplateContractTests(unittest.TestCase):
 
     def test_sops_check_inspects_every_secret_payload_value(self) -> None:
         script = (CI_SCRIPTS / "check-plaintext-secrets.sh").read_text(encoding="utf-8")
-        self.assertIn("(.data // {}) + (.stringData // {})", script)
+        self.assertIn("[((.data // {})[]), ((.stringData // {})[])]", script)
         self.assertIn('test("^ENC\\\\[AES256_GCM,")', script)
         self.assertIn("$payload | length", script)
         self.assertIn("documentIndex", script)
