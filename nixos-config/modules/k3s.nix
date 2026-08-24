@@ -4,13 +4,17 @@ let
   cfg = config.company.k3s;
   serverFlags = [
     "--write-kubeconfig-mode=0640"
+    "--cluster-cidr=${cfg.clusterCidr}"
+    "--service-cidr=${cfg.serviceCidr}"
   ]
     ++ lib.optional cfg.disableTraefik "--disable=traefik"
     ++ lib.optional cfg.disableServiceLB "--disable=servicelb"
     ++ lib.optional cfg.clusterInit "--cluster-init";
   agentFlags = lib.optional (cfg.serverAddress != null) "--server=${cfg.serverAddress}";
-  networkFlags = lib.optional (cfg.flannelInterface != "")
-    "--flannel-iface=${cfg.flannelInterface}";
+  networkFlags = [
+    "--node-ip=${cfg.nodeIp}"
+    "--flannel-iface=${cfg.flannelInterface}"
+  ];
   labelFlags = lib.mapAttrsToList (name: value: "--node-label=${name}=${value}") cfg.labels;
   taintFlags = map (taint: "--node-taint=${taint}") cfg.taints;
 in
@@ -49,6 +53,31 @@ in
       default = "";
       example = "nebula1";
       description = "Reviewed private or mesh interface used for k3s pod networking.";
+    };
+
+    nodeIp = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      example = "10.0.0.10";
+      description = "Private or mesh address advertised by k3s for this node.";
+    };
+
+    clusterCidr = lib.mkOption {
+      type = lib.types.str;
+      default = "10.42.0.0/16";
+      description = "Pod CIDR passed to k3s servers and admitted by host networking.";
+    };
+
+    serviceCidr = lib.mkOption {
+      type = lib.types.str;
+      default = "10.43.0.0/16";
+      description = "Service CIDR passed to k3s servers and admitted by host networking.";
+    };
+
+    podInterfaces = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ "cni0" "flannel.1" ];
+      description = "Local k3s overlay interfaces trusted for pod and service traffic.";
     };
 
     clusterInterfaces = lib.mkOption {
@@ -106,6 +135,10 @@ in
         message = "Set company.k3s.flannelInterface to one of company.k3s.clusterInterfaces.";
       }
       {
+        assertion = cfg.nodeIp != "";
+        message = "Set company.k3s.nodeIp to this node's reviewed private or mesh address.";
+      }
+      {
         assertion = !(config.company.nebula.enable && config.company.tailscale.enable);
         message = "Enable at most one mesh transport per host.";
       }
@@ -118,8 +151,14 @@ in
         message = "When Tailscale is enabled, company.k3s.flannelInterface must be tailscale0.";
       }
       {
-        assertion = lib.all (flag: !(lib.hasInfix "--flannel-iface" flag)) cfg.extraFlags;
-        message = "Do not override --flannel-iface through company.k3s.extraFlags; use company.k3s.flannelInterface.";
+        assertion = lib.all (flag:
+          lib.all (reserved: !(lib.hasInfix reserved flag)) [
+            "--flannel-iface"
+            "--node-ip"
+            "--cluster-cidr"
+            "--service-cidr"
+          ]) cfg.extraFlags;
+        message = "Do not override network identity or CIDRs through company.k3s.extraFlags; use the typed company.k3s options.";
       }
     ];
 
@@ -131,6 +170,7 @@ in
       ];
       allowedUDPPorts = [ 8472 ];
     });
+    networking.firewall.trustedInterfaces = cfg.podInterfaces;
 
     services.k3s = {
       enable = true;

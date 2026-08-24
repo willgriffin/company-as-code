@@ -6,6 +6,9 @@ plaintext.
 ## File workflow
 
 `*.secret.template.yaml` files contain names, keys, and safe placeholders only.
+Every payload value must either contain an explicit `CHANGE_ME`/`TEMPLATE_*`
+marker or be one of the repository's narrowly approved non-secret constants;
+one placeholder does not make other values in the same Secret safe.
 For a deployment:
 
 1. copy the relevant template to `*.secret.enc.yaml`;

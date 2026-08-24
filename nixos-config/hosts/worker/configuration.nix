@@ -14,6 +14,7 @@
     tokenFile = "/run/secrets/k3s-token";
     flannelInterface = "private0";
     clusterInterfaces = [ "private0" ];
+    nodeIp = "10.0.0.11";
   };
 
   company.nebula.enable = false;

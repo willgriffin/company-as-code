@@ -52,7 +52,7 @@ def _is_allowed_dependency_identity(path: Path, line: str) -> bool:
     if relative == "manifests/system/org-as-code-operator/chart-source.yaml":
         return bool(
             re.search(
-                r"(?:ghcr\.io/willgriffin/charts/org-as-code|github\.com/willgriffin/org-as-code/\.github/workflows/release\.yaml)",
+                r"(?:ghcr\.io/willgriffin/charts/org-as-code|github\\\.com/willgriffin/org-as-code/\\\.github/workflows/release\\\.yaml)",
                 line,
             )
         )
@@ -169,9 +169,17 @@ class TemplateContractTests(unittest.TestCase):
         self.assertIn('port: "2380"', ansible_vars)
         self.assertIn('port: "30080"', ansible_vars)
         self.assertIn('port: "30443"', ansible_vars)
+        self.assertIn('k3s_cluster_cidr: "10.42.0.0/16"', ansible_vars)
+        self.assertIn('k3s_service_cidr: "10.43.0.0/16"', ansible_vars)
+        self.assertIn('k3s_node_ip: ""', ansible_vars)
         self.assertIn("cfg.flannelInterface != \"\" && lib.elem", k3s_nix)
-        self.assertIn('lib.hasInfix "--flannel-iface"', k3s_nix)
+        self.assertIn("lib.hasInfix reserved flag", k3s_nix)
         self.assertIn("ingressNodePorts", k3s_nix)
+        self.assertIn("--node-ip=${cfg.nodeIp}", k3s_nix)
+        self.assertIn('default = [ "cni0" "flannel.1" ]', k3s_nix)
+        self.assertIn("networking.firewall.trustedInterfaces = cfg.podInterfaces", k3s_nix)
+        self.assertIn("Preflight k3s pod and service network rules", ansible_tasks)
+        self.assertIn("Allow k3s pod and service network traffic", ansible_tasks)
 
         k3s_tasks = (ROOT / "ansible/roles/k3s_server/tasks/main.yml").read_text(
             encoding="utf-8"
@@ -182,6 +190,10 @@ class TemplateContractTests(unittest.TestCase):
             k3s_tasks,
         )
         self.assertNotIn("creates: /usr/local/bin/k3s", k3s_tasks)
+        k3s_config = (
+            ROOT / "ansible/roles/k3s_server/templates/config.yaml.j2"
+        ).read_text(encoding="utf-8")
+        self.assertIn('node-ip: "{{ k3s_node_ip }}"', k3s_config)
 
         nebula_tasks = (ROOT / "ansible/roles/nebula/tasks/main.yml").read_text(
             encoding="utf-8"
@@ -267,7 +279,7 @@ class TemplateContractTests(unittest.TestCase):
         self.assertIn("https: 30443", nginx)
         self.assertIn("LOAD_BALANCER_DESTINATION_PORTS", provider_docs)
 
-    def test_tenant_prune_is_held_for_destructive_upgrade_migration(self) -> None:
+    def test_existing_install_requires_live_destructive_upgrade_preflight(self) -> None:
         tenants = (MANIFESTS / "clusters/my-cluster/tenants.yaml").read_text(
             encoding="utf-8"
         )
@@ -282,6 +294,11 @@ class TemplateContractTests(unittest.TestCase):
             "garage-credentials",
             "*.secret.enc.yaml",
             "prune: true",
+            "flux suspend kustomization tenant-my-tenant",
+            "true false",
+            "does not rediscover objects orphaned",
+            "my-tenant-matomo/matomo-data",
+            "config/config.ini.php",
         ):
             with self.subTest(retained_contract=retained_contract):
                 self.assertIn(retained_contract, deployment)
@@ -292,6 +309,8 @@ class TemplateContractTests(unittest.TestCase):
         self.assertIn('test("^ENC\\\\[AES256_GCM,")', script)
         self.assertIn("$payload | length", script)
         self.assertIn("documentIndex", script)
+        self.assertIn("is_safe_template_document", script)
+        self.assertIn("Secret template payloads must all use approved placeholders", script)
 
     def test_matomo_domain_patch_preserves_ingress_routing_and_tls_secret(self) -> None:
         patch = (

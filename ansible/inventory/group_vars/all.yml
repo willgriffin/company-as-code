@@ -11,6 +11,9 @@ k3s_disable:
 # Set explicitly in private inventory. When a mesh is enabled this must match
 # its interface, preventing Flannel from selecting a blocked public interface.
 k3s_flannel_interface: ""
+k3s_node_ip: ""
+k3s_cluster_cidr: "10.42.0.0/16"
+k3s_service_cidr: "10.43.0.0/16"
 k3s_audit_enabled: false
 
 common_packages:

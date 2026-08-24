@@ -19,6 +19,10 @@ interfaces that may receive SSH, and `company.k3s.clusterInterfaces` to those
 that carry node traffic. The module opens SSH only on the former; on the latter
 it opens kubelet and flannel traffic on every node, plus the API and embedded
 etcd peer ports on server nodes. It never trusts an entire mesh interface.
+Also replace each example `company.k3s.nodeIp` with that host's private or mesh
+address. The module passes the address separately from `flannel-iface`, pins
+the pod/service CIDRs, and trusts only the local `cni0`/`flannel.1` overlay
+interfaces for pod traffic.
 
 ## Optional modules
 

@@ -30,7 +30,8 @@ is_allowed_dependency_identity() {
       [[ "$line" =~ (github\.com|ghcr\.io)/happyvertical/ ]]
       ;;
     "$MANIFEST_ROOT"/system/org-as-code-operator/chart-source.yaml)
-      [[ "$line" =~ (ghcr\.io/willgriffin/charts/org-as-code|github\.com/willgriffin/org-as-code/\.github/workflows/release\.yaml) ]]
+      [[ "$line" =~ ghcr\.io/willgriffin/charts/org-as-code ]] ||
+        [[ "$line" == *'github\.com/willgriffin/org-as-code/\.github/workflows/release\.yaml'* ]]
       ;;
     "$MANIFEST_ROOT"/shared/templates/hermes-agent/placeholder.yaml|\
     "$MANIFEST_ROOT"/tenants/my-tenant/company-services/hermes/agent.yaml|\

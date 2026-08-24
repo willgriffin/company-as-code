@@ -12,10 +12,11 @@ implementation and gives the operator its own compatibility, signing, and
 rollback lifecycle.
 
 The operator consumer is not an in-place migration of the legacy Hermes
-Deployment. On upgrades, the tenant-level prune hold documented in
-[Deployment](DEPLOYMENT.md#existing-install-migration-hold) preserves the old
-namespace and PVCs until an operator workload has been verified and its data
-has been copied or explicitly retired.
+Deployment. Existing installations must complete the live suspend/prune
+preflight documented in
+[Deployment](DEPLOYMENT.md#mandatory-existing-install-preflight) before the
+Git source advances. The checked-in prune flag cannot prevent a reconciliation
+race by itself, and the operator example never copies the old PVCs.
 
 ## Consumer contract
 

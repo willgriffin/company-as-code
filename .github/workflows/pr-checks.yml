@@ -211,6 +211,10 @@ jobs:
             echo "Plaintext Secret payload unexpectedly passed the SOPS check" >&2
             exit 1
           fi
+          if MANIFEST_ROOT=tests/fixtures/template-invalid scripts/ci/check-plaintext-secrets.sh; then
+            echo "Mixed placeholder/plaintext Secret template unexpectedly passed" >&2
+            exit 1
+          fi
 
       - name: Check template-owned manifest literals
         run: scripts/ci/check-template-literals.sh

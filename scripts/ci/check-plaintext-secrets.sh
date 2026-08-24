@@ -30,6 +30,28 @@ is_sops_encrypted_document() {
   ' "$1" >/dev/null 2>&1
 }
 
+is_safe_template_document() {
+  yq -e '
+    select(documentIndex == '"$2"') |
+    [((.data // {})[]), ((.stringData // {})[])] as $payload |
+    select(($payload | length) > 0) |
+    select(([$payload[] |
+      select(
+        (tag != "!!str") or
+        (((
+          test("(^|[^A-Za-z0-9_])CHANGE_ME(_[A-Z0-9_]+)?($|[^A-Za-z0-9_])") or
+          test("(^|[^A-Za-z0-9_])TEMPLATE_[A-Z0-9_]+($|[^A-Za-z0-9_])") or
+          . == "garage" or
+          . == "garage-archive" or
+          . == "dex" or
+          . == "false" or
+          . == "Authorization"
+        )) | not)
+      )
+    ] | length) == 0)
+  ' "$1" >/dev/null 2>&1
+}
+
 failures=0
 while IFS= read -r file; do
   if ! secret_document_indexes=$(
@@ -42,19 +64,32 @@ while IFS= read -r file; do
   [[ -n "$secret_document_indexes" ]] || continue
 
   secret_found=false
+  template_payloads_safe=true
   payloads_encrypted=true
   while IFS= read -r document_index; do
     secret_found=true
+    if [[ "$file" == *.secret.template.yaml || "$file" == *.secret.template.yml ]]; then
+      if ! is_safe_template_document "$file" "$document_index"; then
+        template_payloads_safe=false
+      fi
+      continue
+    fi
     if ! is_sops_encrypted_document "$file" "$document_index"; then
       payloads_encrypted=false
-      break
     fi
   done <<< "$secret_document_indexes"
 
   [[ "$secret_found" == true ]] || continue
 
   case "$file" in
-    *.secret.template.yaml) continue ;;
+    *.secret.template.yaml|*.secret.template.yml)
+      if [[ "$template_payloads_safe" == true ]]; then
+        continue
+      fi
+      echo "::error file=$file::Secret template payloads must all use approved placeholders or documented non-secret constants" >&2
+      failures=$((failures + 1))
+      continue
+      ;;
   esac
   if [[ "$payloads_encrypted" == true ]]; then
     continue

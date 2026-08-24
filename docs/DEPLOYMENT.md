@@ -3,34 +3,53 @@
 Deploy in layers. The example cluster is a starting point, not a turnkey
 production environment.
 
-## Existing-install migration hold
+## Mandatory existing-install preflight
 
-The `tenant-my-tenant` Flux Kustomization intentionally has `prune: false`.
-This is an upgrade safety hold, not the desired steady state. Earlier versions
+This revision is not safe as an unattended in-place upgrade. Earlier versions
 owned a `my-tenant-hermes` namespace with `hermes-agent-data` (50 GiB) and
-`hermes-workspace-files` (100 GiB) PVCs, and deployed backup credentials such
-as `garage-credentials` directly. This version moves Hermes declarations to
-the separately reconciled operator consumer and replaces deployable plaintext
-Secret examples with non-deployable SOPS templates. Pruning during that first
-reconciliation could otherwise delete data or credentials before the
-replacement is usable.
+`hermes-workspace-files` (100 GiB) PVCs, deployed backup credentials such as
+`garage-credentials` directly, and ran Matomo without the durable filesystem
+introduced by the new base. Flux can observe a new Git revision before it
+applies a `prune: false` change to the child Kustomization, so the checked-in
+flag alone cannot make that transition atomic.
 
-For an existing installation:
+Before changing the cluster's Git source or ref, an operator must stop tenant
+reconciliation and disable pruning on the live object:
 
-1. leave tenant pruning disabled and reconcile the new tree;
-2. inventory every retained Secret and PVC, create encrypted
-   `*.secret.enc.yaml` replacements from the provided templates, add them to
-   their owning Kustomizations, and prove backup/restore still works;
-3. keep the legacy Hermes workload stopped only after its data has been copied
-   or deliberately retired; the suspended zero-replica operator example does
-   not migrate either legacy PVC automatically; and
-4. in a later reviewed change, confirm no retained object is still required,
-   then change only the tenant Kustomization back to `prune: true`.
+```sh
+flux suspend kustomization tenant-my-tenant --namespace flux-system
+kubectl patch kustomization tenant-my-tenant --namespace flux-system \
+  --type merge --patch '{"spec":{"prune":false}}'
+kubectl get kustomization tenant-my-tenant --namespace flux-system \
+  -o jsonpath='{.spec.suspend}{" "}{.spec.prune}{"\n"}'
+```
 
-For a fresh installation, add all required encrypted Secret resources first.
-Pruning may then be enabled before the initial Flux reconciliation because no
-legacy tenant objects exist. Never treat changing the flag as proof that a
-data migration or restore test succeeded.
+Do not update the Git source unless the last command prints `true false`.
+Then complete this staged migration while reconciliation remains suspended:
+
+1. inventory every retained Secret and PVC; create encrypted
+   `*.secret.enc.yaml` replacements from the provided templates and add them
+   to their owning Kustomizations;
+2. create the rendered `my-tenant-matomo/matomo-data` PVC separately, copy the
+   running Matomo pod's complete `/var/www/html` tree into it with an approved
+   one-shot copy/restore job, and verify at least `config/config.ini.php`,
+   installed plugins, and uploaded assets before the new Deployment mounts it;
+3. update the Git source, confirm the live tenant Kustomization is still
+   suspended with pruning disabled, then resume it and prove database backups,
+   restores, Matomo, and the replacement Secrets work; and
+4. migrate or explicitly retire the legacy Hermes data. The suspended,
+   zero-replica operator example does not copy either legacy PVC.
+
+Flux advances its inventory while pruning is disabled. Re-enabling
+`prune: true` later does not rediscover objects orphaned during this migration.
+After verified backups and data copies, delete each orphan explicitly (for
+example, delete `my-tenant-hermes` only when both PVCs are intentionally being
+retired), record that destructive decision, and then re-enable pruning for
+future changes.
+
+For a fresh installation, add all required encrypted Secret resources first;
+there is no legacy filesystem or inventory to migrate, so pruning may be
+enabled before the initial Flux reconciliation.
 
 ## 1. Prepare the host layer
 

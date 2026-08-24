@@ -26,6 +26,8 @@ these external values:
 | `management_allowed_cidrs` | `common` | private inventory; reviewed SSH source ranges |
 | `cluster_allowed_cidrs` | `common` | private inventory; node-to-node source ranges when no trusted mesh interface is used |
 | `k3s_flannel_interface` | `k3s_server` | private inventory; reviewed private interface, or the selected mesh interface |
+| `k3s_node_ip` | `k3s_server` | private inventory; this node's private or mesh IP |
+| `k3s_cluster_cidr`, `k3s_service_cidr` | `common`, `k3s_server` | reviewed pod/service ranges shared by k3s and UFW |
 
 Set `nebula_enabled: true` or `tailscale_enabled: true` only after their
 inputs are available. Set `nebula_allowed_groups` to the smallest required
@@ -46,6 +48,10 @@ selected, only the same API, kubelet, flannel, and embedded-etcd ports are
 opened on that interface. The role never marks the whole mesh as trusted.
 The k3s role also requires an explicit Flannel interface and verifies that it
 matches `nebula_interface` or `tailscale0` when that mesh is selected.
+It also requires `k3s_node_ip`, preventing a multihomed node from advertising
+its public/default-route address while the firewall admits only private node
+traffic. The pod and service CIDRs are rendered into the server configuration
+and admitted explicitly by UFW on every node.
 
 The common role treats UFW as authoritative: after validating all inputs, it
 resets the existing UFW rules and rebuilds the declared allow-list. Put every

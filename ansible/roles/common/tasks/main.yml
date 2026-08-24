@@ -66,6 +66,14 @@
   loop: "{{ cluster_allowed_cidrs | product(cluster_firewall_rules) | list }}"
   changed_when: false
 
+- name: Preflight k3s pod and service network rules
+  ansible.builtin.command: >-
+    ufw --dry-run allow from {{ item }} to any
+  loop:
+    - "{{ k3s_cluster_cidr }}"
+    - "{{ k3s_service_cidr }}"
+  changed_when: false
+
 - name: Preflight the Nebula underlay listener
   ansible.builtin.command: "ufw --dry-run allow {{ nebula_listen_port }}/udp"
   when: nebula_enabled | bool
@@ -102,6 +110,14 @@
       ansible.builtin.command: >-
         ufw allow from {{ item.0 }} to any port {{ item.1.port }} proto {{ item.1.proto }}
       loop: "{{ cluster_allowed_cidrs | product(cluster_firewall_rules) | list }}"
+      changed_when: false
+
+    - name: Allow k3s pod and service network traffic
+      ansible.builtin.command: >-
+        ufw allow from {{ item }} to any
+      loop:
+        - "{{ k3s_cluster_cidr }}"
+        - "{{ k3s_service_cidr }}"
       changed_when: false
 
     - name: Allow the Nebula underlay listener when configured

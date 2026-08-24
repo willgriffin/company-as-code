@@ -15,6 +15,7 @@
     # Replace with the reviewed private interface, or the selected mesh.
     flannelInterface = "private0";
     clusterInterfaces = [ "private0" ];
+    nodeIp = "10.0.0.10";
   };
 
   # Optional overlays are intentionally disabled in the example. Enable one

@@ -29,6 +29,16 @@
       Tailscale is enabled it must be nebula_interface or tailscale0,
       respectively, so VXLAN uses the interface opened by the firewall policy.
 
+- name: Require an explicit node address and cluster network ranges
+  ansible.builtin.assert:
+    that:
+      - (k3s_node_ip | string | length) > 0
+      - (k3s_cluster_cidr | string | length) > 0
+      - (k3s_service_cidr | string | length) > 0
+    fail_msg: >-
+      Set k3s_node_ip to this node's reviewed private or mesh address and keep
+      k3s_cluster_cidr/k3s_service_cidr aligned with the host firewall policy.
+
 - name: Create k3s configuration directory
   ansible.builtin.file:
     path: /etc/rancher/k3s

@@ -30,10 +30,10 @@ class HermesOperatorContractTests(unittest.TestCase):
         self.assertIn("# Signed v0.1.2 OCI chart", source)
         self.assertIn("provider: cosign", source)
         self.assertIn("secretRef:\n    name: org-as-code-registry", source)
-        self.assertIn("issuer: https://token.actions.githubusercontent.com", source)
+        self.assertIn("issuer: '^https://token\\.actions\\.githubusercontent\\.com$'", source)
         self.assertRegex(
             source,
-            r"subject: '\^https://github\.com/willgriffin/org-as-code/.github/workflows/release\.yaml@refs/",
+            r"subject: '\^https://github\\\.com/willgriffin/org-as-code/\\\.github/workflows/release\\\.yaml@refs/",
         )
 
     def test_operator_has_generic_safe_gates(self) -> None:
