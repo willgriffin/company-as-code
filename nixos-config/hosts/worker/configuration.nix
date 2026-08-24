@@ -12,7 +12,7 @@
     role = "agent";
     serverAddress = "https://control-plane.example.invalid:6443";
     tokenFile = "/run/secrets/k3s-token";
-    flannelInterface = null;
+    flannelInterface = "private0";
     clusterInterfaces = [ "private0" ];
   };
 

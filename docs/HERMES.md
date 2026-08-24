@@ -31,6 +31,11 @@ Hermes runtime workloads. Enable either form of actuation only in an explicitly
 reviewed tenant/cluster overlay after the chart, CRDs, image, credentials, and
 recovery behavior have been verified.
 
+The chart creates a namespace-scoped Role and RoleBinding in every declared
+managed namespace even while actuation is disabled. That access is required to
+observe and validate the Kubernetes declarations; keep `managedNamespaces`
+narrow and do not treat the actuation gates as RBAC-emission switches.
+
 The reference package pins the currently verified v0.1.2 digest and its
 keyless GitHub Actions release identity. Changing either is a release update,
 not a deployment-time substitution.

@@ -9,7 +9,7 @@ let
     ++ lib.optional cfg.disableServiceLB "--disable=servicelb"
     ++ lib.optional cfg.clusterInit "--cluster-init";
   agentFlags = lib.optional (cfg.serverAddress != null) "--server=${cfg.serverAddress}";
-  networkFlags = lib.optional (cfg.flannelInterface != null)
+  networkFlags = lib.optional (cfg.flannelInterface != "")
     "--flannel-iface=${cfg.flannelInterface}";
   labelFlags = lib.mapAttrsToList (name: value: "--node-label=${name}=${value}") cfg.labels;
   taintFlags = map (taint: "--node-taint=${taint}") cfg.taints;
@@ -45,10 +45,10 @@ in
     };
 
     flannelInterface = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
+      type = lib.types.str;
+      default = "";
       example = "nebula1";
-      description = "Optional interface used for k3s pod networking.";
+      description = "Reviewed private or mesh interface used for k3s pod networking.";
     };
 
     clusterInterfaces = lib.mkOption {
@@ -94,6 +94,22 @@ in
       {
         assertion = cfg.clusterInterfaces != [];
         message = "Set company.k3s.clusterInterfaces to reviewed private or mesh interfaces before enabling k3s.";
+      }
+      {
+        assertion = cfg.flannelInterface != "" && lib.elem cfg.flannelInterface cfg.clusterInterfaces;
+        message = "Set company.k3s.flannelInterface to one of company.k3s.clusterInterfaces.";
+      }
+      {
+        assertion = !(config.company.nebula.enable && config.company.tailscale.enable);
+        message = "Enable at most one mesh transport per host.";
+      }
+      {
+        assertion = !config.company.nebula.enable || cfg.flannelInterface == config.company.nebula.interface;
+        message = "When Nebula is enabled, company.k3s.flannelInterface must match company.nebula.interface.";
+      }
+      {
+        assertion = !config.company.tailscale.enable || cfg.flannelInterface == "tailscale0";
+        message = "When Tailscale is enabled, company.k3s.flannelInterface must be tailscale0.";
       }
     ];
 

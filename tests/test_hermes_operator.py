@@ -45,12 +45,28 @@ class HermesOperatorContractTests(unittest.TestCase):
         self.assertIn("imagePullSecrets:\n      - name: org-as-code-registry", release)
         self.assertIn("name: org-as-code-system", release)
         self.assertIn("create: false", release)
+        for unsupported in (
+            "emitNamespaceGates",
+            "emitTenantRole",
+            "emitClusterRoleBinding",
+            "emitProviderEnv",
+        ):
+            self.assertNotIn(unsupported, release)
+
+    def test_private_oci_source_uses_docker_registry_credentials(self) -> None:
+        source_secret = read(OPERATOR / "source-registry.secret.template.yaml")
+        self.assertIn("type: kubernetes.io/dockerconfigjson", source_secret)
+        self.assertIn(".dockerconfigjson: TEMPLATE_GHCR_DOCKER_CONFIG_JSON", source_secret)
+        self.assertNotIn("username:", source_secret)
+        self.assertNotIn("password:", source_secret)
 
     def test_operator_and_example_are_independently_suspended(self) -> None:
         applications = read(APPLICATIONS)
         self.assertIn("name: org-as-code-operator", applications)
         self.assertIn("name: hermes-example", applications)
         self.assertEqual(2, applications.count("suspend: true"))
+        self.assertEqual(2, applications.count("provider: sops"))
+        self.assertEqual(2, applications.count("name: sops-age"))
         self.assertIn("- name: org-as-code-operator", applications)
         self.assertNotIn("company-services/hermes", read(TENANT))
 

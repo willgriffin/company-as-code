@@ -50,10 +50,11 @@
     mode: "0644"
   notify: Restart k3s
 
-- name: Check for installed k3s
-  ansible.builtin.stat:
-    path: /usr/local/bin/k3s
-  register: k3s_binary
+- name: Check the installed k3s version
+  ansible.builtin.command: /usr/local/bin/k3s --version
+  register: k3s_installed_version
+  changed_when: false
+  failed_when: false
 
 - name: Download the pinned k3s installer
   ansible.builtin.get_url:
@@ -61,16 +62,18 @@
     dest: /tmp/k3s-install.sh
     checksum: "sha256:{{ k3s_install_script_sha256 }}"
     mode: "0700"
-  when: not k3s_binary.stat.exists
+  when: >-
+    k3s_installed_version.rc != 0 or
+    k3s_version not in (k3s_installed_version.stdout | default(''))
 
 - name: Install the pinned k3s release
   ansible.builtin.command: /tmp/k3s-install.sh
   environment:
     INSTALL_K3S_VERSION: "{{ k3s_version }}"
     INSTALL_K3S_EXEC: "{{ k3s_role }}"
-  args:
-    creates: /usr/local/bin/k3s
-  when: not k3s_binary.stat.exists
+  when: >-
+    k3s_installed_version.rc != 0 or
+    k3s_version not in (k3s_installed_version.stdout | default(''))
   notify: Restart k3s
 
 - name: Enable and start k3s server or agent

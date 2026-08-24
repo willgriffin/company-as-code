@@ -160,9 +160,27 @@ class TemplateContractTests(unittest.TestCase):
         self.assertIn("managementInterfaces", common_nix)
         self.assertIn("clusterInterfaces", k3s_nix)
         self.assertIn("cluster_allowed_cidrs | length > 0 or", ansible_tasks)
+        self.assertIn("ufw --force reset", ansible_tasks)
         self.assertIn("python3-debian", ansible_vars)
         self.assertIn('port: "2379"', ansible_vars)
         self.assertIn('port: "2380"', ansible_vars)
+        self.assertIn("cfg.flannelInterface != \"\" && lib.elem", k3s_nix)
+
+        k3s_tasks = (ROOT / "ansible/roles/k3s_server/tasks/main.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("/usr/local/bin/k3s --version", k3s_tasks)
+        self.assertIn("k3s_version not in", k3s_tasks)
+        self.assertNotIn("creates: /usr/local/bin/k3s", k3s_tasks)
+
+    def test_hermes_runtime_image_inputs_have_one_digest_contract(self) -> None:
+        environment = (ROOT / ".env.example").read_text(encoding="utf-8")
+        self.assertIn(
+            "TEMPLATE_HERMES_RUNTIME_IMAGE=ghcr.io/example/hermes-runtime\n",
+            environment,
+        )
+        self.assertIn("TEMPLATE_HERMES_RUNTIME_DIGEST=CHANGE_ME_64_HEX_DIGEST", environment)
+        self.assertNotIn("TEMPLATE_HERMES_RUNTIME_IMAGE=ghcr.io/example/hermes-runtime@", environment)
 
     def test_rabbitmq_operator_waits_for_cert_manager(self) -> None:
         cluster = (MANIFESTS / "clusters/my-cluster/system.yaml").read_text(

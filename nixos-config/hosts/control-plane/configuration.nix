@@ -12,8 +12,8 @@
     role = "server";
     clusterInit = true;
     tokenFile = "/run/secrets/k3s-token";
-    # Set to "nebula1" when the optional Nebula module is enabled.
-    flannelInterface = null;
+    # Replace with the reviewed private interface, or the selected mesh.
+    flannelInterface = "private0";
     clusterInterfaces = [ "private0" ];
   };
 

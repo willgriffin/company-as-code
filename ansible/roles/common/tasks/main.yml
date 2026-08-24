@@ -54,6 +54,10 @@
       configured Nebula or Tailscale interface, before enabling the firewall.
       Select at most one mesh transport per host.
 
+- name: Reset UFW to the declared authoritative policy
+  ansible.builtin.command: ufw --force reset
+  changed_when: true
+
 - name: Set UFW defaults
   ansible.builtin.command: "ufw default {{ item.policy }} {{ item.direction }}"
   loop:
