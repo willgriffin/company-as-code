@@ -1,0 +1,50 @@
+pki:
+  ca: /etc/nebula/ca.crt
+  cert: /etc/nebula/host.crt
+  key: /etc/nebula/host.key
+
+lighthouse:
+  am_lighthouse: {{ (is_lighthouse | default(false) | bool) | ternary('true', 'false') }}
+{% if not (is_lighthouse | default(false) | bool) %}
+  hosts:
+    - "{{ nebula_lighthouse_ip }}"
+{% endif %}
+
+static_host_map:
+{% if nebula_lighthouse_public_endpoint | default('') | length > 0 %}
+  "{{ nebula_lighthouse_ip }}":
+    - "{{ nebula_lighthouse_public_endpoint }}"
+{% else %}
+  {}
+{% endif %}
+
+listen:
+  host: 0.0.0.0
+  port: {{ nebula_listen_port }}
+
+punchy:
+  punch: true
+  respond: true
+
+tun:
+  disabled: false
+  dev: {{ nebula_interface }}
+
+logging:
+  level: info
+  format: text
+
+firewall:
+  outbound:
+    - port: any
+      proto: any
+      host: any
+  inbound:
+    - port: any
+      proto: icmp
+      host: any
+{% for group in nebula_allowed_groups | default([]) %}
+    - port: any
+      proto: any
+      group: {{ group }}
+{% endfor %}

@@ -1,0 +1,33 @@
+apiVersion: hermes.willgriffin.dev/v1alpha1
+kind: HermesWorkload
+metadata:
+  name: example-agent
+  namespace: org-example
+  labels:
+    app.kubernetes.io/component: workload
+    app.kubernetes.io/managed-by: company-as-code
+    app.kubernetes.io/part-of: org-as-code
+spec:
+  replicas: 0
+  agentRef:
+    name: example-agent
+  suspend: true
+  persistence: durable
+  image: TEMPLATE_HERMES_RUNTIME_IMAGE@sha256:TEMPLATE_HERMES_RUNTIME_DIGEST
+  env: {}
+  secrets:
+    - name: hermes-runtime-secrets
+      env: true
+      optional: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  scheduling:
+    nodeSelector: {}
+    tolerations: []
+  egress:
+    rules: []

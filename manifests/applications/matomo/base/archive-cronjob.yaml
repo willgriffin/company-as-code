@@ -1,0 +1,70 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: matomo-archive-hourly
+  namespace: matomo
+  labels:
+    app.kubernetes.io/name: matomo-archive
+    app.kubernetes.io/part-of: company-services
+spec:
+  schedule: "0 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: matomo-archive
+            app.kubernetes.io/part-of: company-services
+        spec:
+          restartPolicy: Never
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: matomo
+                  topologyKey: kubernetes.io/hostname
+          securityContext:
+            fsGroup: 33
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: archive
+              image: matomo:5.13.0-apache@sha256:b4d6020b383d67170c3711035de534aa8ae3921aea0149ba3f9d54aca7c707c5 # {"$imagepolicy": "flux-system:matomo"}
+              command: [/bin/sh, -c]
+              args:
+                - php /var/www/html/console core:archive --url=https://matomo.example.invalid
+              securityContext:
+                allowPrivilegeEscalation: false
+              env:
+                - name: MATOMO_DATABASE_HOST
+                  value: matomo-mariadb-primary.matomo.svc.cluster.local
+                - name: MATOMO_DATABASE_DBNAME
+                  value: matomo
+                - name: MATOMO_DATABASE_USERNAME
+                  value: matomo
+                - name: MATOMO_DATABASE_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: matomo-secrets
+                      key: MARIADB_PASSWORD
+                - name: MATOMO_DATABASE_TABLES_PREFIX
+                  value: matomo_
+              volumeMounts:
+                - name: data
+                  mountPath: /var/www/html
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: "1"
+                  memory: 1Gi
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: matomo-data

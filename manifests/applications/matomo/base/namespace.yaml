@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: matomo
+  labels:
+    app.kubernetes.io/name: matomo
+    app.kubernetes.io/managed-by: company-as-code

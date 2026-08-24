@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: matomo
+  namespace: matomo
+  labels:
+    app.kubernetes.io/name: matomo
+    app.kubernetes.io/part-of: company-services
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: matomo
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80

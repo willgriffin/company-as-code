@@ -1,0 +1,126 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: forgejo
+  namespace: forgejo
+spec:
+  interval: 30m
+  valuesFrom:
+    - kind: Secret
+      name: forgejo-secrets
+      valuesKey: ADMIN_PASSWORD
+      targetPath: gitea.admin.password
+    - kind: Secret
+      name: forgejo-secrets
+      valuesKey: OIDC_CLIENT_SECRET
+      targetPath: gitea.oauth[0].secret
+  chart:
+    spec:
+      chart: forgejo
+      version: 16.2.0
+      sourceRef:
+        kind: HelmRepository
+        name: forgejo
+        namespace: forgejo
+  values:
+    image:
+      registry: codeberg.org
+      repository: forgejo/forgejo
+      tag: "12@sha256:655c4a59e7868c56d573a636c7c71a6875e28bf1f4db3e78c5c19beacf92a2d0"
+    replicaCount: 1
+    strategy:
+      type: Recreate
+    gitea:
+      admin:
+        username: admin
+        email: admin@TEMPLATE_DOMAIN
+      oauth:
+        - name: Company Identity
+          provider: openidConnect
+          key: forgejo
+          autoDiscoverUrl: https://auth.TEMPLATE_DOMAIN/.well-known/openid-configuration
+          scopes: openid email profile groups
+          useCustomUrls: false
+      config:
+        APP_NAME: Forgejo
+        actions:
+          ENABLED: true
+          DEFAULT_ACTIONS_URL: https://github.com
+        server:
+          DOMAIN: git.TEMPLATE_DOMAIN
+          ROOT_URL: https://git.TEMPLATE_DOMAIN
+          SSH_DOMAIN: git.TEMPLATE_DOMAIN
+          SSH_PORT: 3022
+          SSH_LISTEN_PORT: 22
+          START_SSH_SERVER: true
+        database:
+          DB_TYPE: postgres
+          HOST: forgejo-postgres-rw:5432
+          SSL_MODE: disable
+        service:
+          DISABLE_REGISTRATION: true
+          ALLOW_ONLY_EXTERNAL_REGISTRATION: true
+        openid:
+          ENABLE_OPENID_SIGNIN: true
+          ENABLE_OPENID_SIGNUP: false
+        oauth2_client:
+          ENABLE_AUTO_REGISTRATION: true
+          USERNAME: email
+          ACCOUNT_LINKING: auto
+          UPDATE_AVATAR: true
+      additionalConfigFromEnvs:
+        - name: FORGEJO__DATABASE__USER
+          valueFrom:
+            secretKeyRef:
+              name: forgejo-postgres-app
+              key: username
+        - name: FORGEJO__DATABASE__PASSWD
+          valueFrom:
+            secretKeyRef:
+              name: forgejo-postgres-app
+              key: password
+        - name: FORGEJO__DATABASE__NAME
+          valueFrom:
+            secretKeyRef:
+              name: forgejo-postgres-app
+              key: dbname
+    postgresql:
+      enabled: false
+    postgresql-ha:
+      enabled: false
+    redis-cluster:
+      enabled: false
+    persistence:
+      enabled: true
+      size: 50Gi
+      storageClass: TEMPLATE_BULK_STORAGE_CLASS
+      accessModes:
+        - ReadWriteOnce
+    ingress:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        external-dns.alpha.kubernetes.io/hostname: git.TEMPLATE_DOMAIN
+      hosts:
+        - host: git.TEMPLATE_DOMAIN
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: forgejo-tls
+          hosts: [git.TEMPLATE_DOMAIN]
+    service:
+      http:
+        type: ClusterIP
+        port: 3000
+      ssh:
+        type: ClusterIP
+        port: 3022
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 2Gi

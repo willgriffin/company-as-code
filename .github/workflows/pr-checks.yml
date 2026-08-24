@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Install Hetzner adapter dependencies
+        run: npm ci --prefix infrastructure/hetzner
+
       - name: Type check
         run: bun run typecheck
 
@@ -43,6 +46,50 @@ jobs:
 
       - name: Build project
         run: bun run build
+
+      - name: Synthesize the Hetzner example
+        run: SERVER_COUNT=1 ENABLE_LOAD_BALANCER=true npm run synth --prefix infrastructure/hetzner
+
+      - name: Reject invalid infrastructure booleans
+        run: |
+          if ENABLE_FIREWALL=treu npm run synth --prefix infrastructure/hetzner; then
+            echo "Invalid boolean unexpectedly synthesized" >&2
+            exit 1
+          fi
+
+      - name: Reject malformed infrastructure numbers and port maps
+        run: |
+          if SERVER_COUNT=1oops npm run synth --prefix infrastructure/hetzner; then
+            echo "Malformed server count unexpectedly synthesized" >&2
+            exit 1
+          fi
+          if FIREWALL_PUBLIC_TCP_PORTS=22oops npm run synth --prefix infrastructure/hetzner; then
+            echo "Malformed firewall port unexpectedly synthesized" >&2
+            exit 1
+          fi
+          if LOAD_BALANCER_PORTS=80 LOAD_BALANCER_DESTINATION_PORTS=30080,30443 npm run synth --prefix infrastructure/hetzner; then
+            echo "Mismatched load-balancer port map unexpectedly synthesized" >&2
+            exit 1
+          fi
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@08dcb3a5e62fa31e2da3d490afc4176ef55ecd72 # v30
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Check Nix host examples
+        run: nix flake check ./nixos-config --no-build
+
+      - name: Install pinned Ansible
+        run: python3 -m pip install --disable-pip-version-check ansible-core==2.19.4
+
+      - name: Check Ansible bootstrap examples
+        working-directory: ansible
+        run: |
+          ansible-inventory --list > /tmp/company-as-code-ansible-inventory.json
+          ansible-playbook playbooks/site.yml --syntax-check
+          ansible-playbook playbooks/bootstrap-nebula.yml --syntax-check
 
       - name: Run tests
         run: bun run test
@@ -91,7 +138,7 @@ jobs:
       - name: Setup tools
         uses: ./.github/actions/setup-tools
         with:
-          tools: 'yq'
+          tools: 'kubectl,yq'
 
       - name: Validate YAML files
         run: |
@@ -150,3 +197,33 @@ jobs:
             exit 1
           fi
           echo "All manifest directories have kustomization files"
+
+      - name: Render all Kustomizations
+        run: scripts/ci/render-kustomizations.sh
+
+      - name: Check plaintext Kubernetes Secrets
+        run: scripts/ci/check-plaintext-secrets.sh
+
+      - name: Test structural SOPS payload validation
+        run: |
+          MANIFEST_ROOT=tests/fixtures/sops-valid scripts/ci/check-plaintext-secrets.sh
+          if MANIFEST_ROOT=tests/fixtures/sops-invalid scripts/ci/check-plaintext-secrets.sh; then
+            echo "Plaintext Secret payload unexpectedly passed the SOPS check" >&2
+            exit 1
+          fi
+          if MANIFEST_ROOT=tests/fixtures/template-invalid scripts/ci/check-plaintext-secrets.sh; then
+            echo "Mixed placeholder/plaintext Secret template unexpectedly passed" >&2
+            exit 1
+          fi
+          MANIFEST_ROOT=tests/fixtures/sops-list-valid scripts/ci/check-plaintext-secrets.sh
+          if MANIFEST_ROOT=tests/fixtures/sops-list-invalid scripts/ci/check-plaintext-secrets.sh; then
+            echo "Plaintext Secret embedded in a List unexpectedly passed" >&2
+            exit 1
+          fi
+          if MANIFEST_ROOT=tests/fixtures/template-list-invalid scripts/ci/check-plaintext-secrets.sh; then
+            echo "Mixed SecretList template unexpectedly passed" >&2
+            exit 1
+          fi
+
+      - name: Check template-owned manifest literals
+        run: scripts/ci/check-template-literals.sh

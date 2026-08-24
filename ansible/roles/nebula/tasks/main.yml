@@ -1,0 +1,111 @@
+---
+- name: Require external Nebula identity inputs
+  ansible.builtin.assert:
+    that:
+      - nebula_ca_cert is defined
+      - nebula_host_cert is defined
+      - nebula_host_key is defined
+      - nebula_ip is defined
+      - (nebula_ip | string | length) > 0
+      - nebula_lighthouse_ip is defined
+      - (nebula_lighthouse_ip | string | length) > 0
+    fail_msg: >-
+      Supply Nebula CA/certificate/key material and mesh addresses from a
+      private secret/inventory source.
+  no_log: true
+
+- name: Check installed Nebula version
+  ansible.builtin.command: nebula version
+  register: nebula_installed
+  changed_when: false
+  failed_when: false
+
+- name: Download Nebula archive
+  ansible.builtin.get_url:
+    url: "https://github.com/slackhq/nebula/releases/download/v{{ nebula_version }}/nebula-linux-{{ nebula_arch }}.tar.gz"
+    dest: /tmp/nebula.tar.gz
+    checksum: "sha256:{{ nebula_archive_sha256 }}"
+    mode: "0600"
+  when: nebula_installed.rc != 0 or nebula_version not in (nebula_installed.stdout | default('')).split()
+
+- name: Extract Nebula archive
+  ansible.builtin.unarchive:
+    src: /tmp/nebula.tar.gz
+    dest: /tmp
+    remote_src: true
+  when: nebula_installed.rc != 0 or nebula_version not in (nebula_installed.stdout | default('')).split()
+
+- name: Install Nebula binaries
+  ansible.builtin.copy:
+    src: "/tmp/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    mode: "0755"
+    remote_src: true
+  loop:
+    - nebula
+    - nebula-cert
+  when: nebula_installed.rc != 0 or nebula_version not in (nebula_installed.stdout | default('')).split()
+
+- name: Create Nebula configuration directory
+  ansible.builtin.file:
+    path: /etc/nebula
+    state: directory
+    mode: "0755"
+
+- name: Deploy Nebula CA certificate
+  ansible.builtin.copy:
+    content: "{{ nebula_ca_cert }}"
+    dest: /etc/nebula/ca.crt
+    mode: "0644"
+  no_log: true
+  notify: Restart nebula
+
+- name: Deploy Nebula host certificate
+  ansible.builtin.copy:
+    content: "{{ nebula_host_cert }}"
+    dest: /etc/nebula/host.crt
+    mode: "0644"
+  no_log: true
+  notify: Restart nebula
+
+- name: Deploy Nebula host key
+  ansible.builtin.copy:
+    content: "{{ nebula_host_key }}"
+    dest: /etc/nebula/host.key
+    mode: "0600"
+  no_log: true
+  notify: Restart nebula
+
+- name: Template Nebula configuration
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: /etc/nebula/config.yml
+    mode: "0644"
+  notify: Restart nebula
+
+- name: Install Nebula systemd unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/nebula.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Nebula mesh VPN
+      Wants=network-online.target
+      After=network-online.target
+
+      [Service]
+      ExecStart=/usr/local/bin/nebula -config /etc/nebula/config.yml
+      Restart=always
+      RestartSec=5
+      LimitNOFILE=65535
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: Restart nebula
+
+- name: Enable and start Nebula
+  ansible.builtin.systemd:
+    name: nebula
+    enabled: true
+    state: started
+    daemon_reload: true

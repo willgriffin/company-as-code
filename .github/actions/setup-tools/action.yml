@@ -21,6 +21,8 @@ runs:
     - name: Read tool versions
       id: versions
       shell: bash
+      env:
+        REQUESTED_TOOLS: ${{ inputs.tools }}
       run: |
         echo "Reading tool versions from tool-versions.txt..."
         while IFS='=' read -r tool version; do
@@ -29,13 +31,16 @@ runs:
           echo "${tool}-version=${version}" >> "$GITHUB_OUTPUT"
           echo "  ${tool}: ${version}"
         done < tool-versions.txt
+        tools_cache_key=${REQUESTED_TOOLS//,/-}
+        tools_cache_key=${tools_cache_key// /-}
+        echo "tools_cache_key=${tools_cache_key}" >> "$GITHUB_OUTPUT"
 
     - name: Cache tools
       id: cache-tools
       uses: actions/cache@v4
       with:
         path: /usr/local/bin/gitops-tools
-        key: ${{ runner.os }}-tools-${{ hashFiles('tool-versions.txt') }}-${{ inputs.tools }}
+        key: ${{ runner.os }}-tools-${{ hashFiles('tool-versions.txt') }}-${{ steps.versions.outputs.tools_cache_key }}
 
     - name: Create tools directory
       if: steps.cache-tools.outputs.cache-hit != 'true'

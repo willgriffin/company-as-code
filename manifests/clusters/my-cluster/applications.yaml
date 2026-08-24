@@ -1,0 +1,46 @@
+---
+# Hermes is an opt-in external integration. Both reconciliations stay
+# suspended until private GHCR credentials are encrypted and the published
+# operator/runtime contract has been reviewed for the target cluster.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: org-as-code-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./manifests/system/org-as-code-operator
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+  suspend: true
+  timeout: 10m
+  wait: true
+
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: hermes-example
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./manifests/tenants/my-tenant/company-services/hermes
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: org-as-code-operator
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+  suspend: true
+  timeout: 10m
+  wait: true

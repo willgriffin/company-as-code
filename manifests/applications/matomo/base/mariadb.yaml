@@ -1,0 +1,30 @@
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: MariaDB
+metadata:
+  name: matomo-mariadb
+  namespace: matomo
+  labels:
+    app.kubernetes.io/name: matomo-mariadb
+    app.kubernetes.io/part-of: matomo
+spec:
+  rootPasswordSecretKeyRef:
+    name: matomo-secrets
+    key: MARIADB_ROOT_PASSWORD
+  database: matomo
+  username: matomo
+  passwordSecretKeyRef:
+    name: matomo-secrets
+    key: MARIADB_PASSWORD
+  replicas: 1
+  storage:
+    size: 20Gi
+    storageClassName: standard
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  metrics:
+    enabled: true

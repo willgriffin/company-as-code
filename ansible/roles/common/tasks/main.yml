@@ -1,0 +1,144 @@
+---
+- name: Set hostname from inventory
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Install common packages
+  ansible.builtin.apt:
+    name: "{{ common_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Load required kernel modules
+  ansible.builtin.command: "modprobe {{ item }}"
+  loop: "{{ kernel_modules }}"
+  changed_when: false
+
+- name: Persist required kernel modules
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/k3s.conf
+    content: "{{ kernel_modules | join('\\n') + '\\n' }}"
+    mode: "0644"
+
+- name: Configure k3s sysctl settings
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-k3s.conf
+    content: |-
+      {% for key, value in sysctl_settings.items() %}
+      {{ key }}={{ value }}
+      {% endfor %}
+    mode: "0644"
+  notify: Reload sysctl
+
+- name: Install UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+
+- name: Require an explicit management allow-list
+  ansible.builtin.assert:
+    that:
+      - management_allowed_cidrs | length > 0
+    fail_msg: >-
+      Set management_allowed_cidrs in private inventory before enabling the
+      host firewall. The template never opens SSH to every source address.
+
+- name: Require an explicit cluster network or mesh
+  ansible.builtin.assert:
+    that:
+      - cluster_allowed_cidrs | length > 0 or nebula_enabled | bool or tailscale_enabled | bool
+      - not (nebula_enabled | bool and tailscale_enabled | bool)
+    fail_msg: >-
+      Set cluster_allowed_cidrs to reviewed private node ranges, or enable a
+      configured Nebula or Tailscale interface, before enabling the firewall.
+      Select at most one mesh transport per host.
+
+- name: Preflight reviewed management rules before changing the live firewall
+  ansible.builtin.command: >-
+    ufw --dry-run allow from {{ item }} to any port 22 proto tcp
+  loop: "{{ management_allowed_cidrs }}"
+  changed_when: false
+
+- name: Preflight reviewed private cluster rules
+  ansible.builtin.command: >-
+    ufw --dry-run allow from {{ item.0 }} to any port {{ item.1.port }} proto {{ item.1.proto }}
+  loop: "{{ cluster_allowed_cidrs | product(cluster_firewall_rules) | list }}"
+  changed_when: false
+
+- name: Preflight k3s pod and service network rules
+  ansible.builtin.command: >-
+    ufw --dry-run allow from {{ item }} to any
+  loop:
+    - "{{ k3s_cluster_cidr }}"
+    - "{{ k3s_service_cidr }}"
+  changed_when: false
+
+- name: Preflight the Nebula underlay listener
+  ansible.builtin.command: "ufw --dry-run allow {{ nebula_listen_port }}/udp"
+  when: nebula_enabled | bool
+  changed_when: false
+
+- name: Preflight required cluster ports on the selected mesh
+  ansible.builtin.command: >-
+    ufw --dry-run allow in on {{ nebula_interface if nebula_enabled | bool else 'tailscale0' }}
+    to any port {{ item.port }} proto {{ item.proto }}
+  loop: "{{ cluster_firewall_rules }}"
+  when: nebula_enabled | bool or tailscale_enabled | bool
+  changed_when: false
+
+- name: Rebuild the authoritative UFW policy
+  block:
+    - name: Reset UFW after every intended rule passed preflight
+      ansible.builtin.command: ufw --force reset
+      changed_when: true
+
+    - name: Set UFW defaults
+      ansible.builtin.command: "ufw default {{ item.policy }} {{ item.direction }}"
+      loop:
+        - { policy: deny, direction: incoming }
+        - { policy: allow, direction: outgoing }
+      changed_when: false
+
+    - name: Allow SSH from reviewed management networks
+      ansible.builtin.command: >-
+        ufw allow from {{ item }} to any port 22 proto tcp
+      loop: "{{ management_allowed_cidrs }}"
+      changed_when: false
+
+    - name: Allow cluster traffic from reviewed private networks
+      ansible.builtin.command: >-
+        ufw allow from {{ item.0 }} to any port {{ item.1.port }} proto {{ item.1.proto }}
+      loop: "{{ cluster_allowed_cidrs | product(cluster_firewall_rules) | list }}"
+      changed_when: false
+
+    - name: Allow k3s pod and service network traffic
+      ansible.builtin.command: >-
+        ufw allow from {{ item }} to any
+      loop:
+        - "{{ k3s_cluster_cidr }}"
+        - "{{ k3s_service_cidr }}"
+      changed_when: false
+
+    - name: Allow the Nebula underlay listener when configured
+      ansible.builtin.command: "ufw allow {{ nebula_listen_port }}/udp"
+      when: nebula_enabled | bool
+      changed_when: false
+
+    - name: Allow required cluster ports on the Nebula interface
+      ansible.builtin.command: >-
+        ufw allow in on {{ nebula_interface }} to any port {{ item.port }} proto {{ item.proto }}
+      loop: "{{ cluster_firewall_rules }}"
+      when: nebula_enabled | bool
+      changed_when: false
+
+    - name: Allow required cluster ports on the Tailscale interface
+      ansible.builtin.command: >-
+        ufw allow in on tailscale0 to any port {{ item.port }} proto {{ item.proto }}
+      loop: "{{ cluster_firewall_rules }}"
+      when: tailscale_enabled | bool
+      changed_when: false
+  always:
+    - name: Re-enable UFW even if live policy application fails
+      ansible.builtin.command: ufw --force enable
+      changed_when: false

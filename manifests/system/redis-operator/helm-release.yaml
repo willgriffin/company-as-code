@@ -1,0 +1,57 @@
+# Redis Operator Helm repository
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: ot-helm
+  namespace: redis-operator
+spec:
+  interval: 30m
+  url: https://ot-container-kit.github.io/helm-charts/
+---
+# Redis Operator
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: redis-operator
+  namespace: redis-operator
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: redis-operator
+      version: "0.20.3"
+      sourceRef:
+        kind: HelmRepository
+        name: ot-helm
+        namespace: redis-operator
+  postRenderers:
+    - kustomize:
+        images:
+          - name: ghcr.io/ot-container-kit/redis-operator/redis-operator
+            newName: ghcr.io/ot-container-kit/redis-operator/redis-operator
+            digest: sha256:c3af8183cbe157053fa09642f375f90acdf4a355981d2d506ed3e1b94c047eb8
+  values:
+    redisOperator:
+      imageName: ghcr.io/ot-container-kit/redis-operator/redis-operator
+      imageTag: v0.20.2
+      imagePullPolicy: IfNotPresent
+      webhook: false
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 1000
+      seccompProfile:
+        type: RuntimeDefault
+    rbac:
+      enabled: true

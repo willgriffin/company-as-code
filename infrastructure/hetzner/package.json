@@ -1,0 +1,26 @@
+{
+  "name": "@template/hetzner-infrastructure",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Organization-neutral Hetzner Cloud infrastructure adapter using CDKTF",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --pretty",
+    "typecheck": "tsc --noEmit",
+    "synth": "tsx main.ts",
+    "prepare:plan": "npm run synth && cp .terraform.lock.hcl cdktf.out/stacks/hetzner/.terraform.lock.hcl",
+    "plan": "npm run prepare:plan && tofu -chdir=cdktf.out/stacks/hetzner init -backend=false -input=false -lockfile=readonly && tofu -chdir=cdktf.out/stacks/hetzner plan -input=false"
+  },
+  "dependencies": {
+    "cdktf": "^0.21.0",
+    "constructs": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.22.0",
+    "typescript": "^5.8.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

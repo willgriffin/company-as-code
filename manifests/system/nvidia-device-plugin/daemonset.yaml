@@ -1,0 +1,101 @@
+# NVIDIA Device Plugin advertises GPU resources to Kubernetes on labeled nodes.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nvidia-device-plugin-daemonset
+  namespace: kube-system
+  labels:
+    app: nvidia-device-plugin
+spec:
+  selector:
+    matchLabels:
+      name: nvidia-device-plugin-ds
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        name: nvidia-device-plugin-ds
+    spec:
+      nodeSelector:
+        gpu-nvidia: "true"
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+        - key: gpu
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
+      priorityClassName: system-node-critical
+      containers:
+        - name: nvidia-device-plugin-ctr
+          image: nvcr.io/nvidia/k8s-device-plugin:v0.17.1@sha256:8bb7d27a144e0e7e4b2ca598400d32714d12f701ce53accf5c596e0e186c6ae5
+          args:
+            - --device-list-strategy=envvar
+            - --config-file=/etc/nvidia-device-plugin/config.yaml
+          env:
+            - name: FAIL_ON_INIT_ERROR
+              value: "false"
+            - name: LD_LIBRARY_PATH
+              value: /run/opengl-driver/lib
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: nvidia-device-plugin-config
+              mountPath: /etc/nvidia-device-plugin
+              readOnly: true
+            - name: cdi-specs
+              mountPath: /etc/cdi
+              readOnly: true
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
+            - name: nvidia-dev
+              mountPath: /dev/nvidia0
+            - name: nvidia-ctl
+              mountPath: /dev/nvidiactl
+            - name: nvidia-uvm
+              mountPath: /dev/nvidia-uvm
+            - name: nvidia-uvm-tools
+              mountPath: /dev/nvidia-uvm-tools
+            - name: nvidia-driver
+              mountPath: /run/opengl-driver
+              readOnly: true
+            - name: nix-store
+              mountPath: /nix/store
+              readOnly: true
+      volumes:
+        - name: nvidia-device-plugin-config
+          configMap:
+            name: nvidia-device-plugin-config
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: nvidia-dev
+          hostPath:
+            path: /dev/nvidia0
+            type: CharDevice
+        - name: nvidia-ctl
+          hostPath:
+            path: /dev/nvidiactl
+            type: CharDevice
+        - name: nvidia-uvm
+          hostPath:
+            path: /dev/nvidia-uvm
+            type: CharDevice
+        - name: nvidia-uvm-tools
+          hostPath:
+            path: /dev/nvidia-uvm-tools
+            type: CharDevice
+        - name: nvidia-driver
+          hostPath:
+            path: /run/opengl-driver
+            type: Directory
+        - name: nix-store
+          hostPath:
+            path: /nix/store
+            type: Directory
+        - name: cdi-specs
+          hostPath:
+            path: /etc/cdi
+            type: Directory

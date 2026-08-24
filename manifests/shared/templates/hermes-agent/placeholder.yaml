@@ -6,3 +6,9 @@ metadata:
     app.kubernetes.io/managed-by: company-as-code
 data:
   role: reusable-template
+  apiVersion: hermes.willgriffin.dev/v1alpha1
+  kind: HermesWorkload
+  safeReplicas: "0"
+  safeSuspend: "true"
+  safeActivate: "false"
+  supportedFields: image,secrets,resources,scheduling,egress

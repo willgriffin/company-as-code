@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matomo
+  namespace: matomo
+spec:
+  template:
+    spec:
+      containers:
+        - name: matomo
+          env:
+            - name: MATOMO_HOST
+              value: analytics.TEMPLATE_DOMAIN
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: matomo
+  namespace: matomo
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: analytics.TEMPLATE_DOMAIN
+spec:
+  tls:
+    - hosts:
+        - analytics.TEMPLATE_DOMAIN
+      secretName: matomo-tls
+  rules:
+    - host: analytics.TEMPLATE_DOMAIN
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: matomo
+                port:
+                  number: 80
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: matomo-archive-hourly
+  namespace: matomo
+spec:
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: archive
+              args:
+                - php /var/www/html/console core:archive --url=https://analytics.TEMPLATE_DOMAIN

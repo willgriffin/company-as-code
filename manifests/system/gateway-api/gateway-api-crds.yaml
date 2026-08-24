@@ -1,0 +1,7 @@
+# Gateway API namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-system
+  labels:
+    name: gateway-system

@@ -1,0 +1,25 @@
+write-kubeconfig-mode: "0640"
+token-file: /etc/rancher/k3s/token
+node-ip: "{{ k3s_node_ip }}"
+{% if k3s_role == 'server' and k3s_cluster_init | default(false) | bool %}
+cluster-init: true
+{% elif k3s_server_address is defined and (k3s_server_address | string | length) > 0 %}
+server: "{{ k3s_server_address }}"
+{% endif %}
+{% if k3s_role == 'server' %}
+cluster-cidr: "{{ k3s_cluster_cidr }}"
+service-cidr: "{{ k3s_service_cidr }}"
+{% endif %}
+{% if k3s_flannel_interface is defined and (k3s_flannel_interface | string | length) > 0 %}
+flannel-iface: "{{ k3s_flannel_interface }}"
+{% endif %}
+disable:
+{% for item in k3s_disable | default([]) %}
+  - "{{ item }}"
+{% endfor %}
+{% if k3s_node_labels is defined %}
+node-label:
+{% for label in k3s_node_labels %}
+  - "{{ label }}"
+{% endfor %}
+{% endif %}

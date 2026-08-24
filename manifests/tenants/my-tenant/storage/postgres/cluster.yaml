@@ -59,14 +59,3 @@ spec:
   cluster:
     name: my-tenant-postgres
   immediate: true
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: garage-credentials
-  namespace: my-tenant
-type: Opaque
-stringData:
-  access-key-id: CHANGE_ME_CNPG_GARAGE_ACCESS_KEY_ID
-  secret-access-key: CHANGE_ME_CNPG_GARAGE_SECRET_ACCESS_KEY
-  region: garage

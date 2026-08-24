@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matomo
+  namespace: matomo
+spec:
+  template:
+    spec:
+      containers:
+        - name: matomo
+          env:
+            - name: MATOMO_DATABASE_HOST
+              value: matomo-mariadb-primary.my-tenant-matomo.svc.cluster.local
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: matomo-archive-hourly
+  namespace: matomo
+spec:
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: archive
+              env:
+                - name: MATOMO_DATABASE_HOST
+                  value: matomo-mariadb-primary.my-tenant-matomo.svc.cluster.local
