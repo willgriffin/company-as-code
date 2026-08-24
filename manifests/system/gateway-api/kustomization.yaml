@@ -3,7 +3,7 @@ kind: Kustomization
 
 namespace: gateway-system
 
-# Gateway API CRDs from upstream
+# Vendored Gateway API CRDs; see UPSTREAM.md for provenance and checksum.
 resources:
   - gateway-api-crds.yaml
-  - https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml
+  - standard-install-v1.3.0.yaml

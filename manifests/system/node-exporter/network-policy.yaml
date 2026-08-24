@@ -11,15 +11,12 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # Allow the collector namespace to scrape node-exporter. Consumers can
-    # adjust this selector when their metrics collector uses another label.
+    # Allow only the OpenObserve collector namespace to scrape node-exporter.
+    # Consumers can adjust this selector for another metrics collector.
     - from:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: metrics
-          podSelector:
-            matchLabels:
-              app.kubernetes.io/component: metrics-collector
+              kubernetes.io/metadata.name: openobserve-collector
       ports:
         - protocol: TCP
           port: 9100

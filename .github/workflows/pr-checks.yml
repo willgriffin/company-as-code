@@ -48,7 +48,26 @@ jobs:
         run: bun run build
 
       - name: Synthesize the Hetzner example
-        run: SERVER_COUNT=0 npm run synth --prefix infrastructure/hetzner
+        run: SERVER_COUNT=1 ENABLE_LOAD_BALANCER=true npm run synth --prefix infrastructure/hetzner
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@08dcb3a5e62fa31e2da3d490afc4176ef55ecd72 # v30
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Check Nix host examples
+        run: nix flake check ./nixos-config --no-build
+
+      - name: Install pinned Ansible
+        run: python3 -m pip install --disable-pip-version-check ansible-core==2.19.4
+
+      - name: Check Ansible bootstrap examples
+        working-directory: ansible
+        run: |
+          ansible-inventory --list > /tmp/company-as-code-ansible-inventory.json
+          ansible-playbook playbooks/site.yml --syntax-check
+          ansible-playbook playbooks/bootstrap-nebula.yml --syntax-check
 
       - name: Run tests
         run: bun run test

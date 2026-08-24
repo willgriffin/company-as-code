@@ -10,13 +10,14 @@ MANIFEST_ROOT=${MANIFEST_ROOT:-"$ROOT_DIR/manifests"}
 OUT_DIR=${1:-"$ROOT_DIR/.ci/rendered-manifests"}
 OUT_DIR=$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).resolve())' "$OUT_DIR")
 SAFE_REPO_OUT=$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).resolve())' "$ROOT_DIR/.ci")
+SAFE_TMP_OUT=$(python3 -c 'from pathlib import Path; print(Path("/tmp").resolve())')
 COMBINED="$OUT_DIR/all.yaml"
 
 case "$OUT_DIR" in
-  "$SAFE_REPO_OUT"/*|/tmp/company-as-code-render.*) ;;
+  "$SAFE_REPO_OUT"/*|"$SAFE_TMP_OUT"/company-as-code-render.*) ;;
   *)
     echo "::error::refusing to replace unsafe output directory: $OUT_DIR" >&2
-    echo "Use a path below $SAFE_REPO_OUT/ or /tmp/company-as-code-render.*" >&2
+    echo "Use a path below $SAFE_REPO_OUT/ or $SAFE_TMP_OUT/company-as-code-render.*" >&2
     exit 2
     ;;
 esac

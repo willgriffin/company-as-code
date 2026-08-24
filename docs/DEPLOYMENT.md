@@ -48,6 +48,11 @@ Use `./reset-to-template.sh --check` before deployment to find remaining
 
 See [Secrets](SECRETS.md) for the encryption and review rules.
 
+For Ansible hosts, set a narrow `management_allowed_cidrs` value in private
+inventory before the first run. The bootstrap intentionally refuses to enable
+UFW with globally reachable SSH; cluster ports are likewise limited to
+`cluster_allowed_cidrs` or a trusted mesh interface.
+
 ## 4. Reconcile in dependency order
 
 The normal order is:

@@ -7,6 +7,7 @@ on invariants that are useful even when a Python YAML package is unavailable.
 
 from __future__ import annotations
 
+import hashlib
 import re
 import unittest
 from pathlib import Path
@@ -75,6 +76,33 @@ class TemplateContractTests(unittest.TestCase):
                         target.exists(),
                         f"Kustomization resource does not exist: {kustomization}: {resource}",
                     )
+
+    def test_kustomizations_do_not_fetch_remote_cluster_manifests(self) -> None:
+        for kustomization in MANIFESTS.rglob("kustomization.yaml"):
+            content = kustomization.read_text(encoding="utf-8")
+            with self.subTest(kustomization=kustomization):
+                self.assertNotRegex(content, r"(?m)^\s*-\s+https?://")
+
+    def test_vendored_operator_artifacts_match_reviewed_digests(self) -> None:
+        artifacts = {
+            MANIFESTS / "system/gateway-api/standard-install-v1.3.0.yaml": (
+                "78796d5c51450fc55d8dc8092ba8137f8c807982d7508d7875d5c537a24082b9"
+            ),
+            MANIFESTS / "system/rabbitmq-operator/cluster-operator-v2.22.5.yaml": (
+                "f7d3a549a2514ea3de3a91b231a969dbfee0520f467d2fbe91821b9388f48dbe"
+            ),
+        }
+        for artifact, expected in artifacts.items():
+            with self.subTest(artifact=artifact):
+                self.assertEqual(expected, hashlib.sha256(artifact.read_bytes()).hexdigest())
+
+    def test_node_exporter_is_not_bound_to_node_network_ports(self) -> None:
+        daemonset = (MANIFESTS / "system/node-exporter/daemonset.yaml").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("hostNetwork:", daemonset)
+        self.assertNotIn("hostPID:", daemonset)
+        self.assertNotIn("hostPort:", daemonset)
 
     def test_secret_templates_are_not_deployable_kustomization_resources(self) -> None:
         for kustomization in MANIFESTS.rglob("kustomization.yaml"):

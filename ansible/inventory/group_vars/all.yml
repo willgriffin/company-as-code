@@ -28,8 +28,11 @@ sysctl_settings:
   net.bridge.bridge-nf-call-iptables: "1"
   net.bridge.bridge-nf-call-ip6tables: "1"
 
-firewall_rules:
-  - { port: "22", proto: "tcp" }
+# Supply narrow management and cluster source ranges from private inventory.
+# The common role fails closed when management access is not explicitly set.
+management_allowed_cidrs: []
+cluster_allowed_cidrs: []
+cluster_firewall_rules:
   - { port: "6443", proto: "tcp" }
   - { port: "8472", proto: "udp" }
   - { port: "10250", proto: "tcp" }

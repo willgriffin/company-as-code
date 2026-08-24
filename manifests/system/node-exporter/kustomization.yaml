@@ -4,4 +4,5 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - daemonset.yaml
+  - service.yaml
   - network-policy.yaml

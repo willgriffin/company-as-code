@@ -28,9 +28,6 @@ spec:
     spec:
       serviceAccountName: node-exporter
       automountServiceAccountToken: false
-      hostNetwork: true
-      hostPID: true
-      dnsPolicy: ClusterFirstWithHostNet
       # Report every node, including control-plane and tainted nodes, so
       # capacity and health remain visible during node degradation.
       tolerations:
@@ -53,7 +50,6 @@ spec:
           ports:
             - name: metrics
               containerPort: 9100
-              hostPort: 9100
               protocol: TCP
           volumeMounts:
             - name: proc

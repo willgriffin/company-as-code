@@ -36,6 +36,14 @@
     name: ufw
     state: present
 
+- name: Require an explicit management allow-list
+  ansible.builtin.assert:
+    that:
+      - management_allowed_cidrs | length > 0
+    fail_msg: >-
+      Set management_allowed_cidrs in private inventory before enabling the
+      host firewall. The template never opens SSH to every source address.
+
 - name: Set UFW defaults
   ansible.builtin.command: "ufw default {{ item.policy }} {{ item.direction }}"
   loop:
@@ -43,9 +51,21 @@
     - { policy: allow, direction: outgoing }
   changed_when: false
 
-- name: Allow required firewall ports
-  ansible.builtin.command: "ufw allow {{ item.port }}/{{ item.proto }}"
-  loop: "{{ firewall_rules }}"
+- name: Allow SSH from reviewed management networks
+  ansible.builtin.command: >-
+    ufw allow from {{ item }} to any port 22 proto tcp
+  loop: "{{ management_allowed_cidrs }}"
+  changed_when: false
+
+- name: Allow cluster traffic from reviewed private networks
+  ansible.builtin.command: >-
+    ufw allow from {{ item.0 }} to any port {{ item.1.port }} proto {{ item.1.proto }}
+  loop: "{{ cluster_allowed_cidrs | product(cluster_firewall_rules) | list }}"
+  changed_when: false
+
+- name: Allow the Nebula underlay listener when configured
+  ansible.builtin.command: "ufw allow {{ nebula_listen_port }}/udp"
+  when: nebula_enabled | bool
   changed_when: false
 
 - name: Allow mesh interface when configured

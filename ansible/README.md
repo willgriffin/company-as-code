@@ -23,6 +23,8 @@ these external values:
 | `nebula_ca_cert`, `nebula_host_cert`, `nebula_host_key` | `nebula` | external certificate/key store |
 | `nebula_ip`, `nebula_lighthouse_ip`, `nebula_lighthouse_public_endpoint` | `nebula` | private inventory |
 | `tailscale_auth_key` | `tailscale` | short-lived external auth key |
+| `management_allowed_cidrs` | `common` | private inventory; reviewed SSH source ranges |
+| `cluster_allowed_cidrs` | `common` | private inventory; node-to-node source ranges when no trusted mesh interface is used |
 
 Set `nebula_enabled: true` or `tailscale_enabled: true` only after their
 inputs are available. Set `nebula_allowed_groups` to the smallest required
@@ -35,6 +37,11 @@ The role defaults are deliberately conservative and contain no known-hosts
 file, encrypted vault, fixed address, private key, or organization identity.
 Use SSH host-key verification from the operator's own known-hosts policy when
 running against real infrastructure.
+
+The common role fails before enabling UFW unless
+`management_allowed_cidrs` contains at least one reviewed source range. Cluster
+ports are opened only to `cluster_allowed_cidrs`; when Nebula or Tailscale is
+selected, the corresponding trusted interface carries cluster traffic instead.
 
 The example pins both bootstrap release versions and SHA-256 checksums. When
 changing `k3s_version`, `k3s_install_script_url`, `nebula_version`, or
