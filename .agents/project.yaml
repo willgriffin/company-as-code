@@ -36,8 +36,5 @@
   },
   "skills": {
     "paths": []
-  },
-  "runtime": {
-    "agent_lifecycle_stage": "compatibility"
   }
 }
