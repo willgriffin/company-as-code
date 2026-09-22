@@ -6,5 +6,3 @@ dist/
 *.yml
 *.md
 .git/
-# hv-agent: the dedicated lifecycle workflow is byte-canonical policy output; prettier must not rewrite it
-.github/workflows/agent-policy.yml
